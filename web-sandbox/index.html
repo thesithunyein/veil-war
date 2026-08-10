@@ -1,20 +1,11 @@
 <!--
   =============================================================================
-  Veil War — Dual-Loop FoW Sandbox (Inco FHE + Megapot / Base Sepolia)
+  Veil War — Tactical FoW Sandbox (Inco FHE × Megapot)
   =============================================================================
-  LOCAL:
-    cd web-sandbox && python -m http.server 5173
-    → http://localhost:5173
+  LOCAL:  cd web-sandbox && python -m http.server 5173
+  LIVE:   https://veil.sithunyein.com/  ·  https://thesithunyein.github.io/veil-war/
 
-  LIVE (GitHub Pages — site root after Actions deploy):
-    https://thesithunyein.github.io/veil-war/
-    Also mirrored at /web-sandbox/ and /play/
-
-  Assets: all styles/scripts are inline or absolute CDN (https://…).
-  No leading-slash local paths — safe on project Pages subpaths & custom domains.
-
-  Controls: WASD move · R bot duel · Space claim Megapot vault
-  Networks: Inco Lightning (confidential fog) + Base Sepolia (Megapot tickets)
+  Controls: WASD scout · R duel · Space claim vault
   =============================================================================
 -->
 <!DOCTYPE html>
@@ -22,28 +13,27 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Veil War — Inco × Megapot Sandbox</title>
+  <title>Veil War — Tactical Sector</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
   <style>
     :root {
-      --ink: #e8f5ef;
-      --muted: rgba(232, 245, 239, 0.55);
-      --mint: #5ef2a8;
-      --mint-dim: rgba(94, 242, 168, 0.14);
-      --mint-glow: rgba(94, 242, 168, 0.45);
-      --danger: #ff6b8a;
-      --warn: #f5c84c;
-      --inco: #7dd3fc;
-      --base: #818cf8;
-      --panel: rgba(8, 14, 24, 0.82);
-      --line: rgba(255, 255, 255, 0.08);
-      --space: #03060d;
+      --ink: #e6f7ef;
+      --muted: rgba(230, 247, 239, 0.55);
+      --teal: #3dffa8;
+      --teal-dim: rgba(61, 255, 168, 0.14);
+      --cyan: #5ce1ff;
+      --amber: #ffc857;
+      --danger: #ff5e7a;
+      --violet: #8b9cff;
+      --glass: rgba(6, 14, 22, 0.55);
+      --glass-edge: rgba(61, 255, 168, 0.22);
+      --space: #02060b;
+      --display: "Orbitron", sans-serif;
+      --sans: "Rajdhani", system-ui, sans-serif;
       --mono: "JetBrains Mono", ui-monospace, monospace;
-      --display: "Syne", sans-serif;
-      --sans: "DM Sans", system-ui, sans-serif;
     }
     * { box-sizing: border-box; }
     html, body {
@@ -52,299 +42,291 @@
       color: var(--ink);
       font-family: var(--sans);
       background:
-        radial-gradient(900px 480px at 18% -10%, rgba(94, 242, 168, 0.1), transparent 55%),
-        radial-gradient(700px 400px at 92% 8%, rgba(125, 211, 252, 0.08), transparent 50%),
-        radial-gradient(600px 360px at 70% 100%, rgba(129, 140, 248, 0.07), transparent 55%),
-        linear-gradient(165deg, #061018 0%, var(--space) 45%, #02040a 100%);
-    }
-    body::before {
-      content: "";
-      pointer-events: none;
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(94, 242, 168, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(94, 242, 168, 0.03) 1px, transparent 1px);
-      background-size: 48px 48px;
-      mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
-      opacity: 0.5;
+        radial-gradient(1200px 700px at 50% -20%, rgba(61, 255, 168, 0.09), transparent 55%),
+        radial-gradient(800px 500px at 100% 80%, rgba(92, 225, 255, 0.06), transparent 50%),
+        linear-gradient(180deg, #041018 0%, var(--space) 55%, #010305 100%);
     }
 
-    .app {
-      position: relative;
-      max-width: 1280px;
+    .shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      max-width: 1180px;
       margin: 0 auto;
-      padding: 1rem 1rem 5.5rem;
-      display: grid;
-      gap: 1rem;
-      grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-      grid-template-rows: auto auto 1fr;
-    }
-    @media (max-width: 960px) {
-      .app { grid-template-columns: 1fr; padding-bottom: 6.5rem; }
+      padding: 0.85rem 1rem 4.75rem;
+      gap: 0.75rem;
     }
 
-    header {
-      grid-column: 1 / -1;
+    .topbar {
       display: flex;
       flex-wrap: wrap;
-      align-items: flex-end;
+      align-items: center;
       justify-content: space-between;
-      gap: 1rem;
+      gap: 0.75rem;
+    }
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 0.65rem;
     }
     .brand h1 {
       margin: 0;
       font-family: var(--display);
       font-weight: 800;
-      font-size: clamp(1.6rem, 3vw, 2.1rem);
-      letter-spacing: -0.03em;
-      background: linear-gradient(120deg, #fff 20%, var(--mint) 70%, var(--inco));
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
+      font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+      letter-spacing: 0.12em;
+      color: var(--teal);
+      text-shadow: 0 0 24px rgba(61, 255, 168, 0.35);
     }
-    .brand p {
-      margin: 0.35rem 0 0;
+    .brand .tag {
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
       color: var(--muted);
-      font-size: 0.92rem;
-      max-width: 36rem;
     }
     .net-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5rem;
+      gap: 0.4rem;
       align-items: center;
     }
     .pill {
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
-      padding: 0.45rem 0.75rem;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      font-size: 0.78rem;
+      gap: 0.35rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--glass);
+      backdrop-filter: blur(10px);
       font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
     }
     .pill .dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #64748b;
-      box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.25);
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #475569;
     }
     .pill.on .dot {
-      background: var(--mint);
-      box-shadow: 0 0 10px var(--mint-glow);
+      background: var(--teal);
+      box-shadow: 0 0 8px var(--teal);
     }
-    .pill.inco.on .dot { background: var(--inco); box-shadow: 0 0 10px rgba(125, 211, 252, 0.55); }
-    .pill.base.on .dot { background: var(--base); box-shadow: 0 0 10px rgba(129, 140, 248, 0.55); }
+    .pill.inco.on .dot { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+    .pill.base.on .dot { background: var(--violet); box-shadow: 0 0 8px var(--violet); }
 
     button {
       cursor: pointer;
       border: 1px solid transparent;
-      border-radius: 10px;
+      border-radius: 6px;
       font-family: var(--sans);
-      font-weight: 600;
-      font-size: 0.85rem;
-      padding: 0.55rem 0.95rem;
-      transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s;
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      padding: 0.45rem 0.8rem;
+      transition: transform 0.12s ease, box-shadow 0.15s ease;
     }
     button:active { transform: scale(0.97); }
     .btn-mint {
-      background: linear-gradient(135deg, #3dd68c, var(--mint));
-      color: #03140c;
-      box-shadow: 0 0 24px rgba(94, 242, 168, 0.25);
+      background: linear-gradient(135deg, #2ad889, var(--teal));
+      color: #02140c;
+      box-shadow: 0 0 20px rgba(61, 255, 168, 0.28);
     }
-    .btn-mint:hover { box-shadow: 0 0 32px rgba(94, 242, 168, 0.4); }
     .btn-ghost {
-      background: var(--mint-dim);
-      color: var(--mint);
-      border-color: rgba(94, 242, 168, 0.28);
+      background: var(--teal-dim);
+      color: var(--teal);
+      border-color: rgba(61, 255, 168, 0.28);
     }
     .btn-inco {
-      background: rgba(125, 211, 252, 0.12);
-      color: var(--inco);
-      border-color: rgba(125, 211, 252, 0.3);
+      background: rgba(92, 225, 255, 0.1);
+      color: var(--cyan);
+      border-color: rgba(92, 225, 255, 0.28);
     }
     .btn-base {
-      background: rgba(129, 140, 248, 0.12);
-      color: #c7d2fe;
-      border-color: rgba(129, 140, 248, 0.35);
+      background: rgba(139, 156, 255, 0.1);
+      color: #c5ceff;
+      border-color: rgba(139, 156, 255, 0.3);
     }
 
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      backdrop-filter: blur(12px);
-      overflow: hidden;
-    }
-    .panel-h {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid var(--line);
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      font-weight: 600;
-    }
-    .panel-h strong { color: var(--ink); letter-spacing: 0; text-transform: none; font-size: 0.9rem; }
-
-    .canvas-wrap {
+    /* —— Battlefield stage —— */
+    .stage {
       position: relative;
-      aspect-ratio: 1;
-      max-height: min(72vh, 640px);
+      flex: 1;
+      min-height: min(78vh, 720px);
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(61, 255, 168, 0.18);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.5),
+        0 24px 80px rgba(0, 0, 0, 0.55),
+        inset 0 0 80px rgba(61, 255, 168, 0.03);
       background: #000;
     }
     #game {
       display: block;
       width: 100%;
       height: 100%;
-      image-rendering: pixelated;
       cursor: crosshair;
     }
+
+    /* Glass HUD panels over canvas */
+    .hud-glass {
+      position: absolute;
+      z-index: 5;
+      pointer-events: none;
+      padding: 0.65rem 0.8rem;
+      border-radius: 10px;
+      background: var(--glass);
+      border: 1px solid var(--glass-edge);
+      backdrop-filter: blur(14px) saturate(1.2);
+      -webkit-backdrop-filter: blur(14px) saturate(1.2);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      min-width: 140px;
+    }
+    .hud-glass.tl { top: 0.85rem; left: 0.85rem; }
+    .hud-glass.tr { top: 0.85rem; right: 0.85rem; text-align: right; }
+    .hud-glass.bl { bottom: 0.85rem; left: 0.85rem; pointer-events: auto; }
+    .hud-glass.br { bottom: 0.85rem; right: 0.85rem; }
+    .hud-glass .label {
+      font-family: var(--display);
+      font-size: 0.58rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.2rem;
+    }
+    .hud-glass .value {
+      font-family: var(--mono);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--teal);
+      line-height: 1.1;
+      text-shadow: 0 0 12px rgba(61, 255, 168, 0.35);
+    }
+    .hud-glass .sub {
+      margin-top: 0.2rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+    .hud-glass .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 0.35rem;
+    }
+    .hud-glass .row:first-of-type { margin-top: 0; }
+    .odds-mini {
+      margin-top: 0.45rem;
+      height: 4px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+    .odds-mini > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--violet), var(--teal));
+      box-shadow: 0 0 8px var(--teal);
+      transition: width 0.4s ease;
+    }
+    .net-status {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+    }
+    .net-status .line {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+    }
+    .net-status .line.on { color: var(--ink); }
+    .net-status .line .lamp {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #334155;
+    }
+    .net-status .line.on .lamp {
+      background: var(--teal);
+      box-shadow: 0 0 8px var(--teal);
+    }
+    .net-status .line.inco.on .lamp { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+    .net-status .line.base.on .lamp { background: var(--violet); box-shadow: 0 0 8px var(--violet); }
+
+    .ops-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.45rem;
+    }
+    .ops-bar button { pointer-events: auto; font-size: 0.75rem; padding: 0.35rem 0.55rem; }
+
     .lock-overlay {
       position: absolute;
       inset: 0;
+      z-index: 8;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 0.75rem;
-      background: rgba(0, 0, 0, 0.88);
+      gap: 0.65rem;
+      background: rgba(1, 4, 8, 0.72);
+      backdrop-filter: blur(4px);
       text-align: center;
       padding: 1.5rem;
-      transition: opacity 0.35s ease, visibility 0.35s;
+      transition: opacity 0.4s ease, visibility 0.4s;
     }
     .lock-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
     .lock-overlay h2 {
       margin: 0;
       font-family: var(--display);
-      font-size: 1.35rem;
+      font-size: 1.1rem;
+      letter-spacing: 0.14em;
+      color: var(--teal);
     }
-    .lock-overlay p { margin: 0; color: var(--muted); font-size: 0.9rem; max-width: 22rem; }
-
-    .hud {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.45rem;
-      padding: 0.65rem 0.85rem;
-      border-top: 1px solid var(--line);
-      font-family: var(--mono);
-      font-size: 0.72rem;
+    .lock-overlay p {
+      margin: 0;
       color: var(--muted);
-    }
-    .hud span { color: var(--mint); }
-
-    .side {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    .stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.55rem;
-      padding: 0.85rem;
-    }
-    .stat {
-      padding: 0.7rem 0.75rem;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--line);
-    }
-    .stat label {
-      display: block;
-      font-size: 0.68rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--muted);
-      margin-bottom: 0.25rem;
-    }
-    .stat b {
-      font-family: var(--mono);
-      font-size: 1.05rem;
-      color: var(--mint);
+      font-size: 0.95rem;
+      max-width: 22rem;
+      line-height: 1.35;
     }
 
-    .ticket-list {
-      max-height: 220px;
+    .ticket-strip {
+      position: absolute;
+      z-index: 5;
+      top: 50%;
+      right: 0.85rem;
+      transform: translateY(-50%);
+      max-width: 150px;
+      max-height: 42%;
       overflow: auto;
-      padding: 0.35rem 0.65rem 0.85rem;
+      pointer-events: none;
     }
-    .ticket {
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      gap: 0.55rem;
-      align-items: center;
-      padding: 0.55rem 0.45rem;
-      border-bottom: 1px solid var(--line);
-      font-size: 0.82rem;
-    }
-    .ticket:last-child { border-bottom: none; }
-    .ticket .num {
+    .ticket-chip {
+      margin-bottom: 0.35rem;
+      padding: 0.4rem 0.55rem;
+      border-radius: 8px;
+      background: rgba(6, 14, 22, 0.6);
+      border: 1px solid rgba(255, 200, 87, 0.25);
+      backdrop-filter: blur(12px);
       font-family: var(--mono);
-      color: var(--mint);
-      font-weight: 700;
+      font-size: 0.65rem;
     }
-    .ticket .src { color: var(--muted); font-size: 0.72rem; }
-    .ticket .odds {
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      color: var(--warn);
-    }
-    .empty-tickets {
-      padding: 1.25rem 0.85rem;
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.85rem;
-    }
+    .ticket-chip .n { color: var(--amber); font-weight: 700; }
+    .ticket-chip .r { color: var(--muted); display: block; margin-top: 0.1rem; }
 
-    .odds-bar {
-      margin: 0 0.85rem 0.85rem;
-      height: 8px;
-      border-radius: 99px;
-      background: rgba(255, 255, 255, 0.06);
-      overflow: hidden;
-    }
-    .odds-bar > i {
-      display: block;
-      height: 100%;
-      width: 0%;
-      border-radius: 99px;
-      background: linear-gradient(90deg, var(--base), var(--mint));
-      box-shadow: 0 0 12px var(--mint-glow);
-      transition: width 0.45s ease;
-    }
-
-    .keys {
-      padding: 0.75rem 1rem 1rem;
-      font-size: 0.8rem;
-      color: var(--muted);
-      line-height: 1.55;
-    }
-    kbd {
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      padding: 0.12rem 0.35rem;
-      border-radius: 5px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--ink);
-    }
-
-    /* Bottom cryptographic ticker */
     .ticker {
       position: fixed;
       left: 0; right: 0; bottom: 0;
       z-index: 40;
-      border-top: 1px solid rgba(94, 242, 168, 0.2);
-      background: rgba(2, 6, 12, 0.94);
+      border-top: 1px solid rgba(61, 255, 168, 0.18);
+      background: rgba(2, 6, 12, 0.92);
       backdrop-filter: blur(10px);
-      padding: 0.55rem 0;
+      padding: 0.45rem 0;
       overflow: hidden;
     }
     .ticker-track {
@@ -353,16 +335,12 @@
       gap: 2.5rem;
       animation: scroll-ticker 48s linear infinite;
       font-family: var(--mono);
-      font-size: 0.72rem;
-      color: var(--mint);
+      font-size: 0.68rem;
+      color: var(--teal);
       white-space: nowrap;
       padding-left: 100%;
     }
-    .ticker-track span { opacity: 0.85; }
-    .ticker-track span::before {
-      content: "◈ ";
-      color: var(--inco);
-    }
+    .ticker-track span::before { content: "◈ "; color: var(--cyan); }
     @keyframes scroll-ticker {
       0% { transform: translateX(0); }
       100% { transform: translateX(-50%); }
@@ -373,87 +351,87 @@
       top: 1rem;
       right: 1rem;
       z-index: 50;
-      max-width: 320px;
-      padding: 0.75rem 1rem;
-      border-radius: 12px;
-      background: rgba(8, 20, 16, 0.95);
-      border: 1px solid rgba(94, 242, 168, 0.4);
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-      font-size: 0.85rem;
+      max-width: 300px;
+      padding: 0.7rem 0.95rem;
+      border-radius: 10px;
+      background: rgba(6, 18, 14, 0.92);
+      border: 1px solid rgba(61, 255, 168, 0.4);
+      backdrop-filter: blur(12px);
+      font-size: 0.88rem;
       transform: translateY(-120%);
       opacity: 0;
       transition: 0.35s ease;
     }
     .toast.show { transform: translateY(0); opacity: 1; }
+
+    @media (max-width: 720px) {
+      .hud-glass.tr, .ticket-strip { display: none; }
+      .hud-glass.tl { max-width: 46%; }
+      .stage { min-height: 62vh; }
+    }
   </style>
 </head>
 <body>
-  <div class="app">
-    <header>
+  <div class="shell">
+    <header class="topbar">
       <div class="brand">
         <h1>VEIL WAR</h1>
-        <p>Encrypted fog on Inco Lightning · Megapot tickets on Base Sepolia — scout, loot vaults, stake the jackpot.</p>
+        <span class="tag">Sector recon</span>
       </div>
       <div class="net-row">
-        <div class="pill inco" id="pillInco"><span class="dot"></span> Inco FHE</div>
-        <div class="pill base" id="pillBase"><span class="dot"></span> Base Sepolia</div>
-        <button class="btn-inco" id="btnInco" type="button">Connect Inco</button>
-        <button class="btn-base" id="btnBase" type="button">Connect Base</button>
-        <button class="btn-mint" id="btnBoth" type="button">Link Dual Network</button>
+        <div class="pill inco" id="pillInco"><span class="dot"></span> INCO</div>
+        <div class="pill base" id="pillBase"><span class="dot"></span> BASE</div>
+        <button class="btn-inco" id="btnInco" type="button">Inco</button>
+        <button class="btn-base" id="btnBase" type="button">Base</button>
+        <button class="btn-mint" id="btnBoth" type="button">Link Dual Net</button>
       </div>
     </header>
 
-    <section class="panel">
-      <div class="panel-h">
-        <strong>Sector Fog</strong>
-        <span id="phaseLabel">LOCKED</span>
-      </div>
-      <div class="canvas-wrap">
-        <canvas id="game" width="512" height="512" aria-label="Fog of war map"></canvas>
-        <div class="lock-overlay" id="lock">
-          <h2>Absolute Black</h2>
-          <p>Link Inco + Base Sepolia to decrypt the sector shroud and enable Scout-to-Earn.</p>
-          <button class="btn-mint" id="btnUnlock" type="button">Link Dual Network</button>
-        </div>
-      </div>
-      <div class="hud">
-        <div>POS <span id="hudPos">—, —</span></div>
-        <div>VISION <span id="hudVis">r=2</span></div>
-        <div>VAULTS <span id="hudVaults">0/4</span></div>
-        <div>BOT <span id="hudBot">CLOAKED</span></div>
-        <div>BLOCK <span id="hudBlock">—</span></div>
-      </div>
-    </section>
+    <div class="stage" id="stage">
+      <canvas id="game" width="900" height="900" aria-label="Tactical fog of war map"></canvas>
 
-    <aside class="side">
-      <section class="panel">
-        <div class="panel-h"><strong>Megapot Inventory</strong><span>Live odds</span></div>
-        <div class="stats">
-          <div class="stat"><label>Active tickets</label><b id="statTickets">0</b></div>
-          <div class="stat"><label>Jackpot pool</label><b id="statPool">$—</b></div>
-          <div class="stat"><label>Your odds</label><b id="statOdds">0%</b></div>
-          <div class="stat"><label>Stake match</label><b id="statStake">IDLE</b></div>
-        </div>
-        <div class="odds-bar"><i id="oddsFill"></i></div>
-        <div class="ticket-list" id="ticketList">
-          <div class="empty-tickets">No tickets yet — loot a Megapot Vault or win a duel.</div>
-        </div>
-      </section>
+      <div class="hud-glass tl">
+        <div class="label">Megapot odds</div>
+        <div class="value" id="statOdds">0.000%</div>
+        <div class="sub">Pool <span id="statPool">$12,840</span></div>
+        <div class="odds-mini"><i id="oddsFill"></i></div>
+      </div>
 
-      <section class="panel">
-        <div class="panel-h"><strong>Ops</strong></div>
-        <div style="display:flex;flex-wrap:wrap;gap:0.45rem;padding:0.85rem;">
-          <button class="btn-ghost" id="btnDuel" type="button">Launch Bot Duel (R)</button>
-          <button class="btn-ghost" id="btnStake" type="button">Jackpot Stake Match</button>
-          <button class="btn-mint" id="btnClaim" type="button">Claim Vault (Space)</button>
+      <div class="hud-glass tr">
+        <div class="label">Network status</div>
+        <div class="net-status">
+          <div class="line inco" id="hudIncoLine"><span class="lamp"></span> Inco FHE — offline</div>
+          <div class="line base" id="hudBaseLine"><span class="lamp"></span> Base Sepolia — offline</div>
+          <div class="line" id="hudPhaseLine"><span class="lamp"></span> Sector <span id="phaseLabel">LOCKED</span></div>
         </div>
-        <div class="keys">
-          <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move scout ·
-          <kbd>R</kbd> duel · <kbd>Space</kbd> claim vault ·
-          encrypted commits sync to Inco; ticket mints settle on Base.
+      </div>
+
+      <div class="hud-glass bl">
+        <div class="label">Active tickets</div>
+        <div class="value" id="statTickets">0</div>
+        <div class="sub">Stake <span id="statStake">IDLE</span> · <span id="hudVaults">0/4</span> vaults</div>
+        <div class="ops-bar">
+          <button class="btn-ghost" id="btnDuel" type="button">Duel (R)</button>
+          <button class="btn-ghost" id="btnStake" type="button">Stake</button>
+          <button class="btn-mint" id="btnClaim" type="button">Claim (Space)</button>
         </div>
-      </section>
-    </aside>
+      </div>
+
+      <div class="hud-glass br">
+        <div class="label">Scout telemetry</div>
+        <div class="sub">POS <span id="hudPos" style="color:var(--teal)">—, —</span></div>
+        <div class="sub">VIS <span id="hudVis" style="color:var(--cyan)">r=2</span> · BOT <span id="hudBot">CLOAKED</span></div>
+        <div class="sub">BLK <span id="hudBlock">—</span></div>
+      </div>
+
+      <div class="ticket-strip" id="ticketList"></div>
+
+      <div class="lock-overlay" id="lock">
+        <h2>UPLINK REQUIRED</h2>
+        <p>Link Inco + Base Sepolia to arm the tactical radar and Scout-to-Earn loop.</p>
+        <button class="btn-mint" id="btnUnlock" type="button">Link Dual Network</button>
+      </div>
+    </div>
   </div>
 
   <div class="ticker" aria-live="polite">
@@ -465,15 +443,14 @@
 (() => {
   "use strict";
 
-  // —— Config ——
   const GRID = 16;
-  const CELL = 32; // 512/16
   const VISION = 2;
   const BASE_CHAIN = 84532n;
-  const INCO_CHAIN_SIM = 21000001n; // sandbox dual-network id (sim)
+  const INCO_CHAIN_SIM = 21000001n;
   const BASE_RPC = "https://sepolia.base.org";
-  const POOL_ESTIMATE_USD = 12840; // demo jackpot readout
-  const TICKET_SHARE = 1; // each ticket ≈ equal weight for odds demo
+  const POOL_ESTIMATE_USD = 12840;
+  const TICKET_SHARE = 1;
+  const HEX_R = 28; // hex radius in px (flat-top)
 
   const VAULT_CELLS = [
     { x: 3, y: 7, id: 0 },
@@ -482,37 +459,79 @@
     { x: 5, y: 14, id: 3 },
   ];
 
-  // —— State ——
   const state = {
     linked: false,
     incoOn: false,
     baseOn: false,
     address: null,
     provider: null,
-    player: { x: 1, y: 1 },
+    player: { x: 1, y: 1, facing: 0 },
     bot: { x: 14, y: 14, alive: true, revealed: false },
     vision: VISION,
     vaults: VAULT_CELLS.map(v => ({ ...v, looted: false, pending: false })),
+    explored: new Set(["1,1"]),
     tickets: [],
     stakeStatus: "IDLE",
     blockNumber: null,
     keys: Object.create(null),
     particles: [],
+    smoke: [],
     fogNoise: [],
+    noiseField: [],
     phase: "LOCKED",
     duelFlash: 0,
+    t: 0,
+    scanY: 0,
   };
 
-  // Init fog noise
+  // Per-cell noise seeds
   for (let i = 0; i < GRID * GRID; i++) {
-    state.fogNoise[i] = 0.35 + Math.random() * 0.45;
+    state.fogNoise[i] = Math.random();
+    state.noiseField[i] = Math.random() * Math.PI * 2;
+  }
+
+  // Ambient smoke motes (world-space, continuous)
+  for (let i = 0; i < 90; i++) {
+    state.smoke.push({
+      x: Math.random() * 900,
+      y: Math.random() * 900,
+      r: 18 + Math.random() * 42,
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: -0.08 - Math.random() * 0.2,
+      a: 0.08 + Math.random() * 0.14,
+      phase: Math.random() * Math.PI * 2,
+    });
   }
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
   const $ = (id) => document.getElementById(id);
 
-  // —— Ticker ——
+  // —— Hex layout (pointy-top axial → screen) ——
+  const HEX_W = Math.sqrt(3) * HEX_R;
+  const HEX_H = 2 * HEX_R;
+  const ORIGIN_X = 52;
+  const ORIGIN_Y = 48;
+
+  function hexCenter(col, row) {
+    const x = ORIGIN_X + HEX_W * (col + 0.5 * (row & 1));
+    const y = ORIGIN_Y + HEX_H * 0.75 * row;
+    return { x, y };
+  }
+
+  function hexPath(cx, cy, r) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 180) * (60 * i - 30);
+      const px = cx + r * Math.cos(a);
+      const py = cy + r * Math.sin(a);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  }
+
+  // —— Ticker / toast ——
   const tickerLines = [];
   function pushTicker(msg) {
     const t = new Date().toISOString().slice(11, 19);
@@ -521,7 +540,7 @@
     const doubled = [...tickerLines, ...tickerLines].map(s => `<span>${s}</span>`).join("");
     $("tickerTrack").innerHTML = doubled || `<span>Awaiting dual-network link…</span><span>Awaiting dual-network link…</span>`;
   }
-  pushTicker("Veil War sandbox boot — FHE channel idle");
+  pushTicker("Veil War tactical radar online — FHE channel idle");
   pushTicker("Megapot buyer endpoint Base Sepolia 84532 armed");
 
   function toast(msg) {
@@ -532,7 +551,7 @@
     toast._t = setTimeout(() => el.classList.remove("show"), 2800);
   }
 
-  // —— Wallet / dual network ——
+  // —— Wallet ——
   async function ensureEthers() {
     if (!window.ethers) throw new Error("ethers.js failed to load");
   }
@@ -567,7 +586,6 @@
           });
         } else {
           toast("Switch wallet to Base Sepolia");
-          pushTicker("Base Sepolia switch rejected by wallet");
           return false;
         }
       }
@@ -587,7 +605,6 @@
   }
 
   async function connectInco() {
-    // Sandbox: simulate Inco Lightning channel (same wallet, separate logical net)
     await ensureEthers();
     if (!state.address && window.ethereum) {
       const provider = new ethers.BrowserProvider(window.ethereum);
@@ -598,20 +615,17 @@
     }
     state.incoOn = true;
     $("pillInco").classList.add("on");
-    pushTicker(`Inco FHE channel open · handle euint8 sector session ${INCO_CHAIN_SIM}`);
-    pushTicker("TFHE.eq / e.le LOS oracle warm — encrypted scout coords accepted");
+    pushTicker(`Inco FHE channel open · session ${INCO_CHAIN_SIM}`);
     refreshLink();
     return true;
   }
 
   async function linkDual() {
-    const base = await connectBase();
-    const inco = await connectInco();
-    if (base || inco) {
-      if (state.incoOn && state.baseOn) {
-        toast("Dual network armed — shroud lifting");
-        pushTicker("Cross-chain session sealed: Inco fog ↔ Base Megapot reward path");
-      }
+    await connectBase();
+    await connectInco();
+    if (state.incoOn && state.baseOn) {
+      toast("Dual network armed — shroud lifting");
+      pushTicker("Cross-chain session sealed: Inco fog ↔ Base Megapot");
     }
   }
 
@@ -620,6 +634,15 @@
     $("lock").classList.toggle("hidden", state.linked);
     state.phase = state.linked ? "ACTIVE" : (state.incoOn || state.baseOn ? "PARTIAL" : "LOCKED");
     $("phaseLabel").textContent = state.phase;
+
+    const incoLine = $("hudIncoLine");
+    const baseLine = $("hudBaseLine");
+    const phaseLine = $("hudPhaseLine");
+    incoLine.classList.toggle("on", state.incoOn);
+    baseLine.classList.toggle("on", state.baseOn);
+    phaseLine.classList.toggle("on", state.linked);
+    incoLine.innerHTML = `<span class="lamp"></span> Inco FHE — ${state.incoOn ? "LIVE" : "offline"}`;
+    baseLine.innerHTML = `<span class="lamp"></span> Base Sepolia — ${state.baseOn ? "LIVE" : "offline"}`;
     updateHUD();
   }
 
@@ -627,7 +650,6 @@
     return a ? a.slice(0, 6) + "…" + a.slice(-4) : "—";
   }
 
-  // —— Crypto helpers (commit + FHE sim) ——
   function saltBytes() {
     const a = new Uint8Array(16);
     crypto.getRandomValues(a);
@@ -638,12 +660,11 @@
     const salt = saltBytes();
     const packed = ethers.solidityPacked(["uint8", "uint8", "bytes32"], [x, y, salt]);
     const hash = ethers.keccak256(packed);
-    pushTicker(`Inco commitMove euint8(${x},${y}) · ciphertext ${hash.slice(0, 14)}…`);
+    pushTicker(`Inco commitMove euint8(${x},${y}) · ${hash.slice(0, 14)}…`);
     if (state.provider && state.baseOn) {
       try {
         state.blockNumber = await state.provider.getBlockNumber();
         $("hudBlock").textContent = String(state.blockNumber);
-        pushTicker(`Base head #${state.blockNumber} anchored for cross-chain attestation`);
       } catch (_) {}
     }
     return hash;
@@ -657,14 +678,25 @@
     return chebyshev(state.player, cell) <= state.vision;
   }
 
-  // —— Gameplay ——
+  function markExplored() {
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        if (chebyshev(state.player, { x, y }) <= state.vision) {
+          state.explored.add(`${x},${y}`);
+        }
+      }
+    }
+  }
+
   function tryMove(dx, dy) {
     if (!state.linked) return;
     const nx = state.player.x + dx;
     const ny = state.player.y + dy;
     if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) return;
+    if (dx || dy) state.player.facing = Math.atan2(dy, dx);
     state.player.x = nx;
     state.player.y = ny;
+    markExplored();
     commitMove(nx, ny);
     checkVaultProximity();
     updateBotReveal();
@@ -676,38 +708,29 @@
       if (v.looted) continue;
       if (v.x === state.player.x && v.y === state.player.y) {
         v.pending = true;
-        pushTicker(`Decryption verified — Megapot Vault #${v.id} tile revealed (encrypted match e.eq)`);
-        toast(`Vault #${v.id} underfoot — press Space to claim`);
+        pushTicker(`Decryption verified — Megapot Vault #${v.id} revealed`);
+        toast(`Vault #${v.id} locked — press Space to claim`);
       }
     }
   }
 
   function updateBotReveal() {
     if (!state.bot.alive) return;
-    const vis = inVision(state.bot);
-    state.bot.revealed = vis;
-    if (vis) {
-      pushTicker("e.le(chebyshev, visionRadius) → ebool true — cloaked bot in LOS");
+    state.bot.revealed = inVision(state.bot);
+    if (state.bot.revealed) {
+      pushTicker("e.le(chebyshev, vision) → cloaked bot in LOS");
     }
   }
 
   function launchDuel() {
-    if (!state.linked) {
-      toast("Link dual network first");
-      return;
-    }
+    if (!state.linked) { toast("Link dual network first"); return; }
     state.duelFlash = 1;
-    pushTicker("Bot duel initiated — Jackpot Stake Match escrow check on Base");
-    if (!state.bot.alive) {
-      toast("Bot already defeated");
-      return;
-    }
+    pushTicker("Bot duel initiated — stake escrow check on Base");
+    if (!state.bot.alive) { toast("Bot already defeated"); return; }
     if (!state.bot.revealed) {
-      // Bot skirmishes toward player
       const step = (a, b) => (a < b ? 1 : a > b ? -1 : 0);
       state.bot.x = Math.max(0, Math.min(GRID - 1, state.bot.x + step(state.bot.x, state.player.x)));
       state.bot.y = Math.max(0, Math.min(GRID - 1, state.bot.y + step(state.bot.y, state.player.y)));
-      pushTicker(`Cloaked bot reposition · FHE handle refreshed (${state.bot.x},${state.bot.y})`);
       updateBotReveal();
       if (!state.bot.revealed) {
         toast("Bot still cloaked — close the gap");
@@ -715,33 +738,30 @@
         return;
       }
     }
-    // Kill if in vision
     state.bot.alive = false;
     state.bot.revealed = true;
     mintTicket({ source: "veil-war:bot-kill", reason: "Bot defeat" });
-    pushTicker("Inco state: BotDefeated · Cross-chaining ticket claim to Base Megapot buyer…");
+    pushTicker("BotDefeated · Cross-chaining ticket claim to Base…");
     toast("Bot down — Megapot ticket minted");
-    spawnBlast(state.bot.x, state.bot.y);
+    const c = hexCenter(state.bot.x, state.bot.y);
+    spawnBlast(c.x, c.y);
     updateHUD();
   }
 
   function startStakeMatch() {
-    if (!state.linked) {
-      toast("Link dual network first");
-      return;
-    }
+    if (!state.linked) { toast("Link dual network first"); return; }
     if (state.stakeStatus === "IDLE") {
       state.stakeStatus = "POOLED";
       $("statStake").textContent = "POOLED";
-      pushTicker("Jackpot Stake Match: both stakes locked · 20% → shared Megapot tickets on settle");
-      toast("Stake pool open — win the sector to settle");
+      pushTicker("Jackpot Stake Match: stakes locked · 20% → Megapot tickets");
+      toast("Stake pool open");
     } else if (state.stakeStatus === "POOLED") {
       state.stakeStatus = "SETTLED";
       $("statStake").textContent = "WON";
       mintTicket({ source: "veil-war:stake-match", reason: "Stake share" });
       mintTicket({ source: "veil-war:match-win", reason: "Sector win" });
-      pushTicker("settleStakeMatch · winner payout + shared tickets purchased via JackpotRandomTicketBuyer");
-      toast("Stake match settled — tickets + sector loot");
+      pushTicker("settleStakeMatch · shared tickets purchased");
+      toast("Stake match settled");
     } else {
       state.stakeStatus = "IDLE";
       $("statStake").textContent = "IDLE";
@@ -750,44 +770,32 @@
 
   function claimVault() {
     if (!state.linked) return;
-    const v = state.vaults.find(x => x.pending && !x.looted);
+    let v = state.vaults.find(x => x.pending && !x.looted);
     if (!v) {
-      // Also allow claim if standing on vault
       const under = state.vaults.find(x => !x.looted && x.x === state.player.x && x.y === state.player.y);
-      if (!under) {
-        toast("No vault to claim");
-        return;
-      }
+      if (!under) { toast("No vault to claim"); return; }
       under.pending = true;
-      return claimVault();
+      v = under;
     }
     v.looted = true;
     v.pending = false;
     mintTicket({ source: "veil-war:vault", reason: `Vault #${v.id}` });
-    pushTicker(`VaultLooted match·vault=${v.id} · Decryption verified… Cross-chaining ticket claim to Base…`);
-    pushTicker("MegapotRewardController.claimVaultTicket → buyTickets(1, player, …)");
-    toast(`Vault #${v.id} claimed — mint-green blast`);
-    spawnBlast(v.x, v.y);
+    pushTicker(`VaultLooted #${v.id} · Cross-chaining ticket claim to Base…`);
+    toast(`Vault #${v.id} claimed`);
+    const c = hexCenter(v.x, v.y);
+    spawnBlast(c.x, c.y);
     updateHUD();
   }
 
   function mintTicket({ source, reason }) {
     const id = 100000 + Math.floor(Math.random() * 899999);
     const odds = computeOdds(state.tickets.length + 1);
-    state.tickets.unshift({
-      id,
-      source,
-      reason,
-      odds,
-      at: Date.now(),
-    });
+    state.tickets.unshift({ id, source, reason, odds, at: Date.now() });
     renderTickets();
   }
 
   function computeOdds(n) {
-    // Demo: pool weight vs estimated circulating tickets
-    const circ = 4200;
-    return Math.min(99.9, (n * TICKET_SHARE / circ) * 100);
+    return Math.min(99.9, (n * TICKET_SHARE / 4200) * 100);
   }
 
   function renderTickets() {
@@ -797,20 +805,11 @@
     $("statOdds").textContent = odds.toFixed(3) + "%";
     $("statPool").textContent = "$" + POOL_ESTIMATE_USD.toLocaleString();
     $("oddsFill").style.width = Math.min(100, odds * 12) + "%";
-
     const list = $("ticketList");
-    if (!n) {
-      list.innerHTML = `<div class="empty-tickets">No tickets yet — loot a Megapot Vault or win a duel.</div>`;
-      return;
-    }
-    list.innerHTML = state.tickets.map(t => `
-      <div class="ticket">
-        <div class="num">#${t.id}</div>
-        <div>
-          <div>${t.reason}</div>
-          <div class="src">${t.source}</div>
-        </div>
-        <div class="odds">${t.odds.toFixed(3)}%</div>
+    list.innerHTML = state.tickets.slice(0, 6).map(t => `
+      <div class="ticket-chip">
+        <span class="n">#${t.id}</span>
+        <span class="r">${t.reason} · ${t.odds.toFixed(3)}%</span>
       </div>
     `).join("");
   }
@@ -823,187 +822,456 @@
     $("hudBot").textContent = !state.bot.alive ? "DEFEATED" : (state.bot.revealed ? "VISIBLE" : "CLOAKED");
   }
 
-  // —— Particles ——
-  function spawnBlast(cx, cy) {
-    const px = cx * CELL + CELL / 2;
-    const py = cy * CELL + CELL / 2;
-    for (let i = 0; i < 56; i++) {
+  function spawnBlast(px, py) {
+    for (let i = 0; i < 64; i++) {
       const ang = Math.random() * Math.PI * 2;
-      const spd = 1.2 + Math.random() * 3.8;
+      const spd = 1.4 + Math.random() * 4.2;
       state.particles.push({
         x: px, y: py,
         vx: Math.cos(ang) * spd,
         vy: Math.sin(ang) * spd,
         life: 1,
-        decay: 0.012 + Math.random() * 0.02,
-        r: 1.5 + Math.random() * 3.5,
+        decay: 0.01 + Math.random() * 0.02,
+        r: 1.5 + Math.random() * 4,
       });
     }
   }
 
-  // —— Render ——
-  function cellAlpha(x, y) {
-    if (!state.linked) return 1; // absolute black overlay handled separately
-    const d = chebyshev(state.player, { x, y });
-    if (d <= state.vision) {
-      // soft edge
-      const t = d / (state.vision + 0.001);
-      return Math.max(0, t * t * 0.22);
+  // —— Drawing helpers ——
+  function drawTerrainHex(col, row, t) {
+    const { x, y } = hexCenter(col, row);
+    const explored = state.explored.has(`${col},${row}`);
+    const vis = state.linked && inVision({ x: col, y: row });
+    const n = state.fogNoise[row * GRID + col];
+    const pulse = 0.5 + 0.5 * Math.sin(t * 0.002 + state.noiseField[row * GRID + col]);
+
+    // Base plate
+    hexPath(x, y, HEX_R - 1.2);
+    if (vis) {
+      const g = ctx.createRadialGradient(x, y - 4, 2, x, y, HEX_R);
+      g.addColorStop(0, `rgba(40, 90, 70, ${0.55 + pulse * 0.1})`);
+      g.addColorStop(1, "rgba(8, 28, 22, 0.95)");
+      ctx.fillStyle = g;
+    } else if (explored) {
+      ctx.fillStyle = `rgba(${18 + n * 8}, ${22 + n * 6}, ${24 + n * 6}, 0.95)`;
+    } else {
+      ctx.fillStyle = `rgba(4, 8, 12, ${0.92 + n * 0.05})`;
     }
-    if (d === state.vision + 1) return 0.55 + state.fogNoise[y * GRID + x] * 0.2;
-    return 0.82 + state.fogNoise[y * GRID + x] * 0.18;
+    ctx.fill();
+
+    // Tech edge
+    ctx.strokeStyle = vis
+      ? `rgba(61, 255, 168, ${0.35 + pulse * 0.25})`
+      : explored
+        ? "rgba(120, 140, 150, 0.18)"
+        : "rgba(40, 60, 80, 0.22)";
+    ctx.lineWidth = vis ? 1.4 : 0.8;
+    ctx.stroke();
+
+    // Inner isometric facet
+    if (vis || explored) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - HEX_R * 0.45);
+      ctx.lineTo(x + HEX_R * 0.4, y);
+      ctx.lineTo(x, y + HEX_R * 0.25);
+      ctx.lineTo(x - HEX_R * 0.4, y);
+      ctx.closePath();
+      ctx.fillStyle = vis
+        ? `rgba(61, 255, 168, ${0.06 + pulse * 0.04})`
+        : "rgba(255, 255, 255, 0.02)";
+      ctx.fill();
+    }
+
+    // Neon scanlines on visible cells
+    if (vis) {
+      ctx.save();
+      hexPath(x, y, HEX_R - 2);
+      ctx.clip();
+      const scan = ((t * 0.08 + row * 7 + col * 3) % (HEX_H));
+      ctx.strokeStyle = "rgba(61, 255, 168, 0.18)";
+      ctx.lineWidth = 1;
+      for (let sy = -HEX_R; sy < HEX_R; sy += 3) {
+        const yy = y + sy + (scan % 3);
+        ctx.globalAlpha = 0.15 + 0.25 * Math.max(0, 1 - Math.abs(sy) / HEX_R);
+        ctx.beginPath();
+        ctx.moveTo(x - HEX_R, yy);
+        ctx.lineTo(x + HEX_R, yy);
+        ctx.stroke();
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
   }
 
-  function draw() {
+  function drawCrystalVault(v, t) {
+    const { x, y } = hexCenter(v.x, v.y);
+    const pulse = 0.55 + 0.45 * Math.sin(t * 0.005 + v.id);
+    if (v.looted) {
+      ctx.strokeStyle = `rgba(61, 255, 168, ${0.25 + pulse * 0.15})`;
+      ctx.lineWidth = 1.2;
+      hexPath(x, y, 10);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(61, 255, 168, 0.08)";
+      ctx.fill();
+      return;
+    }
+    // Glow halo
+    const halo = ctx.createRadialGradient(x, y, 2, x, y, 22);
+    halo.addColorStop(0, `rgba(255, 200, 87, ${0.45 * pulse})`);
+    halo.addColorStop(1, "rgba(255, 200, 87, 0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(x, y, 22, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Crystal facets
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1, 1.15);
+    const s = 9 + pulse * 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 1.4);
+    ctx.lineTo(s * 0.7, -s * 0.2);
+    ctx.lineTo(s * 0.45, s);
+    ctx.lineTo(-s * 0.45, s);
+    ctx.lineTo(-s * 0.7, -s * 0.2);
+    ctx.closePath();
+    const cg = ctx.createLinearGradient(0, -s, 0, s);
+    cg.addColorStop(0, "#fff6d0");
+    cg.addColorStop(0.4, "#ffc857");
+    cg.addColorStop(1, "#c47a20");
+    ctx.fillStyle = cg;
+    ctx.shadowColor = "rgba(255, 200, 87, 0.8)";
+    ctx.shadowBlur = 12;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Highlight shard
+    ctx.beginPath();
+    ctx.moveTo(-2, -s);
+    ctx.lineTo(1, -s * 0.2);
+    ctx.lineTo(-3, s * 0.4);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawScoutShip(t) {
+    const { x, y } = hexCenter(state.player.x, state.player.y);
+    const bob = Math.sin(t * 0.006) * 1.5;
+    const face = state.player.facing || -Math.PI / 2;
+
+    // Soft thruster wake
+    ctx.save();
+    ctx.translate(x, y + bob);
+    ctx.rotate(face + Math.PI / 2);
+    const wake = ctx.createRadialGradient(0, 10, 1, 0, 14, 18);
+    wake.addColorStop(0, "rgba(61, 255, 168, 0.45)");
+    wake.addColorStop(1, "rgba(61, 255, 168, 0)");
+    ctx.fillStyle = wake;
+    ctx.beginPath();
+    ctx.ellipse(0, 14, 6, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Holographic chevron / ship
+    ctx.shadowColor = "rgba(61, 255, 168, 0.9)";
+    ctx.shadowBlur = 16;
+    ctx.beginPath();
+    ctx.moveTo(0, -14);
+    ctx.lineTo(10, 8);
+    ctx.lineTo(3, 4);
+    ctx.lineTo(0, 10);
+    ctx.lineTo(-3, 4);
+    ctx.lineTo(-10, 8);
+    ctx.closePath();
+    const sg = ctx.createLinearGradient(0, -14, 0, 10);
+    sg.addColorStop(0, "#b8ffe0");
+    sg.addColorStop(0.5, "#3dffa8");
+    sg.addColorStop(1, "#1a8f5c");
+    ctx.fillStyle = sg;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Cockpit gem
+    ctx.beginPath();
+    ctx.arc(0, -2, 2.2, 0, Math.PI * 2);
+    ctx.fillStyle = "#5ce1ff";
+    ctx.fill();
+
+    // Orbiting holo ring
+    ctx.rotate(t * 0.003);
+    ctx.strokeStyle = `rgba(92, 225, 255, ${0.35 + 0.25 * Math.sin(t * 0.01)})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 16, 7, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBot(t) {
+    const { x, y } = hexCenter(state.bot.x, state.bot.y);
+    if (!state.bot.alive) {
+      ctx.strokeStyle = "rgba(255, 94, 122, 0.45)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x - 8, y - 8);
+      ctx.lineTo(x + 8, y + 8);
+      ctx.moveTo(x + 8, y - 8);
+      ctx.lineTo(x - 8, y + 8);
+      ctx.stroke();
+      return;
+    }
+    if (!state.bot.revealed) return;
+    const pulse = 0.6 + 0.4 * Math.sin(t * 0.008);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.shadowColor = "rgba(255, 94, 122, 0.8)";
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.moveTo(0, -11);
+    ctx.lineTo(9, 7);
+    ctx.lineTo(-9, 7);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(255, 94, 122, ${0.85 * pulse})`;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(255, 200, 210, 0.7)";
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawSmokeOverlay(t) {
+    // Animate smoke
+    for (const s of state.smoke) {
+      s.x += s.vx + Math.sin(t * 0.001 + s.phase) * 0.15;
+      s.y += s.vy;
+      if (s.y < -40) { s.y = canvas.height + 40; s.x = Math.random() * canvas.width; }
+      if (s.x < -40) s.x = canvas.width + 40;
+      if (s.x > canvas.width + 40) s.x = -40;
+    }
+
+    // Destination-in style: dark smoke only where unexplored
+    ctx.save();
+    // Build fog mask for unexplored
+    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+    for (let row = 0; row < GRID; row++) {
+      for (let col = 0; col < GRID; col++) {
+        if (state.explored.has(`${col},${row}`) && state.linked) continue;
+        const { x, y } = hexCenter(col, row);
+        const wobble = Math.sin(t * 0.002 + col + row) * 2;
+        hexPath(x + wobble * 0.3, y, HEX_R + 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.globalCompositeOperation = "source-atop";
+    for (const s of state.smoke) {
+      const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r);
+      g.addColorStop(0, `rgba(30, 45, 55, ${s.a})`);
+      g.addColorStop(0.5, `rgba(10, 18, 28, ${s.a * 0.7})`);
+      g.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawShroudDesat(t) {
+    // Explored but out of vision — desaturated grid overlay
+    for (let row = 0; row < GRID; row++) {
+      for (let col = 0; col < GRID; col++) {
+        const key = `${col},${row}`;
+        if (!state.explored.has(key)) continue;
+        if (inVision({ x: col, y: row })) continue;
+        const { x, y } = hexCenter(col, row);
+        hexPath(x, y, HEX_R - 1);
+        ctx.fillStyle = "rgba(70, 80, 90, 0.28)";
+        ctx.fill();
+        // Faint crosshatch
+        ctx.save();
+        hexPath(x, y, HEX_R - 2);
+        ctx.clip();
+        ctx.strokeStyle = "rgba(140, 150, 160, 0.08)";
+        ctx.lineWidth = 1;
+        for (let i = -20; i < 20; i += 4) {
+          ctx.beginPath();
+          ctx.moveTo(x - 20, y + i);
+          ctx.lineTo(x + 20, y + i + 8);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawVisionGlow(t) {
+    const c = hexCenter(state.player.x, state.player.y);
+    const rad = (state.vision + 0.85) * HEX_H * 0.72;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const g = ctx.createRadialGradient(c.x, c.y, rad * 0.2, c.x, c.y, rad);
+    g.addColorStop(0, "rgba(61, 255, 168, 0.12)");
+    g.addColorStop(0.7, "rgba(61, 255, 168, 0.04)");
+    g.addColorStop(1, "rgba(61, 255, 168, 0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, rad, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawRadarChrome(t) {
     const W = canvas.width;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, W, W);
+    const H = canvas.height;
+    // Corner brackets
+    ctx.strokeStyle = "rgba(61, 255, 168, 0.35)";
+    ctx.lineWidth = 2;
+    const b = 18;
+    [[b, b], [W - b, b], [b, H - b], [W - b, H - b]].forEach(([cx, cy], i) => {
+      const sx = i % 2 === 0 ? 1 : -1;
+      const sy = i < 2 ? 1 : -1;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + sy * 22);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx + sx * 22, cy);
+      ctx.stroke();
+    });
+
+    // Sweeping radar line (pre-link / always subtle)
+    state.scanY = (state.scanY + 1.2) % H;
+    const grad = ctx.createLinearGradient(0, state.scanY - 40, 0, state.scanY + 8);
+    grad.addColorStop(0, "rgba(61, 255, 168, 0)");
+    grad.addColorStop(1, "rgba(61, 255, 168, 0.07)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, state.scanY - 40, W, 48);
+
+    // Satellite label
+    ctx.font = "600 10px JetBrains Mono, monospace";
+    ctx.fillStyle = "rgba(92, 225, 255, 0.45)";
+    ctx.fillText("SAT-VEIL // HEX GRID 16×16 // CLASSIFIED", 24, H - 16);
+  }
+
+  function drawLockedRadar(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    // Dark cyber base still shows hex ghosts
+    ctx.fillStyle = "#02060b";
+    ctx.fillRect(0, 0, W, H);
+
+    for (let row = 0; row < GRID; row++) {
+      for (let col = 0; col < GRID; col++) {
+        const { x, y } = hexCenter(col, row);
+        hexPath(x, y, HEX_R - 1);
+        ctx.fillStyle = "rgba(8, 16, 22, 0.9)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(40, 70, 90, 0.35)";
+        ctx.lineWidth = 0.7;
+        ctx.stroke();
+      }
+    }
+
+    drawSmokeOverlay(t);
+    // Heavy vignette
+    const v = ctx.createRadialGradient(W / 2, H / 2, W * 0.15, W / 2, H / 2, W * 0.7);
+    v.addColorStop(0, "rgba(0,0,0,0.15)");
+    v.addColorStop(1, "rgba(0,0,0,0.75)");
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, W, H);
+
+    // Pulse ring
+    const r = 80 + (t * 0.04) % 220;
+    ctx.strokeStyle = `rgba(61, 255, 168, ${0.25 * (1 - (r - 80) / 220)})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(W / 2, H / 2, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    drawRadarChrome(t);
+  }
+
+  function draw(ts) {
+    state.t = ts || 0;
+    const t = state.t;
+    const W = canvas.width;
+    const H = canvas.height;
+
+    ctx.fillStyle = "#030a10";
+    ctx.fillRect(0, 0, W, H);
+
+    // Deep space grain
+    ctx.fillStyle = "rgba(61, 255, 168, 0.015)";
+    for (let i = 0; i < 40; i++) {
+      const gx = (Math.sin(t * 0.0007 + i * 12.3) * 0.5 + 0.5) * W;
+      const gy = (Math.cos(t * 0.0005 + i * 7.1) * 0.5 + 0.5) * H;
+      ctx.fillRect(gx, gy, 1.5, 1.5);
+    }
 
     if (!state.linked) {
-      // Absolute black + faint scan
-      const g = ctx.createLinearGradient(0, 0, W, W);
-      g.addColorStop(0, "#000");
-      g.addColorStop(0.5, "#030508");
-      g.addColorStop(1, "#000");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, W, W);
+      drawLockedRadar(t);
+      // Particles still
+      updateParticles();
       requestAnimationFrame(draw);
       return;
     }
 
-    // Ground
-    for (let y = 0; y < GRID; y++) {
-      for (let x = 0; x < GRID; x++) {
-        const px = x * CELL;
-        const py = y * CELL;
-        const parity = (x + y) % 2;
-        ctx.fillStyle = parity ? "#0a1210" : "#0c1612";
-        ctx.fillRect(px, py, CELL, CELL);
+    // Terrain
+    for (let row = 0; row < GRID; row++) {
+      for (let col = 0; col < GRID; col++) {
+        drawTerrainHex(col, row, t);
       }
     }
 
-    // Vaults (only if in vision or looted marker)
+    drawShroudDesat(t);
+
+    // Vaults in vision or looted
     for (const v of state.vaults) {
-      if (!inVision(v) && !v.looted) continue;
-      const px = v.x * CELL;
-      const py = v.y * CELL;
-      if (v.looted) {
-        ctx.fillStyle = "rgba(94,242,168,0.12)";
-        ctx.fillRect(px + 4, py + 4, CELL - 8, CELL - 8);
-        ctx.strokeStyle = "rgba(94,242,168,0.35)";
-        ctx.strokeRect(px + 4.5, py + 4.5, CELL - 9, CELL - 9);
-      } else {
-        ctx.fillStyle = "rgba(245,200,76,0.55)";
-        ctx.beginPath();
-        ctx.arc(px + CELL / 2, py + CELL / 2, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "rgba(245,200,76,0.2)";
-        ctx.beginPath();
-        ctx.arc(px + CELL / 2, py + CELL / 2, 11, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      if (inVision(v) || v.looted) drawCrystalVault(v, t);
     }
 
-    // Bot
-    if (state.bot.alive && state.bot.revealed) {
-      const bx = state.bot.x * CELL + CELL / 2;
-      const by = state.bot.y * CELL + CELL / 2;
-      ctx.fillStyle = "#ff6b8a";
-      ctx.beginPath();
-      ctx.moveTo(bx, by - 8);
-      ctx.lineTo(bx + 7, by + 6);
-      ctx.lineTo(bx - 7, by + 6);
-      ctx.closePath();
-      ctx.fill();
-    } else if (!state.bot.alive) {
-      const bx = state.bot.x * CELL + CELL / 2;
-      const by = state.bot.y * CELL + CELL / 2;
-      ctx.strokeStyle = "rgba(255,107,138,0.4)";
-      ctx.beginPath();
-      ctx.moveTo(bx - 5, by - 5);
-      ctx.lineTo(bx + 5, by + 5);
-      ctx.moveTo(bx + 5, by - 5);
-      ctx.lineTo(bx - 5, by + 5);
-      ctx.stroke();
-    }
+    drawBot(t);
+    drawScoutShip(t);
+    drawVisionGlow(t);
 
-    // Player
-    {
-      const px = state.player.x * CELL + CELL / 2;
-      const py = state.player.y * CELL + CELL / 2;
-      ctx.shadowColor = "rgba(94,242,168,0.7)";
-      ctx.shadowBlur = 12;
-      ctx.fillStyle = "#5ef2a8";
-      ctx.beginPath();
-      ctx.arc(px, py, 7, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
+    // Unexplored smoke (composite)
+    drawSmokeOverlay(t);
 
-    // Fog overlay with soft vision
-    for (let y = 0; y < GRID; y++) {
-      for (let x = 0; x < GRID; x++) {
-        const a = cellAlpha(x, y);
-        if (a <= 0.02) continue;
-        const d = chebyshev(state.player, { x, y });
-        if (d <= state.vision) {
-          // teal-lit vision field
-          ctx.fillStyle = `rgba(40, 120, 90, ${0.08 + (1 - d / (state.vision + 1)) * 0.12})`;
-          ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
-        }
-        // shroud
-        const gray = d <= state.vision + 1 ? 28 : 0;
-        ctx.fillStyle = `rgba(${gray},${gray},${gray},${a})`;
-        ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
-      }
-    }
-
-    // Soft vision edge glow
-    ctx.save();
-    const gx = state.player.x * CELL + CELL / 2;
-    const gy = state.player.y * CELL + CELL / 2;
-    const rad = (state.vision + 0.65) * CELL;
-    const grad = ctx.createRadialGradient(gx, gy, rad * 0.35, gx, gy, rad);
-    grad.addColorStop(0, "rgba(94,242,168,0)");
-    grad.addColorStop(0.75, "rgba(94,242,168,0.05)");
-    grad.addColorStop(1, "rgba(94,242,168,0)");
-    ctx.globalCompositeOperation = "lighter";
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(gx, gy, rad, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
-    // Particles
-    for (let i = state.particles.length - 1; i >= 0; i--) {
-      const p = state.particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += 0.04;
-      p.life -= p.decay;
-      if (p.life <= 0) {
-        state.particles.splice(i, 1);
-        continue;
-      }
-      ctx.fillStyle = `rgba(94,242,168,${p.life})`;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
-      ctx.fill();
-      // bright core
-      ctx.fillStyle = `rgba(200,255,230,${p.life * 0.8})`;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r * 0.35 * p.life, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    updateParticles();
+    drawRadarChrome(t);
 
     if (state.duelFlash > 0) {
-      ctx.fillStyle = `rgba(255,107,138,${state.duelFlash * 0.15})`;
-      ctx.fillRect(0, 0, W, W);
+      ctx.fillStyle = `rgba(255, 94, 122, ${state.duelFlash * 0.18})`;
+      ctx.fillRect(0, 0, W, H);
       state.duelFlash *= 0.9;
       if (state.duelFlash < 0.02) state.duelFlash = 0;
     }
 
     requestAnimationFrame(draw);
+  }
+
+  function updateParticles() {
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      const p = state.particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.03;
+      p.life -= p.decay;
+      if (p.life <= 0) { state.particles.splice(i, 1); continue; }
+      ctx.fillStyle = `rgba(61, 255, 168, ${p.life})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = `rgba(200, 255, 230, ${p.life * 0.75})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * 0.35 * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   // —— Input ——
@@ -1036,7 +1304,6 @@
     requestAnimationFrame(tick);
   }
 
-  // —— Wire UI ——
   $("btnBase").addEventListener("click", () => connectBase());
   $("btnInco").addEventListener("click", () => connectInco());
   $("btnBoth").addEventListener("click", () => linkDual());
@@ -1045,7 +1312,6 @@
   $("btnStake").addEventListener("click", () => startStakeMatch());
   $("btnClaim").addEventListener("click", () => claimVault());
 
-  // Periodic base block refresh
   setInterval(async () => {
     if (!state.provider || !state.baseOn) return;
     try {
@@ -1054,18 +1320,18 @@
     } catch (_) {}
   }, 12000);
 
-  // Ambient ticker heartbeat
   setInterval(() => {
     if (!state.linked) return;
     const msgs = [
       "FHE gatekeeper heartbeat — euint256 handles intact",
-      "Megapot odds oracle refreshed from Base Sepolia head",
+      "Megapot odds oracle refreshed from Base Sepolia",
       "LOS circuit idle · waiting on scout delta",
-      "Bridge attestation window open for VaultLooted events",
+      "Bridge attestation window open for VaultLooted",
     ];
     pushTicker(msgs[Math.floor(Math.random() * msgs.length)]);
   }, 14000);
 
+  markExplored();
   renderTickets();
   updateHUD();
   requestAnimationFrame(draw);
