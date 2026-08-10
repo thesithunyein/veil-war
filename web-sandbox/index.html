@@ -364,10 +364,145 @@
     }
     .toast.show { transform: translateY(0); opacity: 1; }
 
+    /* HOW TO PLAY */
+    .howto {
+      position: absolute;
+      z-index: 6;
+      left: 0.85rem;
+      bottom: 7.5rem;
+      max-width: 280px;
+      padding: 0.75rem 0.9rem 0.85rem;
+      border-radius: 10px;
+      background: rgba(6, 14, 22, 0.62);
+      border: 1px solid rgba(61, 255, 168, 0.28);
+      backdrop-filter: blur(14px) saturate(1.15);
+      -webkit-backdrop-filter: blur(14px) saturate(1.15);
+      box-shadow: 0 10px 36px rgba(0, 0, 0, 0.4);
+      pointer-events: auto;
+    }
+    .howto h3 {
+      margin: 0 0 0.45rem;
+      font-family: var(--display);
+      font-size: 0.62rem;
+      letter-spacing: 0.18em;
+      color: var(--teal);
+    }
+    .howto ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .howto li {
+      position: relative;
+      padding: 0.28rem 0 0.28rem 0.85rem;
+      font-size: 0.82rem;
+      line-height: 1.3;
+      color: var(--ink);
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .howto li:first-child { border-top: none; }
+    .howto li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55rem;
+      width: 5px;
+      height: 5px;
+      border-radius: 1px;
+      background: var(--teal);
+      box-shadow: 0 0 8px rgba(61, 255, 168, 0.5);
+    }
+    .howto li strong {
+      color: var(--cyan);
+      font-weight: 700;
+    }
+    .howto .dismiss {
+      margin-top: 0.45rem;
+      font-size: 0.68rem;
+      color: var(--muted);
+      background: transparent;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .howto.hidden { display: none; }
+
+    .demo-badge {
+      position: absolute;
+      z-index: 6;
+      top: 0.85rem;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0.3rem 0.75rem;
+      border-radius: 999px;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      color: var(--amber);
+      background: rgba(6, 14, 22, 0.7);
+      border: 1px solid rgba(255, 200, 87, 0.35);
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+    }
+    .demo-badge.hidden { display: none; }
+
+    /* Giant vault discovery alert */
+    .vault-alert {
+      position: absolute;
+      z-index: 12;
+      left: 50%;
+      top: 42%;
+      transform: translate(-50%, -50%) scale(0.92);
+      width: min(92%, 520px);
+      padding: 1.1rem 1.35rem;
+      text-align: center;
+      border-radius: 12px;
+      background: linear-gradient(160deg, rgba(20, 60, 42, 0.92), rgba(6, 22, 16, 0.94));
+      border: 2px solid rgba(61, 255, 168, 0.75);
+      box-shadow:
+        0 0 40px rgba(61, 255, 168, 0.45),
+        0 0 80px rgba(61, 255, 168, 0.2),
+        inset 0 0 30px rgba(61, 255, 168, 0.08);
+      backdrop-filter: blur(16px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .vault-alert.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+      pointer-events: auto;
+      animation: vault-pulse 1.4s ease-in-out infinite;
+    }
+    .vault-alert .eyebrow {
+      font-family: var(--display);
+      font-size: 0.62rem;
+      letter-spacing: 0.22em;
+      color: var(--cyan);
+      margin-bottom: 0.35rem;
+    }
+    .vault-alert .headline {
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: clamp(0.95rem, 2.8vw, 1.25rem);
+      letter-spacing: 0.06em;
+      line-height: 1.35;
+      color: var(--teal);
+      text-shadow: 0 0 20px rgba(61, 255, 168, 0.55);
+    }
+    @keyframes vault-pulse {
+      0%, 100% { box-shadow: 0 0 40px rgba(61, 255, 168, 0.45), 0 0 80px rgba(61, 255, 168, 0.2); }
+      50% { box-shadow: 0 0 56px rgba(61, 255, 168, 0.7), 0 0 100px rgba(61, 255, 168, 0.35); }
+    }
+
     @media (max-width: 720px) {
       .hud-glass.tr, .ticket-strip { display: none; }
       .hud-glass.tl { max-width: 46%; }
       .stage { min-height: 62vh; }
+      .howto { bottom: 6.5rem; max-width: 240px; font-size: 0.9em; }
     }
   </style>
 </head>
@@ -426,9 +561,28 @@
 
       <div class="ticket-strip" id="ticketList"></div>
 
-      <div class="lock-overlay" id="lock">
+      <div class="demo-badge" id="demoBadge">DEMO MODE · local sim</div>
+
+      <div class="howto" id="howto">
+        <h3>How to play</h3>
+        <ul>
+          <li><strong>Move Ship:</strong> W A S D, Arrow Keys, or click an adjacent hex</li>
+          <li><strong>Search Sector:</strong> Scan glowing hexes to find hidden Megapot Vaults</li>
+          <li><strong>Claim Tickets:</strong> Press SPACEBAR when sitting on a revealed Vault</li>
+          <li><strong>Start Battle:</strong> Press R to launch an aggressive enemy bot probe</li>
+        </ul>
+        <button class="dismiss" id="howtoDismiss" type="button">Got it — hide</button>
+      </div>
+
+      <div class="vault-alert" id="vaultAlert" role="alert">
+        <div class="eyebrow">FHE DECRYPTION</div>
+        <div class="headline">MEGAPOT VAULT DETECTED — PRESS SPACE TO CLAIM TICKET</div>
+      </div>
+
+      <!-- Optional wallet gate kept hidden; demo auto-starts -->
+      <div class="lock-overlay hidden" id="lock" aria-hidden="true">
         <h2>UPLINK REQUIRED</h2>
-        <p>Link Inco + Base Sepolia to arm the tactical radar and Scout-to-Earn loop.</p>
+        <p>Link Inco + Base Sepolia to settle real Megapot tickets on-chain.</p>
         <button class="btn-mint" id="btnUnlock" type="button">Link Dual Network</button>
       </div>
     </div>
@@ -460,6 +614,7 @@
   ];
 
   const state = {
+    demoMode: true,
     linked: false,
     incoOn: false,
     baseOn: false,
@@ -478,10 +633,11 @@
     smoke: [],
     fogNoise: [],
     noiseField: [],
-    phase: "LOCKED",
+    phase: "DEMO",
     duelFlash: 0,
     t: 0,
     scanY: 0,
+    hoverHex: null,
   };
 
   // Per-cell noise seeds
@@ -517,6 +673,47 @@
     const x = ORIGIN_X + HEX_W * (col + 0.5 * (row & 1));
     const y = ORIGIN_Y + HEX_H * 0.75 * row;
     return { x, y };
+  }
+
+  function playActive() {
+    return state.demoMode || state.linked;
+  }
+
+  function canvasToLocal(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width / rect.width;
+    const sy = canvas.height / rect.height;
+    return {
+      x: (evt.clientX - rect.left) * sx,
+      y: (evt.clientY - rect.top) * sy,
+    };
+  }
+
+  function pickHexAt(px, py) {
+    let best = null;
+    let bestD = HEX_R * 1.15;
+    for (let row = 0; row < GRID; row++) {
+      for (let col = 0; col < GRID; col++) {
+        const c = hexCenter(col, row);
+        const d = Math.hypot(c.x - px, c.y - py);
+        if (d < bestD) {
+          bestD = d;
+          best = { x: col, y: row };
+        }
+      }
+    }
+    return best;
+  }
+
+  function showVaultAlert() {
+    const el = $("vaultAlert");
+    el.classList.add("show");
+    clearTimeout(showVaultAlert._t);
+    showVaultAlert._t = setTimeout(() => el.classList.remove("show"), 5500);
+  }
+
+  function hideVaultAlert() {
+    $("vaultAlert").classList.remove("show");
   }
 
   function hexPath(cx, cy, r) {
@@ -630,9 +827,19 @@
   }
 
   function refreshLink() {
-    state.linked = state.incoOn && state.baseOn;
-    $("lock").classList.toggle("hidden", state.linked);
-    state.phase = state.linked ? "ACTIVE" : (state.incoOn || state.baseOn ? "PARTIAL" : "LOCKED");
+    // Dual-net link upgrades demo → live; never re-lock gameplay
+    if (state.incoOn && state.baseOn) {
+      state.linked = true;
+      state.demoMode = false;
+      state.phase = "ACTIVE";
+      $("demoBadge").classList.add("hidden");
+    } else if (state.demoMode) {
+      state.phase = "DEMO";
+      $("demoBadge").classList.remove("hidden");
+    } else {
+      state.phase = state.incoOn || state.baseOn ? "PARTIAL" : "DEMO";
+    }
+    $("lock").classList.add("hidden");
     $("phaseLabel").textContent = state.phase;
 
     const incoLine = $("hudIncoLine");
@@ -640,9 +847,9 @@
     const phaseLine = $("hudPhaseLine");
     incoLine.classList.toggle("on", state.incoOn);
     baseLine.classList.toggle("on", state.baseOn);
-    phaseLine.classList.toggle("on", state.linked);
-    incoLine.innerHTML = `<span class="lamp"></span> Inco FHE — ${state.incoOn ? "LIVE" : "offline"}`;
-    baseLine.innerHTML = `<span class="lamp"></span> Base Sepolia — ${state.baseOn ? "LIVE" : "offline"}`;
+    phaseLine.classList.toggle("on", playActive());
+    incoLine.innerHTML = `<span class="lamp"></span> Inco FHE — ${state.incoOn ? "LIVE" : (state.demoMode ? "SIM" : "offline")}`;
+    baseLine.innerHTML = `<span class="lamp"></span> Base Sepolia — ${state.baseOn ? "LIVE" : (state.demoMode ? "SIM" : "offline")}`;
     updateHUD();
   }
 
@@ -657,6 +864,10 @@
   }
 
   async function commitMove(x, y) {
+    if (!window.ethers || state.demoMode) {
+      pushTicker(`Demo commitMove (${x},${y}) · local FHE sim`);
+      return null;
+    }
     const salt = saltBytes();
     const packed = ethers.solidityPacked(["uint8", "uint8", "bytes32"], [x, y, salt]);
     const hash = ethers.keccak256(packed);
@@ -689,10 +900,18 @@
   }
 
   function tryMove(dx, dy) {
-    if (!state.linked) return;
+    if (!playActive()) return;
     const nx = state.player.x + dx;
     const ny = state.player.y + dy;
     if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) return;
+    moveTo(nx, ny);
+  }
+
+  function moveTo(nx, ny) {
+    if (!playActive()) return false;
+    if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) return false;
+    const dx = nx - state.player.x;
+    const dy = ny - state.player.y;
     if (dx || dy) state.player.facing = Math.atan2(dy, dx);
     state.player.x = nx;
     state.player.y = ny;
@@ -701,6 +920,20 @@
     checkVaultProximity();
     updateBotReveal();
     updateHUD();
+    return true;
+  }
+
+  function tryMoveToHex(tx, ty) {
+    if (!playActive()) return;
+    const dx = tx - state.player.x;
+    const dy = ty - state.player.y;
+    // Adjacent only (Chebyshev ≤ 1), not self
+    if (dx === 0 && dy === 0) return;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > 1) {
+      toast("Click an adjacent hex to move");
+      return;
+    }
+    moveTo(tx, ty);
   }
 
   function checkVaultProximity() {
@@ -709,7 +942,8 @@
       if (v.x === state.player.x && v.y === state.player.y) {
         v.pending = true;
         pushTicker(`Decryption verified — Megapot Vault #${v.id} revealed`);
-        toast(`Vault #${v.id} locked — press Space to claim`);
+        showVaultAlert();
+        toast(`Vault #${v.id} — press Space to claim`);
       }
     }
   }
@@ -723,7 +957,7 @@
   }
 
   function launchDuel() {
-    if (!state.linked) { toast("Link dual network first"); return; }
+    if (!playActive()) { toast("Sector not ready"); return; }
     state.duelFlash = 1;
     pushTicker("Bot duel initiated — stake escrow check on Base");
     if (!state.bot.alive) { toast("Bot already defeated"); return; }
@@ -749,7 +983,7 @@
   }
 
   function startStakeMatch() {
-    if (!state.linked) { toast("Link dual network first"); return; }
+    if (!playActive()) { toast("Sector not ready"); return; }
     if (state.stakeStatus === "IDLE") {
       state.stakeStatus = "POOLED";
       $("statStake").textContent = "POOLED";
@@ -769,7 +1003,7 @@
   }
 
   function claimVault() {
-    if (!state.linked) return;
+    if (!playActive()) return;
     let v = state.vaults.find(x => x.pending && !x.looted);
     if (!v) {
       const under = state.vaults.find(x => !x.looted && x.x === state.player.x && x.y === state.player.y);
@@ -779,6 +1013,7 @@
     }
     v.looted = true;
     v.pending = false;
+    hideVaultAlert();
     mintTicket({ source: "veil-war:vault", reason: `Vault #${v.id}` });
     pushTicker(`VaultLooted #${v.id} · Cross-chaining ticket claim to Base…`);
     toast(`Vault #${v.id} claimed`);
@@ -815,7 +1050,7 @@
   }
 
   function updateHUD() {
-    $("hudPos").textContent = state.linked ? `${state.player.x}, ${state.player.y}` : "—, —";
+    $("hudPos").textContent = playActive() ? `${state.player.x}, ${state.player.y}` : "—, —";
     $("hudVis").textContent = `r=${state.vision}`;
     const looted = state.vaults.filter(v => v.looted).length;
     $("hudVaults").textContent = `${looted}/${state.vaults.length}`;
@@ -841,7 +1076,7 @@
   function drawTerrainHex(col, row, t) {
     const { x, y } = hexCenter(col, row);
     const explored = state.explored.has(`${col},${row}`);
-    const vis = state.linked && inVision({ x: col, y: row });
+    const vis = playActive() && inVision({ x: col, y: row });
     const n = state.fogNoise[row * GRID + col];
     const pulse = 0.5 + 0.5 * Math.sin(t * 0.002 + state.noiseField[row * GRID + col]);
 
@@ -1061,7 +1296,7 @@
     ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
     for (let row = 0; row < GRID; row++) {
       for (let col = 0; col < GRID; col++) {
-        if (state.explored.has(`${col},${row}`) && state.linked) continue;
+        if (state.explored.has(`${col},${row}`) && playActive()) continue;
         const { x, y } = hexCenter(col, row);
         const wobble = Math.sin(t * 0.002 + col + row) * 2;
         hexPath(x + wobble * 0.3, y, HEX_R + 2);
@@ -1213,9 +1448,8 @@
       ctx.fillRect(gx, gy, 1.5, 1.5);
     }
 
-    if (!state.linked) {
+    if (!playActive()) {
       drawLockedRadar(t);
-      // Particles still
       updateParticles();
       requestAnimationFrame(draw);
       return;
@@ -1225,6 +1459,22 @@
     for (let row = 0; row < GRID; row++) {
       for (let col = 0; col < GRID; col++) {
         drawTerrainHex(col, row, t);
+      }
+    }
+
+    // Hover highlight for adjacent move target
+    if (state.hoverHex) {
+      const hx = state.hoverHex.x;
+      const hy = state.hoverHex.y;
+      const adj = Math.max(Math.abs(hx - state.player.x), Math.abs(hy - state.player.y)) === 1;
+      if (adj) {
+        const c = hexCenter(hx, hy);
+        hexPath(c.x, c.y, HEX_R - 0.5);
+        ctx.strokeStyle = "rgba(92, 225, 255, 0.75)";
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+        ctx.fillStyle = "rgba(92, 225, 255, 0.1)";
+        ctx.fill();
       }
     }
 
@@ -1277,13 +1527,31 @@
   // —— Input ——
   window.addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
-    if (["w", "a", "s", "d", " ", "r"].includes(k) || e.code === "Space") e.preventDefault();
+    const code = e.code;
+    if (["w", "a", "s", "d", " ", "r", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k) || code === "Space") {
+      e.preventDefault();
+    }
     state.keys[k] = true;
+    if (code.startsWith("Arrow")) state.keys[code.toLowerCase()] = true;
     if (k === "r") launchDuel();
-    if (e.code === "Space" || k === " ") claimVault();
+    if (code === "Space" || k === " ") claimVault();
   });
   window.addEventListener("keyup", (e) => {
     state.keys[e.key.toLowerCase()] = false;
+    if (e.code.startsWith("Arrow")) state.keys[e.code.toLowerCase()] = false;
+  });
+
+  canvas.addEventListener("mousemove", (e) => {
+    if (!playActive()) { state.hoverHex = null; return; }
+    const p = canvasToLocal(e);
+    state.hoverHex = pickHexAt(p.x, p.y);
+  });
+  canvas.addEventListener("mouseleave", () => { state.hoverHex = null; });
+  canvas.addEventListener("click", (e) => {
+    if (!playActive()) return;
+    const p = canvasToLocal(e);
+    const hex = pickHexAt(p.x, p.y);
+    if (hex) tryMoveToHex(hex.x, hex.y);
   });
 
   let moveAcc = 0;
@@ -1292,13 +1560,13 @@
     const dt = ts - tick.last;
     tick.last = ts;
     moveAcc += dt;
-    if (moveAcc > 110 && state.linked) {
+    if (moveAcc > 110 && playActive()) {
       moveAcc = 0;
       let dx = 0, dy = 0;
-      if (state.keys["w"]) dy = -1;
-      if (state.keys["s"]) dy = 1;
-      if (state.keys["a"]) dx = -1;
-      if (state.keys["d"]) dx = 1;
+      if (state.keys["w"] || state.keys["arrowup"]) dy = -1;
+      if (state.keys["s"] || state.keys["arrowdown"]) dy = 1;
+      if (state.keys["a"] || state.keys["arrowleft"]) dx = -1;
+      if (state.keys["d"] || state.keys["arrowright"]) dx = 1;
       if (dx || dy) tryMove(dx, dy);
     }
     requestAnimationFrame(tick);
@@ -1311,6 +1579,8 @@
   $("btnDuel").addEventListener("click", () => launchDuel());
   $("btnStake").addEventListener("click", () => startStakeMatch());
   $("btnClaim").addEventListener("click", () => claimVault());
+  $("howtoDismiss").addEventListener("click", () => $("howto").classList.add("hidden"));
+  $("vaultAlert").addEventListener("click", () => claimVault());
 
   setInterval(async () => {
     if (!state.provider || !state.baseOn) return;
@@ -1321,7 +1591,7 @@
   }, 12000);
 
   setInterval(() => {
-    if (!state.linked) return;
+    if (!playActive()) return;
     const msgs = [
       "FHE gatekeeper heartbeat — euint256 handles intact",
       "Megapot odds oracle refreshed from Base Sepolia",
@@ -1331,7 +1601,10 @@
     pushTicker(msgs[Math.floor(Math.random() * msgs.length)]);
   }, 14000);
 
+  // —— Boot into demo immediately ——
   markExplored();
+  refreshLink();
+  pushTicker("Demo mode armed — map live without wallet (Link Dual Net to go on-chain)");
   renderTickets();
   updateHUD();
   requestAnimationFrame(draw);
