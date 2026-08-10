@@ -418,11 +418,11 @@
     #threats { position: absolute; inset: 0; z-index: 8; pointer-events: none; overflow: hidden; }
     .threat-ptr {
       position: absolute; width: 0; height: 0;
-      border-left: 9px solid transparent;
-      border-right: 9px solid transparent;
-      border-bottom: 16px solid #ff3355;
-      filter: drop-shadow(0 0 6px #ff3355) drop-shadow(0 0 14px rgba(255, 40, 70, 0.85));
-      animation: threatBlink 0.55s ease-in-out infinite;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-bottom: 26px solid #ff2244;
+      filter: drop-shadow(0 0 10px #ff2244) drop-shadow(0 0 22px rgba(255, 40, 70, 1));
+      animation: threatBlink 0.4s ease-in-out infinite;
     }
     .threat-ptr.boss {
       border-left-width: 11px; border-right-width: 11px; border-bottom-width: 20px;
@@ -533,27 +533,28 @@
     }
 
     .target-bracket {
-      position: absolute; width: 34px; height: 34px;
-      margin: -17px 0 0 -17px; pointer-events: none;
-      border: 2px solid #ff3355;
+      position: absolute; width: 56px; height: 56px;
+      margin-left: -28px; margin-top: -28px;
+      border: 2px solid #ff2244;
+      box-shadow: 0 0 16px rgba(255, 34, 68, 0.95), inset 0 0 12px rgba(255, 40, 70, 0.35);
       transform: rotate(45deg);
-      box-shadow: 0 0 12px rgba(255, 40, 70, 0.85), inset 0 0 8px rgba(255, 50, 80, 0.25);
-      animation: bracketPulse 0.7s ease-in-out infinite;
+      pointer-events: none;
+      animation: bracketPulse 0.45s ease-in-out infinite;
     }
     .target-bracket.boss {
-      width: 52px; height: 52px; margin: -26px 0 0 -26px;
+      width: 78px; height: 78px; margin-left: -39px; margin-top: -39px;
       border-color: #ffc857;
-      box-shadow: 0 0 16px rgba(255, 200, 87, 0.9);
+      box-shadow: 0 0 20px rgba(255, 200, 87, 0.95);
     }
     .target-bracket .tag {
-      position: absolute; left: 50%; top: 110%;
+      position: absolute; left: 50%; bottom: -18px;
       transform: translateX(-50%) rotate(-45deg);
-      font-family: var(--mono); font-size: 0.55rem; color: #ff6b8a;
-      text-shadow: 0 0 6px #000; white-space: nowrap;
+      font-family: var(--mono); font-size: 0.55rem; color: #ff6a7a;
+      text-shadow: 0 0 8px #000; white-space: nowrap;
     }
     .target-bracket.boss .tag { color: #ffc857; }
     @keyframes bracketPulse {
-      50% { box-shadow: 0 0 20px rgba(255, 80, 100, 1); }
+      50% { box-shadow: 0 0 28px rgba(255, 34, 68, 1); border-color: #ff5577; }
     }
 
     .brief, .endcard {
@@ -742,7 +743,7 @@ const CHIPS_PER_TICKET = 3;
 const BASE_SPEED = 234;
 const BOOST_SPEED = 336;
 const BRAKE_SPEED = 126;
-const KILL_PTS = 500;
+const KILL_PTS = 200;
 const BOSS_KILL_PTS = 2500;
 const GUN_HEAT_PER_SHOT = 0.085;
 const GUN_COOL_RATE = 0.32;
@@ -750,19 +751,20 @@ const GUN_OVERHEAT_COOL = 0.48;
 const WAVE_DEFS = [
   {
     id: 1, name: "LEVEL 1 — SCOUT PATROL",
-    count: 5, interval: 850, speed: 225, hp: 20, vaults: 3,
+    active: 4, killTarget: 8, interval: 400, speed: 240, hp: 20, vaults: 3,
     blurb: "LEVEL 1: SCOUT PATROL ENGAGING — REMAINING VAULTS: 3",
   },
   {
     id: 2, name: "LEVEL 2 — BOMBER ESCORT",
-    count: 8, interval: 650, speed: 248, hp: 28, vaults: 2,
+    active: 8, killTarget: 14, interval: 320, speed: 265, hp: 28, vaults: 2,
     blurb: "LEVEL 2: BOMBER ESCORT ENGAGING — REMAINING VAULTS: 2",
   },
 ];
 const BOSS_HP = 180;
 const MG_DMG = 2; // Twin MGs clear a scout in ~1s sustained fire
-const STORM_BG = 0x0a1220;
-const STORM_FOG = 0x0d1528;
+const STORM_BG = 0x0a1628;
+const STORM_FOG = 0x0c1a30;
+const SEA_DEEP = 0x0f2b5c;
 const BOSS_LEVEL_BLURB = "LEVEL 3: BOSS DUEL — MEGAPOT FLAGSHIP ONLINE";
 
 const $ = (id) => document.getElementById(id);
@@ -790,7 +792,7 @@ renderer.toneMappingExposure = 1.05;
 renderer.setClearColor(STORM_BG, 1);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(STORM_FOG, 0.0018);
+scene.fog = new THREE.FogExp2(STORM_FOG, 0.00135);
 scene.background = new THREE.Color(STORM_BG);
 
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.5, 8000);
@@ -876,40 +878,45 @@ function makeCloudTexture() {
 const cloudTex = makeCloudTexture();
 const clouds = [];
 (function buildClouds() {
+  // Fluffy white volumetric cloud fields — plane slices through them
   const mat = new THREE.SpriteMaterial({
-    map: cloudTex, color: 0x3a4050, transparent: true, opacity: 0.55,
+    map: cloudTex, color: 0xffffff, transparent: true, opacity: 0.55,
     depthWrite: false, fog: true,
   });
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 110; i++) {
     const cluster = new THREE.Group();
-    const n = 5 + (i % 5);
+    const n = 7 + (i % 6);
     for (let j = 0; j < n; j++) {
       const spr = new THREE.Sprite(mat.clone());
-      const s = 60 + Math.random() * 140;
-      spr.scale.set(s, s * 0.45, 1);
-      spr.material.color.setHex(Math.random() < 0.5 ? 0x2a303c : 0x4a5568);
-      spr.material.opacity = 0.25 + Math.random() * 0.4;
-      spr.position.set((Math.random() - 0.5) * 120, (Math.random() - 0.5) * 28, (Math.random() - 0.5) * 80);
+      const s = 70 + Math.random() * 160;
+      spr.scale.set(s, s * 0.55, 1);
+      spr.material.color.setHex(Math.random() < 0.35 ? 0xe8f0ff : 0xffffff);
+      spr.material.opacity = 0.28 + Math.random() * 0.42;
+      spr.position.set(
+        (Math.random() - 0.5) * 140,
+        (Math.random() - 0.5) * 36,
+        (Math.random() - 0.5) * 100
+      );
       cluster.add(spr);
     }
     cluster.position.set(
-      (Math.random() - 0.5) * 2800,
-      70 + Math.random() * 180,
-      (Math.random() - 0.5) * 2800
+      (Math.random() - 0.5) * 3000,
+      55 + Math.random() * 200,
+      (Math.random() - 0.5) * 3000
     );
     scene.add(cluster);
-    // Fast-drifting storm banks
-    clouds.push({ mesh: cluster, speed: 28 + Math.random() * 55 });
+    clouds.push({ mesh: cluster, speed: 45 + Math.random() * 85 });
   }
 })();
 
-/* Endless ocean — muted grey-green under fog */
+/* Endless deep-blue sea with rushing wave grid */
 const oceanUniforms = {
   uTime: { value: 0 },
-  uDeep: { value: new THREE.Color(0x3a4548) },
-  uShallow: { value: new THREE.Color(0x5a6868) },
-  uSpec: { value: new THREE.Color(0xc8c4b8) },
+  uDeep: { value: new THREE.Color(SEA_DEEP) },
+  uShallow: { value: new THREE.Color(0x1a4a8a) },
+  uSpec: { value: new THREE.Color(0xb8d8ff) },
   uSun: { value: sun.position.clone().normalize() },
+  uRush: { value: 1.0 },
 };
 const oceanMat = new THREE.ShaderMaterial({
   uniforms: oceanUniforms,
@@ -924,10 +931,10 @@ const oceanMat = new THREE.ShaderMaterial({
     void main(){
       vUv = uv;
       vec3 p = position;
-      float w = sin(p.x * 0.022 + uTime * 1.15) * 2.4
-              + cos(p.y * 0.017 - uTime * 0.95) * 1.8
-              + sin((p.x + p.y) * 0.012 + uTime * 0.7) * 1.1
-              + sin(p.x * 0.045 - uTime * 1.8) * 0.55;
+      float w = sin(p.x * 0.028 + uTime * 1.6) * 3.2
+              + cos(p.y * 0.021 - uTime * 1.25) * 2.4
+              + sin((p.x + p.y) * 0.014 + uTime * 0.95) * 1.5
+              + sin(p.x * 0.055 - uTime * 2.4) * 0.85;
       p.z += w;
       vWave = w;
       vec4 world = modelMatrix * vec4(p, 1.0);
@@ -941,76 +948,87 @@ const oceanMat = new THREE.ShaderMaterial({
     varying vec3 vWorld;
     varying float vWave;
     void main(){
-      float fres = pow(1.0 - abs(normalize(cameraPosition - vWorld).y), 2.0);
-      vec3 col = mix(uDeep, uShallow, 0.32 + vWave * 0.06 + fres * 0.28);
-      // Glowing translucent perspective grid
-      vec2 g = fract(vWorld.xz * 0.012 - vec2(uTime * 0.06, uTime * 0.04));
+      float fres = pow(1.0 - abs(normalize(cameraPosition - vWorld).y), 2.2);
+      vec3 col = mix(uDeep, uShallow, 0.22 + vWave * 0.05 + fres * 0.35);
+      // Velocity rush grid streaming under the airframe
+      vec2 g = fract(vWorld.xz * 0.014 - vec2(uTime * 0.55, uTime * 0.38));
       float gx = abs(g.x - 0.5);
       float gz = abs(g.y - 0.5);
-      float line = smoothstep(0.032, 0.0, gx - 0.465) + smoothstep(0.032, 0.0, gz - 0.465);
-      col += vec3(0.45, 0.5, 0.48) * line * (0.18 + 0.1 * sin(uTime * 1.2 + vWorld.x * 0.02));
-      float spec = pow(max(0.0, dot(normalize(vec3(vWave * 0.12, 1.0, vWave * 0.08)), normalize(uSun))), 40.0);
-      col += uSpec * spec * 0.35;
-      float alpha = 0.82 + line * 0.08 + fres * 0.06;
-      gl_FragColor = vec4(col, clamp(alpha, 0.7, 0.95));
+      float line = smoothstep(0.028, 0.0, gx - 0.472) + smoothstep(0.028, 0.0, gz - 0.472);
+      col += vec3(0.35, 0.65, 1.0) * line * (0.22 + 0.12 * sin(uTime * 2.0 + vWorld.x * 0.03));
+      float spec = pow(max(0.0, dot(normalize(vec3(vWave * 0.14, 1.0, vWave * 0.1)), normalize(uSun))), 48.0);
+      col += uSpec * spec * 0.45;
+      float alpha = 0.9 + line * 0.06 + fres * 0.05;
+      gl_FragColor = vec4(col, clamp(alpha, 0.82, 0.98));
     }`,
 });
-const ocean = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000, 128, 128), oceanMat);
+const ocean = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000, 160, 160), oceanMat);
 ocean.rotation.x = -Math.PI / 2;
+ocean.position.y = 0;
 scene.add(ocean);
 
-/* —— Storm rain (thousands of falling streaks) —— */
-const RAIN_COUNT = 3200;
+/* —— Thick driving rain curtain (4x density) —— */
+const RAIN_COUNT = 12800;
 const rainPositions = new Float32Array(RAIN_COUNT * 6);
 const rainVel = new Float32Array(RAIN_COUNT);
 for (let i = 0; i < RAIN_COUNT; i++) {
   const i6 = i * 6;
-  rainPositions[i6] = (Math.random() - 0.5) * 420;
-  rainPositions[i6 + 1] = Math.random() * 280;
-  rainPositions[i6 + 2] = (Math.random() - 0.5) * 420;
-  const len = 2.5 + Math.random() * 5.5;
-  rainPositions[i6 + 3] = rainPositions[i6];
+  rainPositions[i6] = (Math.random() - 0.5) * 460;
+  rainPositions[i6 + 1] = Math.random() * 300;
+  rainPositions[i6 + 2] = (Math.random() - 0.5) * 460;
+  const len = 6 + Math.random() * 12;
+  // Angled backward streaks (windshield rush)
+  const back = 1.8 + Math.random() * 2.5;
+  rainPositions[i6 + 3] = rainPositions[i6] + back * 0.35;
   rainPositions[i6 + 4] = rainPositions[i6 + 1] - len;
-  rainPositions[i6 + 5] = rainPositions[i6 + 2];
-  rainVel[i] = 55 + Math.random() * 90;
+  rainPositions[i6 + 5] = rainPositions[i6 + 2] + back;
+  rainVel[i] = 95 + Math.random() * 140;
 }
 const rainGeo = new THREE.BufferGeometry();
 rainGeo.setAttribute("position", new THREE.BufferAttribute(rainPositions, 3));
 const rainMat = new THREE.LineBasicMaterial({
-  color: 0xa8b0bc,
+  color: 0xffffff,
   transparent: true,
-  opacity: 0.28,
+  opacity: 0.42,
   depthWrite: false,
 });
 const rainLines = new THREE.LineSegments(rainGeo, rainMat);
 scene.add(rainLines);
+// Second pass for thicker curtain look
+const rainMat2 = new THREE.LineBasicMaterial({
+  color: 0xd8e8ff, transparent: true, opacity: 0.22, depthWrite: false,
+});
+const rainLines2 = new THREE.LineSegments(rainGeo, rainMat2);
+scene.add(rainLines2);
 
 function updateRain(dt) {
   const pos = rainGeo.attributes.position.array;
   const origin = player.mesh.position;
   const fwd = getPlayerForward(new THREE.Vector3());
-  const drift = player.speed * 0.4;
+  const drift = player.speed * 0.65;
   for (let i = 0; i < RAIN_COUNT; i++) {
     const i6 = i * 6;
     const fall = rainVel[i] * dt;
     pos[i6 + 1] -= fall;
     pos[i6 + 4] -= fall;
-    // Drift streaks aft relative to flight (local to rain volume)
-    pos[i6] -= fwd.x * drift * dt;
-    pos[i6 + 2] -= fwd.z * drift * dt;
-    pos[i6 + 3] -= fwd.x * drift * dt;
-    pos[i6 + 5] -= fwd.z * drift * dt;
+    // Rush streaks aft / angled through the canopy
+    pos[i6] -= fwd.x * drift * dt + 18 * dt;
+    pos[i6 + 2] -= fwd.z * drift * dt + 42 * dt;
+    pos[i6 + 3] -= fwd.x * drift * dt + 18 * dt;
+    pos[i6 + 5] -= fwd.z * drift * dt + 42 * dt;
 
-    if (pos[i6 + 1] < -30 || Math.abs(pos[i6]) > 240 || Math.abs(pos[i6 + 2]) > 240) {
-      const nx = (Math.random() - 0.5) * 400;
-      const ny = 60 + Math.random() * 200;
-      const nz = (Math.random() - 0.5) * 400;
-      const len = 2.5 + Math.random() * 5.5;
+    if (pos[i6 + 1] < -40 || Math.abs(pos[i6]) > 260 || Math.abs(pos[i6 + 2]) > 260) {
+      const nx = (Math.random() - 0.5) * 440;
+      const ny = 50 + Math.random() * 220;
+      const nz = (Math.random() - 0.5) * 440;
+      const len = 6 + Math.random() * 12;
+      const back = 1.8 + Math.random() * 2.5;
       pos[i6] = nx; pos[i6 + 1] = ny; pos[i6 + 2] = nz;
-      pos[i6 + 3] = nx; pos[i6 + 4] = ny - len; pos[i6 + 5] = nz;
+      pos[i6 + 3] = nx + back * 0.35; pos[i6 + 4] = ny - len; pos[i6 + 5] = nz + back;
     }
   }
-  rainLines.position.set(origin.x, origin.y - 40, origin.z);
+  rainLines.position.set(origin.x, origin.y - 35, origin.z);
+  rainLines2.position.copy(rainLines.position);
   rainGeo.attributes.position.needsUpdate = true;
 }
 
@@ -1058,29 +1076,58 @@ function clearLightningBolts() {
 }
 
 function triggerLightning() {
-  // Blinding white flash — unmistakable battlefield thunder
-  ambientLight.intensity = 10.0;
-  hemiLight.intensity = 3.5;
-  sun.intensity = 6.0;
-  scene.background.setHex(0xffffff);
-  renderer.setClearColor(0xffffff, 1);
-  G.lightningFrames = 3;
-  camShake.t = Math.max(camShake.t, 0.55);
+  // Strobe sequence: 3 white-sheet flashes within ~150ms
+  G.strobe = { t: 0, active: true };
+  camShake.t = Math.max(camShake.t, 0.6);
   clearLightningBolts();
   spawnLightningBolt();
-  if (Math.random() < 0.65) spawnLightningBolt();
+  if (Math.random() < 0.7) spawnLightningBolt();
+  pushTicker("CRITICAL: Heavy jamming detected. Inco FHE decryption uncovering enemy positions…", true);
+}
+
+function applyStrobeFrame(on) {
+  if (on) {
+    ambientLight.intensity = 5.0;
+    hemiLight.intensity = 2.8;
+    sun.intensity = 4.5;
+    scene.background.setHex(0xffffff);
+    scene.fog.color.setHex(0xffffff);
+    renderer.setClearColor(0xffffff, 1);
+    oceanUniforms.uDeep.value.setHex(0xffffff);
+    oceanUniforms.uShallow.value.setHex(0xe8f0ff);
+  } else {
+    ambientLight.intensity = 0.2;
+    hemiLight.intensity = 0.15;
+    sun.intensity = 0.25;
+    scene.background.setHex(0x02060e);
+    scene.fog.color.setHex(0x02060e);
+    renderer.setClearColor(0x02060e, 1);
+  }
+}
+
+function restoreStormLook() {
+  ambientLight.intensity = 0.55;
+  hemiLight.intensity = 0.55;
+  sun.intensity = 1.15;
+  scene.background.setHex(STORM_BG);
+  scene.fog.color.setHex(STORM_FOG);
+  renderer.setClearColor(STORM_BG, 1);
+  oceanUniforms.uDeep.value.setHex(SEA_DEEP);
+  oceanUniforms.uShallow.value.setHex(0x1a4a8a);
+  clearLightningBolts();
 }
 
 function updateThunder(dt) {
-  if (G.lightningFrames > 0) {
-    G.lightningFrames--;
-    if (G.lightningFrames <= 0) {
-      ambientLight.intensity = 0.55;
-      hemiLight.intensity = 0.55;
-      sun.intensity = 1.15;
-      scene.background.setHex(STORM_BG);
-      renderer.setClearColor(STORM_BG, 1);
-      clearLightningBolts();
+  if (G.strobe && G.strobe.active) {
+    G.strobe.t += dt;
+    const t = G.strobe.t;
+    if (t >= 0.15) {
+      G.strobe.active = false;
+      restoreStormLook();
+    } else {
+      // 3 on/off pairs across 150ms (~25ms each half)
+      const step = Math.floor(t / 0.025);
+      applyStrobeFrame((step % 2) === 0);
     }
   }
   if (!G.running || G.paused) return;
@@ -1106,6 +1153,159 @@ function updateThunder(dt) {
     scene.add(isle);
   }
 })();
+
+/** Massive naval capital ship — layered metallic hull + turrets */
+function makeBattleship(carrier) {
+  const g = new THREE.Group();
+  const hull = new THREE.MeshStandardMaterial({
+    color: 0x3a4550, metalness: 0.72, roughness: 0.38, emissive: 0x101820, emissiveIntensity: 0.25,
+  });
+  const deck = new THREE.MeshStandardMaterial({
+    color: 0x4a5560, metalness: 0.55, roughness: 0.5, emissive: 0x151c24, emissiveIntensity: 0.2,
+  });
+  const accent = new THREE.MeshStandardMaterial({
+    color: 0x2a3038, metalness: 0.65, roughness: 0.4, emissive: 0xff4422, emissiveIntensity: 0.35,
+  });
+
+  const len = carrier ? 220 : 160;
+  const beam = carrier ? 42 : 28;
+  const keel = new THREE.Mesh(new THREE.BoxGeometry(len, 14, beam), hull);
+  keel.position.y = 8;
+  g.add(keel);
+  const upper = new THREE.Mesh(new THREE.BoxGeometry(len * 0.88, 8, beam * 0.82), deck);
+  upper.position.y = 18;
+  g.add(upper);
+  if (carrier) {
+    const flight = new THREE.Mesh(new THREE.BoxGeometry(len * 0.95, 2.5, beam * 1.15), deck);
+    flight.position.y = 23;
+    g.add(flight);
+    const island = new THREE.Mesh(new THREE.BoxGeometry(28, 22, 16), hull);
+    island.position.set(20, 34, -beam * 0.35);
+    g.add(island);
+    const stack = new THREE.Mesh(new THREE.CylinderGeometry(4, 5, 18, 8), accent);
+    stack.position.set(12, 46, -beam * 0.35);
+    g.add(stack);
+  } else {
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(22, 16, 14), hull);
+    bridge.position.set(10, 30, 0);
+    g.add(bridge);
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(3, 28, 3), accent);
+    mast.position.set(8, 48, 0);
+    g.add(mast);
+  }
+
+  const gunMat = new THREE.MeshStandardMaterial({
+    color: 0x2e343c, metalness: 0.7, roughness: 0.35, emissive: 0xffaa22, emissiveIntensity: 0.4,
+  });
+  [[-len * 0.28, 22, 0], [len * 0.18, 22, 0], [len * 0.32, 20, 0]].forEach(([x, y, z], i) => {
+    if (!carrier && i > 1) return;
+    const tur = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(6, 7, 5, 10), gunMat);
+    tur.add(base);
+    [-1, 1].forEach((s) => {
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 22, 6), gunMat);
+      barrel.rotation.z = Math.PI / 2;
+      barrel.position.set(12, 1.5, s * 2.2);
+      tur.add(barrel);
+    });
+    tur.position.set(x, y, z);
+    g.add(tur);
+  });
+
+  // Bow wake glow
+  const bow = new THREE.Mesh(
+    new THREE.ConeGeometry(beam * 0.35, 28, 6),
+    hull
+  );
+  bow.rotation.z = -Math.PI / 2;
+  bow.position.set(len * 0.5 + 8, 10, 0);
+  g.add(bow);
+
+  g.scale.setScalar(carrier ? 1.15 : 0.95);
+  return g;
+}
+
+const fleet = [];
+(function buildNavalFleet() {
+  const ships = [
+    { carrier: true, x: 180, z: -320, heading: 0.2 },
+    { carrier: false, x: -260, z: 140, heading: -0.4 },
+    { carrier: false, x: 420, z: 380, heading: 1.1 },
+  ];
+  for (const s of ships) {
+    const mesh = makeBattleship(s.carrier);
+    mesh.position.set(s.x, 0, s.z);
+    mesh.rotation.y = s.heading;
+    scene.add(mesh);
+    fleet.push({
+      mesh,
+      speed: 18 + Math.random() * 10,
+      heading: s.heading,
+      carrier: s.carrier,
+      alive: true,
+    });
+  }
+})();
+
+function updateFleet(dt) {
+  const px = player.mesh.position.x;
+  const pz = player.mesh.position.z;
+  for (const ship of fleet) {
+    if (!ship.alive) continue;
+    ship.mesh.position.x += Math.sin(ship.heading) * ship.speed * dt;
+    ship.mesh.position.z += Math.cos(ship.heading) * ship.speed * dt;
+    ship.mesh.rotation.y = ship.heading;
+    // Soft bob on the swell
+    ship.mesh.position.y = Math.sin(G.t * 1.4 + ship.heading * 3) * 1.2;
+    // Keep fleet near the combat theater
+    const dx = ship.mesh.position.x - px;
+    const dz = ship.mesh.position.z - pz;
+    if (dx * dx + dz * dz > 2200 * 2200) {
+      ship.mesh.position.x = px + (Math.random() - 0.5) * 900;
+      ship.mesh.position.z = pz + 400 + Math.random() * 700;
+      ship.heading = Math.atan2(
+        Math.sin(player.yaw + Math.PI) + (Math.random() - 0.5) * 0.4,
+        Math.cos(player.yaw + Math.PI) + (Math.random() - 0.5) * 0.4
+      );
+    }
+  }
+}
+
+function destroyNavalFleet() {
+  for (const ship of fleet) {
+    if (!ship.alive) continue;
+    ship.alive = false;
+    explode(ship.mesh.position.clone().add(new THREE.Vector3(0, 20, 0)), 5, true);
+    explode(ship.mesh.position.clone().add(new THREE.Vector3(40, 18, 0)), 3, true);
+    scene.remove(ship.mesh);
+  }
+  showPop("SURFACE FLEET DESTROYED");
+}
+
+function respawnNavalFleet() {
+  for (const ship of fleet) {
+    if (ship.mesh.parent) scene.remove(ship.mesh);
+  }
+  fleet.length = 0;
+  const ships = [
+    { carrier: true, x: 180, z: -320, heading: 0.2 },
+    { carrier: false, x: -260, z: 140, heading: -0.4 },
+    { carrier: false, x: 420, z: 380, heading: 1.1 },
+  ];
+  for (const s of ships) {
+    const mesh = makeBattleship(s.carrier);
+    mesh.position.set(s.x, 0, s.z);
+    mesh.rotation.y = s.heading;
+    scene.add(mesh);
+    fleet.push({
+      mesh,
+      speed: 18 + Math.random() * 10,
+      heading: s.heading,
+      carrier: s.carrier,
+      alive: true,
+    });
+  }
+}
 
 function makeJet(scheme) {
   // Single parent group — all parts roll/pitch together via mesh.quaternion
@@ -1793,6 +1993,7 @@ const G = {
   overheated: false,
   thunderT: 6,
   lightningFrames: 0,
+  strobe: null,
   boltLines: [],
   tickerLines: [],
   tickerAcc: 0,
@@ -1982,7 +2183,7 @@ function awardKill(worldPos, pts, ticketAmt) {
 /* —— Combat entities —— */
 function spawnEnemy(opts) {
   // Spawn just outside FHE veil so chase quickly reveals them in the sky
-  const p = spawnAwayFromPlayer(130, 195, true);
+  const p = spawnAwayFromPlayer(80, 140, true);
   const reinforced = !!(opts && opts.reinforced);
   const mesh = makeEnemyCraft(reinforced);
   mesh.position.set(p.x, p.y, p.z);
@@ -2005,9 +2206,9 @@ function spawnEnemy(opts) {
     orbitSide: side,
     passDir: null,
     reinforced,
-    revealed: false,
+    revealed: true,
   });
-  mesh.visible = false;
+  mesh.visible = true;
 }
 
 function spawnBoss() {
@@ -2022,9 +2223,9 @@ function spawnBoss() {
   G.boss = {
     mesh, hp: BOSS_HP, maxHp: BOSS_HP, speed: 220, fireCD: 0, turretCD: 0,
     mode: "chase", phaseT: 0, peelSide: 1, orbitSide: 1, passDir: null,
-    revealed: false,
+    revealed: true,
   };
-  mesh.visible = false;
+  mesh.visible = true;
   pushTicker("Fetching encrypted Flagship vector from Inco network…", true);
   showLevelAlert(BOSS_LEVEL_BLURB, true);
   showPop("CRITICAL: HEAVY BOMBER DETECTED");
@@ -2163,8 +2364,9 @@ function hurtEnemy(e, idx, dmg) {
 function destroyEnemy(e, idx) {
   const pos = e.mesh.position.clone();
   explode(pos, 1.85, false);
-  dropRelic(pos);
-  awardKill(pos, KILL_PTS, 0); // tickets via Base Chip minting
+  // Instant Base Chip credit (+200 arcade points)
+  collectChip(pos);
+  awardKill(pos, KILL_PTS, 0);
   flashCrosshairHit();
   spawnHitFloat(pos, "HIT +" + KILL_PTS);
   scene.remove(e.mesh);
@@ -2183,12 +2385,12 @@ function damageBoss(amt) {
     const pos = G.boss.mesh.position.clone();
     explode(pos, 4, true);
     explode(pos.clone().add(new THREE.Vector3(8, 0, 0)), 2, true);
-    // Jackpot: score + bonus tickets + voucher modal
     awardKill(pos, BOSS_KILL_PTS, 8);
     G.chips = 0;
     scene.remove(G.boss.mesh);
     G.boss = null;
     G.bossPhase = false;
+    destroyNavalFleet();
     updateHUD();
     missionComplete();
   }
@@ -2422,12 +2624,31 @@ function checkWaveProgress() {
   if (G.bossPhase) return;
   const def = WAVE_DEFS[G.waveIndex];
   if (!def) return;
-  if (G.waveSpawned >= def.count && G.enemies.length === 0) {
+  if (G.waveKills >= def.killTarget && G.enemies.length === 0) {
     if (G.waveIndex < WAVE_DEFS.length - 1) {
       startWave(G.waveIndex + 1);
     } else {
       showPop("INCO SHROUD BREACH");
       setTimeout(() => spawnBoss(), 1200);
+    }
+  }
+}
+
+function updateWaves(dt) {
+  if (G.bossPhase || player.dead) return;
+  const def = WAVE_DEFS[G.waveIndex];
+  if (!def) return;
+  const want = def.active || 4;
+  // Maintain full swarm on screen at all times until kill target
+  if (G.waveKills < def.killTarget && G.enemies.length < want) {
+    G.spawnAcc += dt * 1000;
+    if (G.spawnAcc >= (def.interval || 400) || G.enemies.length === 0) {
+      G.spawnAcc = 0;
+      spawnEnemy({
+        speed: def.speed,
+        hp: def.hp,
+        reinforced: def.id >= 2,
+      });
     }
   }
 }
@@ -2458,6 +2679,7 @@ function redeploy() {
   if (ticker) ticker.innerHTML = "";
   G.running = true;
   G.paused = false;
+  respawnNavalFleet();
   SFX.setLock(false);
   SFX.setEngine(90, true);
   $("btnPause").classList.add("show");
@@ -2488,39 +2710,30 @@ function isTrackHeld() {
 }
 
 function isFheRevealed(entity) {
-  if (!entity || !entity.mesh) return false;
-  return entity.mesh.position.distanceTo(player.mesh.position) <= FHE_REVEAL;
+  // Combat reveal always on — Inco ticker still narrates decryption flavor
+  return !!(entity && entity.mesh);
 }
 
 function updateFheFog() {
   for (const e of G.enemies) {
-    const was = !!e.revealed;
-    e.revealed = isFheRevealed(e);
-    e.mesh.visible = e.revealed;
-    if (e.revealed && !was) {
-      pushTicker("FHE sight check true: revealing target coords on Base…", true);
-    }
+    e.revealed = true;
+    e.mesh.visible = true;
   }
   if (G.boss) {
-    const was = !!G.boss.revealed;
-    G.boss.revealed = isFheRevealed(G.boss);
-    G.boss.mesh.visible = G.boss.revealed;
-    if (G.boss.revealed && !was) {
-      pushTicker("FHE sight check true: Flagship coords decrypted on Base…", true);
-    }
+    G.boss.revealed = true;
+    G.boss.mesh.visible = true;
   }
 }
 
 function nearestThreat(maxRange) {
-  const range = maxRange || FHE_REVEAL;
+  const range = maxRange || DETECT_RANGE * 2.5;
   let best = null;
   let bestD = Infinity;
   for (const e of G.enemies) {
-    if (!e.revealed && !isFheRevealed(e)) continue;
     const d = e.mesh.position.distanceToSquared(player.mesh.position);
     if (d < bestD && d < range * range) { bestD = d; best = e; }
   }
-  if (G.boss && (G.boss.revealed || isFheRevealed(G.boss))) {
+  if (G.boss) {
     const d = G.boss.mesh.position.distanceToSquared(player.mesh.position);
     if (d < bestD && d < range * range) best = G.boss;
   }
@@ -2535,7 +2748,7 @@ function updateThreatPointers() {
   const candidates = G.enemies.slice();
   if (G.boss) candidates.push(G.boss);
 
-  const margin = 30;
+  const margin = 36;
   const cx = innerWidth * 0.5;
   const cy = innerHeight * 0.5;
   const hw = cx - margin;
@@ -2543,8 +2756,7 @@ function updateThreatPointers() {
 
   for (const e of candidates) {
     const dist = e.mesh.position.distanceTo(player.mesh.position);
-    // Inco FHE: no edge pointers until local reveal field
-    if (dist > FHE_REVEAL) continue;
+    if (dist > 700) continue;
 
     const scr = projectToScreen(e.mesh.position);
     const onScreen =
@@ -2553,12 +2765,10 @@ function updateThreatPointers() {
       scr.y > margin && scr.y < innerHeight - margin;
     if (onScreen) continue;
 
-    // Camera-space vector (Three.js: camera looks down -Z)
     _camLocal.copy(e.mesh.position).applyMatrix4(camera.matrixWorldInverse);
     let dx = _camLocal.x;
-    let dy = -_camLocal.y; // screen Y increases downward
+    let dy = -_camLocal.y;
     if (_camLocal.z > 0) {
-      // Behind camera — flip so pointer still indicates turn direction
       dx = -dx;
       dy = -dy;
     }
@@ -2575,12 +2785,10 @@ function updateThreatPointers() {
     el.className = "threat-ptr" + (e === G.boss ? " boss" : "");
     el.style.left = px + "px";
     el.style.top = py + "px";
-    // Default triangle points up; rotate so tip faces threat
     el.style.transform = `translate(-50%, -50%) rotate(${ang + Math.PI / 2}rad)`;
     const rng = document.createElement("div");
     rng.className = "rng";
     rng.textContent = Math.round(dist) + "m";
-    // Counter-rotate label so text stays readable
     rng.style.transform = `translateX(-50%) rotate(${-(ang + Math.PI / 2)}rad)`;
     el.appendChild(rng);
     layer.appendChild(el);
@@ -2600,8 +2808,7 @@ function updateLockHUD() {
   for (const e of candidates) {
     const to = e.mesh.position.clone().sub(player.mesh.position);
     const dist = to.length();
-    // Invisible until inside Inco FHE 150m field
-    if (dist > FHE_REVEAL) continue;
+    if (dist > 600) continue;
     e.revealed = true;
     e.mesh.visible = true;
     to.normalize();
@@ -2612,8 +2819,8 @@ function updateLockHUD() {
       scr.x > -20 && scr.x < innerWidth + 20 &&
       scr.y > -20 && scr.y < innerHeight + 20;
 
-    // Neon-red diamond bracket on every on-screen revealed threat
-    if (onScreen) {
+    // Bold neon-red diamond on every front-FOV contact
+    if (onScreen && (dot > -0.15 || scr.z < 1)) {
       const br = document.createElement("div");
       br.className = "target-bracket" + (e === G.boss ? " boss" : "");
       br.style.left = scr.x + "px";
@@ -2625,7 +2832,6 @@ function updateLockHUD() {
       layer.appendChild(br);
     }
 
-    // Auto-aim: front hemisphere (+ soft screen center bias)
     if (dot < 0.05 || !onScreen) continue;
     const cx = innerWidth * 0.5, cy = innerHeight * 0.5;
     const screenBias = Math.hypot(scr.x - cx, scr.y - cy) * 0.002;
@@ -2643,7 +2849,6 @@ function updateLockHUD() {
     layer.appendChild(box);
   }
 
-  // Magnetic neon reticle glued to best front-hemisphere lock
   if (best) {
     const scr = projectToScreen(best.mesh.position);
     const aim = document.createElement("div");
@@ -2656,7 +2861,7 @@ function updateLockHUD() {
   G.lockTarget = best;
   $("cross").classList.toggle("locked", !!best);
   $("cross").classList.toggle("aim", !!best);
-  $("cross").classList.toggle("tracking", isTrackHeld() && !!nearestThreat(FHE_REVEAL * 1.2));
+  $("cross").classList.toggle("tracking", isTrackHeld() && !!nearestThreat(400));
   SFX.setLock(!!best && G.running && !player.dead);
 }
 
@@ -2715,14 +2920,13 @@ function drawRadar() {
   fx /= flen; fz /= flen;
   // Right vector in XZ (90° CW from above): (x,z) → (z, -x)
   const rx = fz, rz = -fx;
-  const scale = (R * 0.85) / FHE_REVEAL;
+  const scale = (R * 0.85) / DETECT_RANGE;
 
   const plot = (pos, color, size) => {
     const dx = pos.x - player.mesh.position.x;
     const dz = pos.z - player.mesh.position.z;
     const dist = Math.hypot(dx, dz);
-    // Inco FHE: only plot contacts inside local decrypt field
-    if (dist > FHE_REVEAL) return;
+    if (dist > DETECT_RANGE) return;
     const localFwd = dx * fx + dz * fz;   // +ahead
     const localRight = dx * rx + dz * rz; // +right
     const sx = cx + localRight * scale;
@@ -2855,12 +3059,12 @@ function updateCamera(dt) {
   camera.rotateZ(-player.roll * (threat ? 0.75 : 1.05));
 }
 
-/** Aggressive pursuit — swarm the player at matching altitude */
+/** Aggressive pursuit — never wander off; always hunt the player */
 function steerDogfight(e, dt, isBoss) {
   const playerPos = player.mesh.position;
   const playerFwd = getPlayerForward(new THREE.Vector3());
   const toPlayer = _tmpV.copy(playerPos).sub(e.mesh.position);
-  const dist = toPlayer.length();
+  let dist = toPlayer.length();
   if (dist > 0.001) toPlayer.normalize();
 
   _right.crossVectors(playerFwd, new THREE.Vector3(0, 1, 0));
@@ -2871,54 +3075,53 @@ function steerDogfight(e, dt, isBoss) {
   if (e.orbitSide == null) e.orbitSide = e.peelSide || (Math.random() < 0.5 ? 1 : -1);
 
   const desired = new THREE.Vector3();
-  const altTarget = playerPos.y + Math.sin((e.phaseT || 0) * 1.8 + (e.orbitSide || 1)) * (isBoss ? 14 : 10);
+  const altTarget = playerPos.y + Math.sin((e.phaseT || 0) * 2.1 + (e.orbitSide || 1)) * (isBoss ? 12 : 8);
 
-  if (dist > 155) {
-    // Hard chase — cut off and match player track
-    e.mode = "chase";
+  // Always fly at the player — intercept lead + tight swarm
+  e.mode = dist > 120 ? "chase" : dist > 55 ? "swarm" : "pass";
+  if (e.mode === "chase") {
     desired.copy(playerPos)
-      .addScaledVector(playerFwd, 35)
-      .addScaledVector(_right, e.orbitSide * 18)
+      .addScaledVector(playerFwd, 25)
+      .addScaledVector(_right, e.orbitSide * 12)
       .sub(e.mesh.position);
-  } else if (dist > 65) {
-    // Swarm combat pocket — stay in knife-fight range
-    e.mode = "swarm";
+  } else if (e.mode === "swarm") {
     desired.copy(playerPos)
-      .addScaledVector(playerFwd, 6 + Math.sin(e.phaseT * 2.2) * 10)
-      .addScaledVector(_right, e.orbitSide * (28 + Math.sin(e.phaseT * 1.6) * 16))
+      .addScaledVector(playerFwd, 4 + Math.sin(e.phaseT * 2.6) * 8)
+      .addScaledVector(_right, e.orbitSide * (22 + Math.sin(e.phaseT * 1.8) * 12))
       .sub(e.mesh.position);
   } else {
-    // Too close — slash past then reverse flank
-    e.mode = "pass";
     desired.copy(playerFwd)
-      .multiplyScalar(0.7)
-      .addScaledVector(_right, e.orbitSide * 0.75)
-      .add(new THREE.Vector3(0, 0.12, 0));
-    if (e.phaseT > 1.1) {
+      .multiplyScalar(0.55)
+      .addScaledVector(_right, e.orbitSide * 0.85)
+      .add(toPlayer.clone().multiplyScalar(0.35));
+    if (e.phaseT > 0.85) {
       e.orbitSide *= -1;
       e.phaseT = 0;
     }
   }
 
   if (desired.lengthSq() > 0.0001) desired.normalize();
-  else desired.copy(playerFwd);
+  else desired.copy(toPlayer);
 
-  // Catch-up thrust when player boosts away
-  const catchUp = dist > 220 ? 1.9 : dist > 140 ? 1.5 : dist > 90 ? 1.25 : 1.1;
-  const baseSpd = isBoss
-    ? Math.max(e.speed, player.speed * 0.88)
-    : Math.max(e.speed, player.speed * 0.95);
+  const catchUp = dist > 180 ? 2.15 : dist > 110 ? 1.7 : dist > 70 ? 1.35 : 1.15;
+  const baseSpd = Math.max(e.speed, player.speed * (isBoss ? 0.95 : 1.05));
   e.mesh.position.addScaledVector(desired, baseSpd * catchUp * dt);
 
-  // Lock sky altitude to the player — never sink to the ocean grid
-  e.mesh.position.y = THREE.MathUtils.damp(e.mesh.position.y, altTarget, 5.5, dt);
-  e.mesh.position.y = THREE.MathUtils.clamp(e.mesh.position.y, 45, 260);
+  e.mesh.position.y = THREE.MathUtils.damp(e.mesh.position.y, altTarget, 7, dt);
+  e.mesh.position.y = THREE.MathUtils.clamp(e.mesh.position.y, 50, 250);
+
+  // Hard leash — never drift out of the fight
+  dist = e.mesh.position.distanceTo(playerPos);
+  if (dist > 220) {
+    const pull = playerPos.clone().sub(e.mesh.position).normalize();
+    e.mesh.position.addScaledVector(pull, (dist - 200) * 2.5 * dt);
+  }
 
   e.mesh.lookAt(e.mesh.position.clone().add(desired));
   e.mesh.rotateY(Math.PI / 2);
 
-  if (dist < 22) {
-    e.mesh.position.addScaledVector(toPlayer, -(24 - dist) * 2.8 * dt);
+  if (dist < 20) {
+    e.mesh.position.addScaledVector(toPlayer, -(22 - dist) * 3 * dt);
   }
   return e.mesh.position.distanceTo(playerPos);
 }
@@ -2940,35 +3143,34 @@ function updateEnemies(dt) {
     const behind = ahead < -0.25;
     e.fireCD -= dt;
 
-    // Spray bright red plasma when inside 150m dogfight envelope
-    if (e.revealed && e.fireCD <= 0 && dist <= 150 && dist > 28) {
-      e.fireCD = 0.55 + Math.random() * 0.45;
+    // Always visible — spray red plasma inside 150m
+    if (e.fireCD <= 0 && dist <= 150 && dist > 24) {
+      e.fireCD = 0.45 + Math.random() * 0.35;
       enemyFirePlasma(e, behind);
     }
 
-    if (dist > 1200) {
-      // Re-tether far stragglers instead of despawning — keep the swarm hunting
-      const p = spawnAwayFromPlayer(100, 150, true);
+    if (dist > 280) {
+      // Snap back into the dogfight pocket
+      const p = spawnAwayFromPlayer(70, 120, true);
       e.mesh.position.set(p.x, p.y, p.z);
-      e.revealed = false;
-      e.mesh.visible = false;
+      e.revealed = true;
+      e.mesh.visible = true;
     }
   }
 
   if (G.boss) {
     const b = G.boss;
     const dist = steerDogfight(b, dt, true);
-    if (b.revealed) {
-      pulsePlumes(b.mesh, 0.95, dt);
-      emitVapor(b.mesh, 0.7);
-    }
+    pulsePlumes(b.mesh, 0.95, dt);
+    emitVapor(b.mesh, 0.7);
+    b.revealed = true;
+    b.mesh.visible = true;
     const toBoss = b.mesh.position.clone().sub(player.mesh.position).normalize();
     const bossBehind = playerFwd.dot(toBoss) < -0.15;
     b.fireCD -= dt;
     b.turretCD = (b.turretCD || 0) - dt;
 
-    // Wing batteries — only when Flagship is FHE-revealed
-    if (b.revealed && dist < 100 && dist > 35 && b.turretCD <= 0) {
+    if (dist < 120 && dist > 30 && b.turretCD <= 0) {
       b.turretCD = 0.38;
       const turrets = b.mesh.userData.turrets || [];
       const dir = player.mesh.position.clone().sub(b.mesh.position).normalize();
@@ -3045,14 +3247,13 @@ function updateMissiles(dt) {
     let hit = false;
     for (let j = G.enemies.length - 1; j >= 0; j--) {
       const en = G.enemies[j];
-      if (!en.revealed && !isFheRevealed(en)) continue;
       if (m.mesh.position.distanceTo(en.mesh.position) < 14) {
         hurtEnemy(en, j, m.dmg || 1);
         hit = true;
         break;
       }
     }
-    if (!hit && G.boss && (G.boss.revealed || isFheRevealed(G.boss)) && m.mesh.position.distanceTo(G.boss.mesh.position) < 32) {
+    if (!hit && G.boss && m.mesh.position.distanceTo(G.boss.mesh.position) < 32) {
       damageBoss(m.dmg || 1);
       hit = true;
     }
@@ -3156,25 +3357,7 @@ function updateClouds(dt) {
     if (c.mesh.position.x > player.mesh.position.x + 1400) {
       c.mesh.position.x = player.mesh.position.x - 1400;
       c.mesh.position.z = player.mesh.position.z + (Math.random() - 0.5) * 2000;
-      c.mesh.position.y = 70 + Math.random() * 180;
-    }
-  }
-}
-
-function updateWaves(dt) {
-  if (G.bossPhase || player.dead) return;
-  const def = WAVE_DEFS[G.waveIndex];
-  if (!def) return;
-  if (G.waveSpawned < def.count) {
-    G.spawnAcc += dt * 1000;
-    if (G.spawnAcc >= def.interval) {
-      G.spawnAcc = 0;
-      spawnEnemy({
-        speed: def.speed,
-        hp: def.hp,
-        reinforced: def.id >= 2,
-      });
-      G.waveSpawned++;
+      c.mesh.position.y = 55 + Math.random() * 200;
     }
   }
 }
@@ -3198,6 +3381,7 @@ function frame(ts) {
     updateRelics(dt);
     updateParticles(dt);
     updateClouds(dt);
+    updateFleet(dt);
     updateOcean(G.t);
     updateRain(dt);
     updateThunder(dt);
@@ -3212,6 +3396,7 @@ function frame(ts) {
     updateParticles(dt);
     updateOcean(G.t);
     updateClouds(dt);
+    updateFleet(dt);
     updateRain(dt);
     updateThunder(dt);
     $("threats").innerHTML = "";
