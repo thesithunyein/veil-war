@@ -1,0 +1,13 @@
+# Static site config for GitHub Pages / flat deploy of web-sandbox
+# Live URL (project Pages): https://thesithunyein.github.io/veil-war/
+#
+# The Actions workflow (`.github/workflows/deploy.yml`) copies `web-sandbox/`
+# to the root of the `gh-pages` branch so the game is the site homepage.
+#
+# Asset rule: prefer absolute CDN URLs or same-folder relative paths (./file).
+# Do not use leading-slash paths like /assets/... — they break on project Pages
+# (they resolve to https://user.github.io/assets, not /veil-war/assets).
+
+site: veil-war-sandbox
+source: web-sandbox
+publish_branch: gh-pages

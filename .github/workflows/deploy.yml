@@ -1,0 +1,49 @@
+# Deploy Veil War web-sandbox → GitHub Pages (gh-pages)
+name: Deploy Web Sandbox
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bundle web-sandbox as site root
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          # Flatten sandbox → Pages root so judges hit /veil-war/ directly
+          cp -a web-sandbox/. _site/
+          # Ensure SPA-friendly / raw HTML (disable Jekyll)
+          touch _site/.nojekyll
+          # Keep a named path too (bookmarks / deep links)
+          mkdir -p _site/web-sandbox
+          cp -a web-sandbox/. _site/web-sandbox/
+          # Root redirect already satisfied by _site/index.html (game itself).
+          # Extra alias page for /play
+          mkdir -p _site/play
+          cp web-sandbox/index.html _site/play/index.html
+          echo "Bundled files:"
+          find _site -maxdepth 2 -type f | sort
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: "deploy: veil-war web-sandbox"

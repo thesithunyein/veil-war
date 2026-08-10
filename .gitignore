@@ -24,3 +24,7 @@ sysinfo.txt
 *.apk
 *.aab
 memoryCaptures/
+.vercel
+contracts/out/
+contracts/cache/
+_site/

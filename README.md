@@ -45,7 +45,10 @@ IncoNetworkBridge.PublishDecrypted(packet)
 
 ## Repos / live
 - Unity: https://github.com/thesithunyein/veil-war
-- Web Megapot companion: https://github.com/thesithunyein/veil-web → https://veil.sithunyein.com
+- **Judge sandbox (GitHub Pages):** https://thesithunyein.github.io/veil-war/
+- Landing: https://veil.sithunyein.com
+
+Push to `main` / `master` deploys `web-sandbox/` via `.github/workflows/deploy.yml` → `gh-pages`.
 
 ## Architecture (UI/UX)
 
