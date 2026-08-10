@@ -8,7 +8,8 @@ namespace VeilWar.Network
 {
     /// <summary>
     /// Wire format for a decrypted Inco / commit-reveal coordinate push.
-    /// Sandbox + real bridge share this payload.
+    /// Sandbox + real bridge share this payload. No Nethereum dependency — adapters
+    /// translate chain/attestation results into this struct before PublishDecrypted.
     /// </summary>
     [Serializable]
     public struct DecryptedCoordPacket
@@ -44,6 +45,7 @@ namespace VeilWar.Network
     /// Event-driven network façade. Real Inco Lightning / RPC adapters publish into
     /// <see cref="PublishDecrypted"/>; FoW listens and mutates <see cref="FogOfWarManager"/>.
     /// </summary>
+    [DefaultExecutionOrder(-50)]
     public sealed class IncoNetworkBridge : MonoBehaviour
     {
         public static IncoNetworkBridge Instance { get; private set; }
@@ -53,6 +55,7 @@ namespace VeilWar.Network
         [SerializeField] bool clearEphemeralBetweenBatch = false;
 
         readonly Dictionary<string, DecryptedCoordPacket> _lastByEntity = new();
+        bool _subscribed;
 
         /// <summary>Raw packet ingress (before FoW apply).</summary>
         public event Action<DecryptedCoordPacket> DecryptedPacketReceived;
@@ -70,28 +73,54 @@ namespace VeilWar.Network
 
             Instance = this;
             ResolveFog();
-            DecryptedPacketReceived += OnDecryptedForFog;
+            Subscribe();
+        }
+
+        void Start()
+        {
+            // Re-resolve after all Awakes so FogOfWarManager.Instance is guaranteed.
+            ResolveFog();
         }
 
         void OnDestroy()
         {
-            DecryptedPacketReceived -= OnDecryptedForFog;
+            Unsubscribe();
             if (Instance == this) Instance = null;
+        }
+
+        void Subscribe()
+        {
+            if (_subscribed) return;
+            DecryptedPacketReceived += OnDecryptedForFog;
+            _subscribed = true;
+        }
+
+        void Unsubscribe()
+        {
+            if (!_subscribed) return;
+            DecryptedPacketReceived -= OnDecryptedForFog;
+            _subscribed = false;
         }
 
         void ResolveFog()
         {
+            if (fogManager != null && fogManager.IsReady) return;
+
             if (fogManager == null && autoFindFog)
-                    fogManager = FogOfWarManager.Instance != null
+            {
+                fogManager = FogOfWarManager.Instance != null
                     ? FogOfWarManager.Instance
                     : FindObjectOfType<FogOfWarManager>();
+            }
         }
 
         /// <summary>Primary entry for live Inco decrypt callbacks or sandbox mocks.</summary>
         public void PublishDecrypted(DecryptedCoordPacket packet)
         {
             if (string.IsNullOrWhiteSpace(packet.EntityId))
+            {
                 packet.EntityId = $"anon-{packet.X}-{packet.Y}";
+            }
 
             _lastByEntity[packet.EntityId] = packet;
             DecryptedPacketReceived?.Invoke(packet);
@@ -104,8 +133,10 @@ namespace VeilWar.Network
 
         public void PublishBatch(IReadOnlyList<DecryptedCoordPacket> packets, bool clearEphemeral = true)
         {
+            if (packets == null || packets.Count == 0) return;
+
             ResolveFog();
-            if (fogManager != null && (clearEphemeral || clearEphemeralBetweenBatch))
+            if (fogManager != null && fogManager.IsReady && (clearEphemeral || clearEphemeralBetweenBatch))
                 fogManager.ClearEphemeralVision();
 
             for (var i = 0; i < packets.Count; i++)
@@ -118,20 +149,21 @@ namespace VeilWar.Network
         void OnDecryptedForFog(DecryptedCoordPacket packet)
         {
             ResolveFog();
-            if (fogManager == null)
+            if (fogManager == null || !fogManager.IsReady)
             {
-                Debug.LogWarning("[IncoBridge] No FogOfWarManager — dropped packet " + packet.EntityId);
+                Debug.LogWarning("[IncoBridge] FogOfWarManager not ready — dropped packet " + packet.EntityId);
                 return;
             }
 
             if (packet.ClearEphemeralFirst)
                 fogManager.ClearEphemeralVision();
 
-            fogManager.ApplyDecryptedVision(
-                packet.Coord,
-                packet.VisionRadiusCells > 0f ? packet.VisionRadiusCells : 1.35f,
-                packet.EntityId);
+            // Signature match: ApplyDecryptedVision(GridCoord, float, string)
+            var radius = packet.VisionRadiusCells > 0f
+                ? packet.VisionRadiusCells
+                : fogManager.VisionRadiusCells;
 
+            fogManager.ApplyDecryptedVision(packet.Coord, radius, packet.EntityId);
             FogRevealApplied?.Invoke(packet);
         }
     }

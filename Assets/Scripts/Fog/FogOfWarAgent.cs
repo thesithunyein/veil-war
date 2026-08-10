@@ -1,6 +1,5 @@
 using UnityEngine;
 using VeilWar.Core;
-using VeilWar.Fog;
 
 namespace VeilWar.Fog
 {
@@ -49,7 +48,10 @@ namespace VeilWar.Fog
         Color[] _baseColors;
         bool _visible = true;
         float _vis01 = 1f;
+        float _sat01 = 1f;
         GridCoord _lastCoord;
+        bool _subscribed;
+        bool _bootstrapped;
 
         public bool IsCurrentlyVisible => _visible;
         public float Visibility01 => _vis01;
@@ -60,12 +62,14 @@ namespace VeilWar.Fog
             isFriendly = friendly;
             mode = agentMode;
             alwaysVisibleIfFriendly = true;
+            _bootstrapped = true;
+            EnsureFogRef();
             Refresh(force: true);
         }
 
         void Awake()
         {
-            if (fog == null) fog = FogOfWarManager.Instance;
+            EnsureFogRef();
             if (meshRenderers == null || meshRenderers.Length == 0)
                 meshRenderers = GetComponentsInChildren<MeshRenderer>(true);
             if (canvases == null || canvases.Length == 0)
@@ -77,14 +81,23 @@ namespace VeilWar.Fog
 
         void OnEnable()
         {
-            if (fog == null) fog = FogOfWarManager.Instance;
-            if (fog != null) fog.FogUpdated += OnFogUpdated;
+            EnsureFogRef();
+            Subscribe();
+            // Defer first paint to Start/Configure so UnitActor.Configure wins over default isFriendly=false.
+            if (_bootstrapped) Refresh(force: true);
+        }
+
+        void Start()
+        {
+            _bootstrapped = true;
+            EnsureFogRef();
+            Subscribe();
             Refresh(force: true);
         }
 
         void OnDisable()
         {
-            if (fog != null) fog.FogUpdated -= OnFogUpdated;
+            Unsubscribe();
         }
 
         void LateUpdate()
@@ -100,9 +113,11 @@ namespace VeilWar.Fog
         {
             followTransform = false;
             manualCoord = coord;
+            var y = transform.position.y;
             transform.position = fog != null
-                ? fog.CoordToWorld(coord) + Vector3.up * transform.position.y
-                : new Vector3(coord.X, transform.position.y, coord.Y);
+                ? fog.CoordToWorld(coord) + Vector3.up * y
+                : new Vector3(coord.X, y, coord.Y);
+            _lastCoord = coord;
             Refresh(force: true);
         }
 
@@ -117,6 +132,28 @@ namespace VeilWar.Fog
             Refresh(force: true);
         }
 
+        void Subscribe()
+        {
+            if (_subscribed || fog == null) return;
+            fog.FogUpdated += OnFogUpdated;
+            _subscribed = true;
+        }
+
+        void Unsubscribe()
+        {
+            if (!_subscribed || fog == null) return;
+            fog.FogUpdated -= OnFogUpdated;
+            _subscribed = false;
+        }
+
+        void EnsureFogRef()
+        {
+            if (fog != null) return;
+            fog = FogOfWarManager.Instance;
+            if (_subscribed || !isActiveAndEnabled || fog == null) return;
+            Subscribe();
+        }
+
         void OnFogUpdated() => Refresh(force: false);
 
         void Refresh(bool force)
@@ -127,20 +164,18 @@ namespace VeilWar.Fog
                 return;
             }
 
-            if (fog == null)
+            if (fog == null || !fog.IsReady)
             {
-                // Fail-open in editor so missing wiring does not brick the scene.
+                // Fail-open until FoW is ready so spawn flashes don't brick the scene.
                 ApplyVisible(1f, force);
                 return;
             }
 
-            var sample = fog.SampleVisibility(GridPosition);
-            ApplyVisible(sample, force);
+            ApplyVisible(fog.SampleVisibility(GridPosition), force);
         }
 
         void ApplyVisible(float sample, bool force)
         {
-            _vis01 = sample;
             var fullyVisible = sample >= visibleThreshold;
             var explored = sample >= exploredThreshold;
 
@@ -163,7 +198,16 @@ namespace VeilWar.Fog
                     break;
             }
 
-            if (!force && showMeshes == _visible && mode == FogAgentMode.Hide) return;
+            if (!force
+                && showMeshes == _visible
+                && Mathf.Abs(_vis01 - sample) < 0.001f
+                && Mathf.Abs(_sat01 - sat) < 0.001f)
+            {
+                return;
+            }
+
+            _vis01 = sample;
+            _sat01 = sat;
             _visible = showMeshes;
 
             SetRenderersEnabled(showMeshes);
@@ -231,8 +275,14 @@ namespace VeilWar.Fog
             {
                 var r = meshRenderers[i];
                 if (r == null) continue;
+                // Optional smoothing when colorLerpSpeed > 0 (inspector-tunable).
+                var t = colorLerpSpeed <= 0f ? 1f : 1f - Mathf.Exp(-colorLerpSpeed * Time.deltaTime);
                 var target = Color.Lerp(shroudTint, _baseColors[i], sat);
                 r.GetPropertyBlock(_block);
+                var current = _block.GetColor(BaseColorId);
+                if (current.a <= 0f && current.r <= 0f && current.g <= 0f && current.b <= 0f)
+                    current = target;
+                target = Color.Lerp(current, target, t);
                 _block.SetColor(BaseColorId, target);
                 _block.SetColor(ColorId, target);
                 _block.SetColor(EmissionId, sat > 0.6f ? _baseColors[i] * 0.15f : Color.black);

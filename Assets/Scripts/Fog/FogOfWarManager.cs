@@ -8,6 +8,7 @@ namespace VeilWar.Fog
     /// Runtime fog authority for the local observer.
     /// Logical grid stays 5×5/6×6; GPU texture is upsampled (Bilinear) for smooth shroud edges.
     /// </summary>
+    [DefaultExecutionOrder(-100)]
     public sealed class FogOfWarManager : MonoBehaviour
     {
         public static FogOfWarManager Instance { get; private set; }
@@ -32,7 +33,10 @@ namespace VeilWar.Fog
         float[] _explored;
         int _size;
         bool _dirty;
+        bool _initialized;
+        MaterialPropertyBlock _block;
 
+        public bool IsReady => _initialized && _fogTexture != null && _vision != null;
         public int Size => _size;
         public int TextureResolution => _fogTexture != null ? _fogTexture.width : textureResolution;
         public Texture2D FogTexture => _fogTexture;
@@ -42,13 +46,12 @@ namespace VeilWar.Fog
         public event Action FogUpdated;
         public event Action<GridCoord, bool> CellVisionChanged;
 
-        /// <summary>World-space width/depth the fog quad should cover (centered on board).</summary>
         public float BoardWorldExtent
         {
             get
             {
+                if (!_initialized) return fallbackGridSize;
                 if (config == null) return _size;
-                // Cells centered from -half..+half — cover full cell footprints + small pad.
                 return _size * config.CellStride + config.CellWorldSize * 0.25f;
             }
         }
@@ -63,18 +66,19 @@ namespace VeilWar.Fog
             }
 
             Instance = this;
+            _block = new MaterialPropertyBlock();
             Initialize(config != null ? config.GridSize : fallbackGridSize);
         }
 
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
-            if (_fogTexture != null) Destroy(_fogTexture);
+            ReleaseTexture();
         }
 
         void LateUpdate()
         {
-            if (_dirty) CommitTexture();
+            if (_dirty && IsReady) CommitTexture();
         }
 
         public void Initialize(int size)
@@ -86,9 +90,10 @@ namespace VeilWar.Fog
 
             var res = Mathf.ClosestPowerOfTwo(Mathf.Clamp(textureResolution, 32, 512));
             textureResolution = res;
-            _pixels = new Color32[res * res];
+            if (_pixels == null || _pixels.Length != res * res)
+                _pixels = new Color32[res * res];
 
-            if (_fogTexture != null) Destroy(_fogTexture);
+            ReleaseTexture();
             _fogTexture = new Texture2D(res, res, TextureFormat.R8, false, true)
             {
                 name = "VeilFogMap_HiRes",
@@ -97,13 +102,17 @@ namespace VeilWar.Fog
                 anisoLevel = 0
             };
 
-            ClearVision(keepExplored: false);
-            PushTextureToRenderer();
-            _dirty = true;
+            Array.Clear(_vision, 0, _vision.Length);
+            Array.Clear(_explored, 0, _explored.Length);
+            _initialized = true;
+
+            // Commit immediately so consumers never sample an uninitialized GPU texture.
+            CommitTexture();
         }
 
         public void ClearVision(bool keepExplored)
         {
+            if (!IsReady) return;
             Array.Clear(_vision, 0, _vision.Length);
             if (!keepExplored) Array.Clear(_explored, 0, _explored.Length);
             MarkAllDirty();
@@ -111,7 +120,9 @@ namespace VeilWar.Fog
 
         public void ApplyDecryptedVision(GridCoord center, float radiusCells, string sourceId = null)
         {
+            if (!IsReady) return;
             if (!InBounds(center)) return;
+
             var radius = radiusCells > 0f ? radiusCells : visionRadiusCells;
             var r2 = radius * radius;
             var changed = false;
@@ -126,7 +137,6 @@ namespace VeilWar.Fog
 
                 var idx = Index(x, y);
                 var falloff = 1f - Mathf.Sqrt(dist2) / Mathf.Max(0.001f, radius);
-                // Smoothstep for softer logical falloff before GPU upsample.
                 falloff = falloff * falloff * (3f - 2f * falloff);
                 var next = Mathf.Max(_vision[idx], falloff);
                 if (!Mathf.Approximately(next, _vision[idx]))
@@ -153,6 +163,8 @@ namespace VeilWar.Fog
 
         public void ClearEphemeralVision()
         {
+            if (!IsReady) return;
+
             var any = false;
             for (var i = 0; i < _vision.Length; i++)
             {
@@ -170,7 +182,7 @@ namespace VeilWar.Fog
 
         public void SetCellRevealed(GridCoord coord, bool revealed)
         {
-            if (!InBounds(coord)) return;
+            if (!IsReady || !InBounds(coord)) return;
             var idx = Index(coord.X, coord.Y);
             var wasVisible = IsVisibleValue(SampleDisplay(idx));
             _vision[idx] = revealed ? 1f : 0f;
@@ -183,7 +195,7 @@ namespace VeilWar.Fog
 
         public bool IsVisible(GridCoord coord)
         {
-            if (!InBounds(coord)) return false;
+            if (!IsReady || !InBounds(coord)) return false;
             return IsVisibleValue(SampleDisplay(Index(coord.X, coord.Y)));
         }
 
@@ -195,7 +207,7 @@ namespace VeilWar.Fog
 
         public float SampleVisibility(GridCoord coord)
         {
-            if (!InBounds(coord)) return 0f;
+            if (!IsReady || !InBounds(coord)) return 0f;
             return SampleDisplay(Index(coord.X, coord.Y));
         }
 
@@ -208,6 +220,8 @@ namespace VeilWar.Fog
         public bool TryWorldToCoord(Vector3 world, out GridCoord coord)
         {
             coord = default;
+            if (!_initialized) return false;
+
             if (config == null)
             {
                 var x = Mathf.RoundToInt(world.x);
@@ -231,7 +245,7 @@ namespace VeilWar.Fog
         }
 
         public Vector3 BoardCenterWorld =>
-            config != null
+            config != null && _initialized
                 ? config.CellToWorld(new GridCoord((_size - 1) / 2, (_size - 1) / 2))
                 : Vector3.zero;
 
@@ -243,7 +257,6 @@ namespace VeilWar.Fog
             return 0f;
         }
 
-        /// <summary>Bilinear sample of logical grid in continuous UV 0..1 space.</summary>
         float SampleDisplayBilinear(float u, float v)
         {
             var fx = u * (_size - 1);
@@ -259,17 +272,17 @@ namespace VeilWar.Fog
             var b = SampleDisplay(Index(x1, y0));
             var c = SampleDisplay(Index(x0, y1));
             var d = SampleDisplay(Index(x1, y1));
-            var ab = Mathf.Lerp(a, b, tx);
-            var cd = Mathf.Lerp(c, d, tx);
-            return Mathf.Lerp(ab, cd, ty);
+            return Mathf.Lerp(Mathf.Lerp(a, b, tx), Mathf.Lerp(c, d, tx), ty);
         }
 
         static bool IsVisibleValue(float sample) => sample >= 0.5f;
 
         void CommitTexture()
         {
+            if (_fogTexture == null || _pixels == null || _vision == null) return;
+
             var res = _fogTexture.width;
-            // Half-texel offset so bilinear GPU sampling aligns with cell centers.
+            // Bounded O(res²). res is clamped to ≤512 → max 262k texels, once per dirty frame.
             for (var y = 0; y < res; y++)
             for (var x = 0; x < res; x++)
             {
@@ -291,13 +304,13 @@ namespace VeilWar.Fog
         public void PushTextureToRenderer()
         {
             if (fogPlaneRenderer == null || _fogTexture == null) return;
-            var block = new MaterialPropertyBlock();
-            fogPlaneRenderer.GetPropertyBlock(block);
-            block.SetTexture(fogTextureProperty, _fogTexture);
-            block.SetTexture("_FogTex", _fogTexture);
-            block.SetTexture("_BaseMap", _fogTexture);
-            block.SetTexture("_MainTex", _fogTexture);
-            fogPlaneRenderer.SetPropertyBlock(block);
+            _block ??= new MaterialPropertyBlock();
+            fogPlaneRenderer.GetPropertyBlock(_block);
+            _block.SetTexture(fogTextureProperty, _fogTexture);
+            _block.SetTexture("_FogTex", _fogTexture);
+            _block.SetTexture("_BaseMap", _fogTexture);
+            _block.SetTexture("_MainTex", _fogTexture);
+            fogPlaneRenderer.SetPropertyBlock(_block);
         }
 
         public void BindFogPlane(Renderer renderer)
@@ -308,9 +321,17 @@ namespace VeilWar.Fog
 
         void MarkAllDirty()
         {
+            if (!IsReady) return;
             for (var i = 0; i < _vision.Length; i++)
                 CellVisionChanged?.Invoke(CoordFromIndex(i), IsVisibleValue(SampleDisplay(i)));
             _dirty = true;
+        }
+
+        void ReleaseTexture()
+        {
+            if (_fogTexture == null) return;
+            Destroy(_fogTexture);
+            _fogTexture = null;
         }
 
         bool InBounds(GridCoord c) => c.X >= 0 && c.Y >= 0 && c.X < _size && c.Y < _size;

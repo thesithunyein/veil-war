@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Veil War — Fog duel × Megapot</title>
+  <meta name="description" content="Unity C# fog-of-war duel. Win the match, unlock a Megapot ticket on Base Sepolia." />
+  <meta property="og:title" content="Veil War" />
+  <meta property="og:description" content="3D fog-of-war duel powered by Megapot on Base." />
+  <meta property="og:url" content="https://veil.sithunyein.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Plus+Jakarta+Sans:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a101c;
+      --ink: #f4f1e8;
+      --muted: rgba(244, 241, 232, 0.55);
+      --accent: #6ee7b7;
+      --mist: rgba(56, 189, 248, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 500px at 50% -10%, rgba(110, 231, 183, 0.14), transparent 55%),
+        radial-gradient(700px 400px at 100% 30%, var(--mist), transparent 50%),
+        linear-gradient(180deg, #0d1524 0%, var(--bg) 50%, #070b14 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.25rem 3rem;
+    }
+    main { width: 100%; max-width: 28rem; text-align: center; }
+    .mark {
+      width: 4rem; height: 4rem; margin: 0 auto 1.25rem;
+      border-radius: 1.1rem;
+      background: linear-gradient(135deg, #1a2438, #0b1220);
+      border: 1px solid rgba(255,255,255,0.1);
+      display: grid; place-items: center;
+      font-size: 1.6rem;
+    }
+    h1 {
+      font-family: Nunito, sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.4rem, 8vw, 3.2rem);
+      letter-spacing: -0.03em;
+      margin: 0 0 0.75rem;
+    }
+    .lede {
+      color: var(--muted);
+      line-height: 1.55;
+      margin: 0 0 1.75rem;
+      font-size: 1.05rem;
+    }
+    .panel {
+      text-align: left;
+      background: rgba(18, 26, 43, 0.72);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 1.5rem;
+      padding: 1.15rem 1.25rem;
+      margin-bottom: 1.25rem;
+      backdrop-filter: blur(10px);
+    }
+    .panel h2 {
+      font-family: Nunito, sans-serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 0.65rem;
+    }
+    .panel p { margin: 0; color: var(--muted); font-size: 0.92rem; line-height: 1.5; }
+    .panel code {
+      font-size: 0.8rem;
+      color: #c4f1de;
+      word-break: break-all;
+    }
+    .cta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    a.btn {
+      display: block;
+      text-decoration: none;
+      border-radius: 1rem;
+      padding: 0.95rem 1.1rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+    a.primary {
+      background: var(--accent);
+      color: #0a101c;
+      box-shadow: 0 0 40px -10px var(--accent);
+    }
+    a.ghost {
+      color: var(--accent);
+      border: 1px solid rgba(110, 231, 183, 0.35);
+    }
+    footer {
+      margin-top: 2rem;
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.3);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark" aria-hidden="true">▣</div>
+    <h1>Veil War</h1>
+    <p class="lede">
+      Tiny fog-of-war duel in Unity (C#). Explore, clash, win — then unlock a Megapot ticket on Base Sepolia.
+    </p>
+
+    <div class="panel">
+      <h2>Canonical repo</h2>
+      <p><code>thesithunyein/veil-war</code> — Unity C# client. The old TypeScript guess game is archived.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Play</h2>
+      <p>Open the Unity project, press Play, use the FoW sandbox hotkeys (WASD / E / Q) or Quick Duel vs Bot. WebGL build drops into <code>/webgl</code> when exported.</p>
+    </div>
+
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/thesithunyein/veil-war">Open Unity repo</a>
+      <a class="btn ghost" href="https://llms.megapot.io/contracts/reference">Megapot Sepolia contracts</a>
+    </div>
+
+    <footer>Megapot Prize Track · Base Sepolia · veil.sithunyein.com</footer>
+  </main>
+</body>
+</html>
