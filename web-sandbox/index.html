@@ -75,7 +75,55 @@
     .cross::after { top: 50%; left: 5px; right: 5px; height: 1px; transform: translateY(-50%); }
     .cross.locked {
       border-color: #39ff8a;
-      animation: lockpulse 0.4s ease-in-out infinite;
+      box-shadow: 0 0 28px rgba(57, 255, 138, 0.85), 0 0 48px rgba(92, 225, 255, 0.45);
+      animation: lockpulse 0.35s ease-in-out infinite;
+    }
+    .cross.aim {
+      border-color: #5ce1ff !important;
+      box-shadow: 0 0 32px rgba(92, 225, 255, 0.95), 0 0 60px rgba(61, 255, 168, 0.5) !important;
+      width: 84px; height: 84px;
+    }
+    .cross.aim::before, .cross.aim::after { background: #5ce1ff; }
+
+    .aim-ring {
+      position: absolute; width: 72px; height: 72px;
+      margin-left: -36px; margin-top: -36px;
+      border: 2px solid #5ce1ff;
+      border-radius: 50%;
+      box-shadow: 0 0 18px rgba(92, 225, 255, 0.95), inset 0 0 14px rgba(61, 255, 168, 0.35);
+      pointer-events: none;
+      animation: aimPulse 0.55s ease-in-out infinite;
+    }
+    .aim-ring::before, .aim-ring::after {
+      content: ""; position: absolute; background: #5ce1ff;
+      box-shadow: 0 0 8px #5ce1ff;
+    }
+    .aim-ring::before { left: 50%; top: 8px; bottom: 8px; width: 2px; transform: translateX(-50%); }
+    .aim-ring::after { top: 50%; left: 8px; right: 8px; height: 2px; transform: translateY(-50%); }
+    @keyframes aimPulse {
+      50% { transform: scale(1.08); opacity: 0.85; }
+    }
+
+    .fhe-ticker {
+      position: absolute; z-index: 11; left: 50%;
+      bottom: calc(2.6rem + var(--safe-b));
+      transform: translateX(-50%);
+      width: min(92vw, 640px); max-height: 3.2rem; overflow: hidden;
+      pointer-events: none;
+      font-family: var(--mono); font-size: 0.58rem; line-height: 1.35;
+      color: rgba(92, 225, 255, 0.75);
+      text-shadow: 0 0 8px rgba(0,0,0,0.8);
+      background: rgba(4, 12, 22, 0.45);
+      border: 1px solid rgba(92, 225, 255, 0.2);
+      padding: 0.35rem 0.55rem;
+      backdrop-filter: blur(8px);
+    }
+    .fhe-ticker div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.85; }
+    .fhe-ticker div.hi { color: #3dffa8; opacity: 1; }
+
+    .chip-hud {
+      font-family: var(--mono); font-size: 0.72rem; color: #7dffc4;
+      text-shadow: 0 0 8px rgba(61, 255, 168, 0.5);
     }
     .cross.hit {
       border-color: #ff3355 !important;
@@ -601,7 +649,8 @@
       <div class="bar" id="shieldBar"><i id="shieldFill"></i></div>
       <div class="bar-label"><span>INTEGRITY</span><b id="hudShield">100%</b></div>
       <div class="row"><div class="lbl">Speed</div><div class="val" id="hudSpeed">240 KNOTS</div></div>
-      <div class="row"><div class="lbl">Missiles</div><div class="val mint">INF</div></div>
+      <div class="row"><div class="lbl">Base Chips</div><div class="val mint chip-hud" id="hudChips">0 / 3</div></div>
+      <div class="row"><div class="lbl">Guns</div><div class="val mint">MG · HEAT MGT</div></div>
     </div>
 
     <div class="hud tr">
@@ -624,7 +673,9 @@
     </div>
 
     <button class="pause" id="btnPause" type="button" aria-label="Pause">❚❚</button>
-    <div class="hint">A/D bank · ↑↓ pitch · W boost / S brake · HOLD SPACE guns · SHIFT track</div>
+    <div class="hint">↑↓ / W·S pitch · A/D bank · SHIFT boost · CTRL brake · HOLD SPACE guns</div>
+
+    <div class="fhe-ticker" id="fheTicker" aria-live="polite"></div>
 
     <div class="stick-zone" id="stickZone">
       <div class="stick-base"></div>
@@ -638,11 +689,11 @@
         <h1>VEIL WAR</h1>
         <p class="sub">Gritty WWII dogfight · Megapot combat drops</p>
         <ul>
-          <li><strong>Fly:</strong> Auto-thrust · A/D bank · ↑↓ pitch · W boost / S brake</li>
-          <li><strong>Guns:</strong> Hold SPACE — pulse to manage MG heat / overheat</li>
-          <li><strong>Levels:</strong> Scout Patrol → Bomber Escort → Flagship Boss Duel</li>
-          <li><strong>Storm:</strong> Heavy rain & mist — bandits break through the fog</li>
-          <li><strong>Earn:</strong> +500 PTS + tickets · survive all three levels</li>
+          <li><strong>Fly:</strong> ↑↓ or W/S pitch (climb/dive) · A/D bank · SHIFT boost · CTRL brake</li>
+          <li><strong>Guns:</strong> Hold SPACE — neon auto-aim snaps onto front-hemisphere targets</li>
+          <li><strong>Megapot:</strong> 3 green Base Chips → 1 Ticket · Flagship unlocks Jackpot Voucher</li>
+          <li><strong>Inco FHE:</strong> Enemies stay encrypted until inside your 150m reveal field</li>
+          <li><strong>Survive:</strong> Scout → Escort → Megapot Flagship Boss Duel</li>
         </ul>
         <button class="btn-engage" id="btnEngage" type="button">ENGAGE</button>
       </div>
@@ -651,25 +702,26 @@
     <div class="endcard hidden" id="endFail">
       <div class="card fail">
         <h1>MISSION FAILED</h1>
-        <p class="sub">Airframe integrity critical — eject sequence forced.</p>
+        <p class="sub">Airframe lost in the storm — FHE veil sealed shut.</p>
         <div class="stats-line">
           Score <span id="failScore">0</span><br />
-          Tickets <span id="failTickets">0</span> · Wave <span id="failWave">1</span>
+          Megapot tickets earned <span id="failTickets">0</span><br />
+          Base chips <span id="failChips">0</span> · Level <span id="failWave">1</span>
         </div>
-        <button class="btn-redeploy" id="btnRedeployFail" type="button">REDEPLOY TO SECTOR</button>
+        <button class="btn-redeploy" id="btnRedeployFail" type="button">REDEPLOY COMBAT FLEET</button>
       </div>
     </div>
 
     <div class="endcard hidden" id="endWin">
       <div class="card win">
-        <h1>MISSION COMPLETED</h1>
-        <p class="sub">Flagship destroyed — Megapot sector secured.</p>
+        <h1>JACKPOT VOUCHER SECURED</h1>
+        <p class="sub">Flagship destroyed — simulating Megapot buyTickets hook on Base Sepolia.</p>
         <div class="stats-line">
           Final score <span id="winScore">0</span><br />
           Megapot tickets earned <span id="winTickets">0</span><br />
           Live odds <span id="winOdds">0.000%</span>
         </div>
-        <button class="btn-redeploy" id="btnRedeployWin" type="button">REDEPLOY TO SECTOR</button>
+        <button class="btn-redeploy" id="btnRedeployWin" type="button">REDEPLOY COMBAT FLEET</button>
       </div>
     </div>
   </div>
@@ -683,7 +735,9 @@ import * as THREE from "three";
 
 const CIRC = 4200;
 const DETECT_RANGE = 280;
-const LOCK_FOV = Math.PI * 0.52;
+const FHE_REVEAL = 150; // Inco FHE local tracking field
+const LOCK_FOV = Math.PI * 0.55;
+const CHIPS_PER_TICKET = 3;
 // ~40% slower cruise for readable dogfights
 const BASE_SPEED = 234;
 const BOOST_SPEED = 336;
@@ -1023,7 +1077,7 @@ function updateThunder(dt) {
   if (!G.running || G.paused) return;
   G.thunderT -= dt;
   if (G.thunderT <= 0) {
-    G.thunderT = 4 + Math.random() * 4;
+    G.thunderT = 6;
     triggerLightning();
   }
 }
@@ -1560,6 +1614,7 @@ const G = {
   relics: [],
   particles: [],
   tickets: 0,
+  chips: 0,
   score: 0,
   lockTarget: null,
   fireCD: 0,
@@ -1579,9 +1634,11 @@ const G = {
   firingTouch: false,
   heat: 0,
   overheated: false,
-  thunderT: 4 + Math.random() * 4,
+  thunderT: 6,
   lightningFrames: 0,
   boltLines: [],
+  tickerLines: [],
+  tickerAcc: 0,
 };
 
 /* Flight forward = world -Z rotated by yaw/pitch. Model nose is +X → offset quat. */
@@ -1694,8 +1751,10 @@ function spawnFloat(sx, sy, pts, tickets) {
   el.className = "float-pts big";
   el.style.left = sx + "px";
   el.style.top = sy + "px";
-  const tix = tickets || 1;
-  el.innerHTML = `<span class="a">+${pts}</span><span class="b">+${tix} Megapot Ticket${tix > 1 ? "s" : ""}</span>`;
+  const tix = tickets || 0;
+  el.innerHTML = tix > 0
+    ? `<span class="a">+${pts}</span><span class="b">+${tix} Megapot Ticket${tix > 1 ? "s" : ""}</span>`
+    : `<span class="a">+${pts}</span><span class="b">Base Chip dropped</span>`;
   $("floats").appendChild(el);
   setTimeout(() => el.remove(), 1500);
 }
@@ -1711,6 +1770,8 @@ function updateHUD() {
   );
   $("hudSpeed").textContent = THREE.MathUtils.clamp(knots, 120, 360) + " KNOTS";
   $("hudTickets").textContent = String(G.tickets);
+  const chipsEl = $("hudChips");
+  if (chipsEl) chipsEl.textContent = `${G.chips} / ${CHIPS_PER_TICKET}`;
   $("hudScore").textContent = String(G.score);
   const odds = Math.min(99.9, (G.tickets / CIRC) * 100);
   $("hudOdds").textContent = odds.toFixed(3) + "%";
@@ -1731,27 +1792,28 @@ function updateHUD() {
 }
 
 function awardKill(worldPos, pts, ticketAmt) {
-  const tickets = ticketAmt == null ? 1 : ticketAmt;
+  const tickets = ticketAmt == null ? 0 : ticketAmt;
   G.score += pts;
-  G.tickets += tickets;
+  if (tickets > 0) G.tickets += tickets;
   G.waveKills++;
   updateHUD();
-  const ticketEl = $("hudTickets");
-  ticketEl.classList.remove("ticket-pop");
-  void ticketEl.offsetWidth;
-  ticketEl.classList.add("ticket-pop");
-  const flash = $("ticketFlash");
-  flash.classList.remove("on");
-  void flash.offsetWidth;
-  flash.classList.add("on");
-  // Gold accent on Megapot tracker panel
-  const panel = document.querySelector(".hud.tr");
-  if (panel) {
-    panel.classList.remove("gold-pulse");
-    void panel.offsetWidth;
-    panel.classList.add("gold-pulse");
-    clearTimeout(awardKill._goldT);
-    awardKill._goldT = setTimeout(() => panel.classList.remove("gold-pulse"), 560);
+  if (tickets > 0) {
+    const ticketEl = $("hudTickets");
+    ticketEl.classList.remove("ticket-pop");
+    void ticketEl.offsetWidth;
+    ticketEl.classList.add("ticket-pop");
+    const flash = $("ticketFlash");
+    flash.classList.remove("on");
+    void flash.offsetWidth;
+    flash.classList.add("on");
+    const panel = document.querySelector(".hud.tr");
+    if (panel) {
+      panel.classList.remove("gold-pulse");
+      void panel.offsetWidth;
+      panel.classList.add("gold-pulse");
+      clearTimeout(awardKill._goldT);
+      awardKill._goldT = setTimeout(() => panel.classList.remove("gold-pulse"), 560);
+    }
   }
   const scr = projectToScreen(worldPos);
   if (scr.z < 1 && scr.z > -1) spawnFloat(scr.x, scr.y, pts, tickets);
@@ -1761,7 +1823,7 @@ function awardKill(worldPos, pts, ticketAmt) {
 
 /* —— Combat entities —— */
 function spawnEnemy(opts) {
-  const p = spawnAwayFromPlayer(150, 230, true);
+  const p = spawnAwayFromPlayer(175, 260, true);
   const reinforced = !!(opts && opts.reinforced);
   const mesh = makeJet({
     body: reinforced ? 0x3a3834 : 0x4a4038,
@@ -1791,7 +1853,9 @@ function spawnEnemy(opts) {
     orbitSide: side,
     passDir: null,
     reinforced,
+    revealed: false,
   });
+  mesh.visible = false;
 }
 
 function spawnBoss() {
@@ -1806,7 +1870,10 @@ function spawnBoss() {
   G.boss = {
     mesh, hp: BOSS_HP, maxHp: BOSS_HP, speed: 78, fireCD: 0, turretCD: 0,
     mode: "approach", phaseT: 0, peelSide: 1, orbitSide: 1, passDir: null,
+    revealed: false,
   };
+  mesh.visible = false;
+  pushTicker("Fetching encrypted Flagship vector from Inco network…", true);
   showLevelAlert(BOSS_LEVEL_BLURB, true);
   showPop("CRITICAL: HEAVY BOMBER DETECTED");
   flashScreen(true);
@@ -1847,17 +1914,86 @@ function explode(pos, power, gold) {
   }
 }
 
+function pushTicker(msg, hi) {
+  G.tickerLines = G.tickerLines || [];
+  G.tickerLines.unshift({ msg, hi: !!hi, t: performance.now() });
+  if (G.tickerLines.length > 4) G.tickerLines.length = 4;
+  const el = $("fheTicker");
+  if (!el) return;
+  el.innerHTML = G.tickerLines.map((L) =>
+    `<div class="${L.hi ? "hi" : ""}">${L.msg}</div>`
+  ).join("");
+}
+
+function updateFheTicker(dt) {
+  G.tickerAcc = (G.tickerAcc || 0) + dt;
+  if (G.tickerAcc < 2.4) return;
+  G.tickerAcc = 0;
+  if (!G.running || player.dead) return;
+  const msgs = [
+    "Fetching encrypted bot vector from Inco network…",
+    "FHE sight check pending — shroud radius 150m…",
+    "Decrypting LOS ciphertext on Lightning channel…",
+    "Base Sepolia relay: Megapot ticket Merkle sync…",
+    "Inco TFHE compare: local field ∩ fog of war…",
+  ];
+  // Prefer reveal-specific when contacts nearby
+  let near = false;
+  for (const e of G.enemies) {
+    if (e.mesh.position.distanceTo(player.mesh.position) < FHE_REVEAL) { near = true; break; }
+  }
+  if (G.boss && G.boss.mesh.position.distanceTo(player.mesh.position) < FHE_REVEAL) near = true;
+  if (near) {
+    pushTicker("FHE sight check true: revealing target coords on Base…", true);
+  } else {
+    pushTicker(msgs[Math.floor(Math.random() * msgs.length)], false);
+  }
+}
+
 function dropRelic(pos) {
+  // Glowing green Base Chip
   const mesh = new THREE.Mesh(
-    new THREE.OctahedronGeometry(2.2, 0),
+    new THREE.OctahedronGeometry(2.0, 0),
     new THREE.MeshStandardMaterial({
-      color: 0xffc857, emissive: 0xffaa22, emissiveIntensity: 1.2, metalness: 0.8, roughness: 0.2,
+      color: 0x3dffa8, emissive: 0x22ff88, emissiveIntensity: 1.4, metalness: 0.7, roughness: 0.2,
     })
   );
   mesh.position.copy(pos);
   mesh.position.y += 2;
   scene.add(mesh);
-  G.relics.push({ mesh, life: 14, spin: 2 + Math.random() });
+  G.relics.push({ mesh, life: 16, spin: 2.4 + Math.random(), chip: true });
+}
+
+function collectChip(worldPos) {
+  G.chips++;
+  updateHUD();
+  spawnHitFloat(worldPos, "+1 CHIP");
+  pushTicker("Base Chip secured — Inco fog packet stamped…", true);
+  if (G.chips >= CHIPS_PER_TICKET) {
+    G.chips -= CHIPS_PER_TICKET;
+    G.tickets++;
+    updateHUD();
+    // Golden ticket mint burst
+    const ticketEl = $("hudTickets");
+    ticketEl.classList.remove("ticket-pop");
+    void ticketEl.offsetWidth;
+    ticketEl.classList.add("ticket-pop");
+    const flash = $("ticketFlash");
+    flash.classList.remove("on");
+    void flash.offsetWidth;
+    flash.classList.add("on");
+    const panel = document.querySelector(".hud.tr");
+    if (panel) {
+      panel.classList.remove("gold-pulse");
+      void panel.offsetWidth;
+      panel.classList.add("gold-pulse");
+      clearTimeout(collectChip._goldT);
+      collectChip._goldT = setTimeout(() => panel.classList.remove("gold-pulse"), 560);
+    }
+    showPop("+1 MEGAPOT TICKET MINTED");
+    pushTicker("Megapot ticket minted — buyTickets hook ready (Base Sepolia)…", true);
+    SFX.explode();
+  }
 }
 
 function hurtEnemy(e, idx, dmg) {
@@ -1876,8 +2012,7 @@ function destroyEnemy(e, idx) {
   const pos = e.mesh.position.clone();
   explode(pos, 1.85, false);
   dropRelic(pos);
-  const tickets = 1 + (Math.random() < 0.55 ? 1 : 0);
-  awardKill(pos, KILL_PTS, tickets);
+  awardKill(pos, KILL_PTS, 0); // tickets via Base Chip minting
   flashCrosshairHit();
   spawnHitFloat(pos, "HIT +" + KILL_PTS);
   scene.remove(e.mesh);
@@ -1896,7 +2031,9 @@ function damageBoss(amt) {
     const pos = G.boss.mesh.position.clone();
     explode(pos, 4, true);
     explode(pos.clone().add(new THREE.Vector3(8, 0, 0)), 2, true);
-    awardKill(pos, BOSS_KILL_PTS, 5);
+    // Jackpot: score + bonus tickets + voucher modal
+    awardKill(pos, BOSS_KILL_PTS, 8);
+    G.chips = 0;
     scene.remove(G.boss.mesh);
     G.boss = null;
     G.bossPhase = false;
@@ -1953,26 +2090,35 @@ function fireMissile() {
     origins.push(player.mesh.position.clone().addScaledVector(forward, 8).addScaledVector(right, -3.2));
   }
 
+  let fireDir = forward.clone();
   let tgtMesh = null;
-  if (G.lockTarget && G.lockTarget.mesh) tgtMesh = G.lockTarget.mesh;
-  else {
-    const near = nearestThreat(DETECT_RANGE * 1.4);
+  if (G.lockTarget && G.lockTarget.mesh && (G.lockTarget.revealed || isFheRevealed(G.lockTarget))) {
+    tgtMesh = G.lockTarget.mesh;
+  } else {
+    const near = nearestThreat(FHE_REVEAL);
     if (near) {
       const to = near.mesh.position.clone().sub(player.mesh.position).normalize();
-      if (forward.dot(to) > 0) tgtMesh = near.mesh;
+      if (forward.dot(to) > 0.05) tgtMesh = near.mesh;
+    }
+  }
+  // Beginner magnetism: bias muzzle toward locked target in front hemisphere
+  if (tgtMesh) {
+    const toT = tgtMesh.position.clone().sub(player.mesh.position).normalize();
+    if (forward.dot(toT) > 0) {
+      fireDir.lerp(toT, 0.55).normalize();
     }
   }
 
   const ROUND_SPEED = 720;
   for (const origin of origins) {
-    fireOrangeTracer(origin, forward, 85);
+    fireOrangeTracer(origin, fireDir, 95);
 
     const mesh = new THREE.Mesh(
       new THREE.CylinderGeometry(0.07, 0.045, 2.1, 4),
       new THREE.MeshBasicMaterial({ color: 0xff9933 })
     );
     mesh.position.copy(origin);
-    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), forward.clone().normalize());
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), fireDir.clone().normalize());
     scene.add(mesh);
 
     const trail = new THREE.Mesh(
@@ -1984,13 +2130,14 @@ function fireMissile() {
 
     G.missiles.push({
       mesh, trail,
-      vel: forward.clone().multiplyScalar(ROUND_SPEED),
+      vel: fireDir.clone().multiplyScalar(ROUND_SPEED),
       target: tgtMesh,
-      life: 1.25,
-      forward: forward.clone(),
+      life: 1.35,
+      forward: fireDir.clone(),
       speed: ROUND_SPEED,
       gun: true,
       dmg: 1,
+      homing: !!tgtMesh,
     });
   }
 }
@@ -2034,6 +2181,8 @@ function missionFailed() {
   player.mesh.visible = false;
   $("failScore").textContent = String(G.score);
   $("failTickets").textContent = String(G.tickets);
+  const fc = $("failChips");
+  if (fc) fc.textContent = String(G.chips);
   $("failWave").textContent = String(G.waveIndex + 1);
   setTimeout(() => $("endFail").classList.remove("hidden"), 600);
 }
@@ -2078,7 +2227,7 @@ function clearEntities() {
   $("locks").innerHTML = "";
   $("threats").innerHTML = "";
   $("floats").innerHTML = "";
-  $("cross").classList.remove("hit", "tracking");
+  $("cross").classList.remove("hit", "tracking", "locked", "aim");
   $("threatEdge").classList.remove("on");
   $("trackBtn").classList.remove("on");
   G.trackAssist = false;
@@ -2129,9 +2278,15 @@ function redeploy() {
   player.speed = BASE_SPEED;
   G.score = 0;
   G.tickets = 0;
+  G.chips = 0;
   G.fireCD = 0;
   G.heat = 0;
   G.overheated = false;
+  G.thunderT = 6;
+  G.tickerLines = [];
+  G.tickerAcc = 0;
+  const ticker = $("fheTicker");
+  if (ticker) ticker.innerHTML = "";
   G.running = true;
   G.paused = false;
   SFX.setLock(false);
@@ -2140,6 +2295,7 @@ function redeploy() {
   $("btnPause").textContent = "❚❚";
   startWave(0);
   updateHUD();
+  pushTicker("Fetching encrypted bot vector from Inco network…", false);
   showPop("REDEPLOYED — WEAPONS HOT");
 }
 
@@ -2158,18 +2314,44 @@ function projectToScreen(worldPos) {
 }
 
 function isTrackHeld() {
-  return !!(G.trackAssist || G.keys.shift || G.keys["shiftleft"] || G.keys["shiftright"]);
+  // TRACK button / T key only — SHIFT is reserved for boost
+  return !!(G.trackAssist || G.keys.t);
+}
+
+function isFheRevealed(entity) {
+  if (!entity || !entity.mesh) return false;
+  return entity.mesh.position.distanceTo(player.mesh.position) <= FHE_REVEAL;
+}
+
+function updateFheFog() {
+  for (const e of G.enemies) {
+    const was = !!e.revealed;
+    e.revealed = isFheRevealed(e);
+    e.mesh.visible = e.revealed;
+    if (e.revealed && !was) {
+      pushTicker("FHE sight check true: revealing target coords on Base…", true);
+    }
+  }
+  if (G.boss) {
+    const was = !!G.boss.revealed;
+    G.boss.revealed = isFheRevealed(G.boss);
+    G.boss.mesh.visible = G.boss.revealed;
+    if (G.boss.revealed && !was) {
+      pushTicker("FHE sight check true: Flagship coords decrypted on Base…", true);
+    }
+  }
 }
 
 function nearestThreat(maxRange) {
-  const range = maxRange || DETECT_RANGE * 2.4;
+  const range = maxRange || FHE_REVEAL;
   let best = null;
   let bestD = Infinity;
   for (const e of G.enemies) {
+    if (!e.revealed && !isFheRevealed(e)) continue;
     const d = e.mesh.position.distanceToSquared(player.mesh.position);
     if (d < bestD && d < range * range) { bestD = d; best = e; }
   }
-  if (G.boss) {
+  if (G.boss && (G.boss.revealed || isFheRevealed(G.boss))) {
     const d = G.boss.mesh.position.distanceToSquared(player.mesh.position);
     if (d < bestD && d < range * range) best = G.boss;
   }
@@ -2192,7 +2374,8 @@ function updateThreatPointers() {
 
   for (const e of candidates) {
     const dist = e.mesh.position.distanceTo(player.mesh.position);
-    if (dist > DETECT_RANGE * 2.2) continue;
+    // Inco FHE: no edge pointers until local reveal field
+    if (dist > FHE_REVEAL) continue;
 
     const scr = projectToScreen(e.mesh.position);
     const onScreen =
@@ -2248,7 +2431,10 @@ function updateLockHUD() {
   for (const e of candidates) {
     const to = e.mesh.position.clone().sub(player.mesh.position);
     const dist = to.length();
-    if (dist > DETECT_RANGE * 2) continue;
+    // Invisible until inside Inco FHE 150m field
+    if (dist > FHE_REVEAL) continue;
+    e.revealed = true;
+    e.mesh.visible = true;
     to.normalize();
     const dot = forward.dot(to);
     const scr = projectToScreen(e.mesh.position);
@@ -2257,7 +2443,7 @@ function updateLockHUD() {
       scr.x > -20 && scr.x < innerWidth + 20 &&
       scr.y > -20 && scr.y < innerHeight + 20;
 
-    // Neon-red diamond bracket on every on-screen threat
+    // Neon-red diamond bracket on every on-screen revealed threat
     if (onScreen) {
       const br = document.createElement("div");
       br.className = "target-bracket" + (e === G.boss ? " boss" : "");
@@ -2270,23 +2456,38 @@ function updateLockHUD() {
       layer.appendChild(br);
     }
 
-    // Green lock box for best front-hemisphere contact
-    if (dot < Math.cos(LOCK_FOV) || !onScreen) continue;
+    // Auto-aim: front hemisphere (+ soft screen center bias)
+    if (dot < 0.05 || !onScreen) continue;
+    const cx = innerWidth * 0.5, cy = innerHeight * 0.5;
+    const screenBias = Math.hypot(scr.x - cx, scr.y - cy) * 0.002;
+    const score = (1 - dot) * 35 + dist * 0.01 + screenBias;
+    if (score < bestScore) { bestScore = score; best = e; }
+
     const box = document.createElement("div");
     box.className = "lockbox";
     box.style.left = scr.x + "px";
     box.style.top = scr.y + "px";
     const d = document.createElement("div");
     d.className = "dist";
-    d.textContent = "LOCK";
+    d.textContent = "AUTO-AIM";
     box.appendChild(d);
     layer.appendChild(box);
-    const score = (1 - dot) * 40 + dist * 0.008;
-    if (score < bestScore) { bestScore = score; best = e; }
   }
+
+  // Magnetic neon reticle glued to best front-hemisphere lock
+  if (best) {
+    const scr = projectToScreen(best.mesh.position);
+    const aim = document.createElement("div");
+    aim.className = "aim-ring";
+    aim.style.left = scr.x + "px";
+    aim.style.top = scr.y + "px";
+    layer.appendChild(aim);
+  }
+
   G.lockTarget = best;
   $("cross").classList.toggle("locked", !!best);
-  $("cross").classList.toggle("tracking", isTrackHeld() && !!nearestThreat());
+  $("cross").classList.toggle("aim", !!best);
+  $("cross").classList.toggle("tracking", isTrackHeld() && !!nearestThreat(FHE_REVEAL * 1.2));
   SFX.setLock(!!best && G.running && !player.dead);
 }
 
@@ -2345,13 +2546,14 @@ function drawRadar() {
   fx /= flen; fz /= flen;
   // Right vector in XZ (90° CW from above): (x,z) → (z, -x)
   const rx = fz, rz = -fx;
-  const scale = (R * 0.85) / DETECT_RANGE;
+  const scale = (R * 0.85) / FHE_REVEAL;
 
   const plot = (pos, color, size) => {
     const dx = pos.x - player.mesh.position.x;
     const dz = pos.z - player.mesh.position.z;
     const dist = Math.hypot(dx, dz);
-    if (dist > DETECT_RANGE) return;
+    // Inco FHE: only plot contacts inside local decrypt field
+    if (dist > FHE_REVEAL) return;
     const localFwd = dx * fx + dz * fz;   // +ahead
     const localRight = dx * rx + dz * rz; // +right
     const sx = cx + localRight * scale;
@@ -2376,9 +2578,9 @@ function drawRadar() {
 function updateFlight(dt) {
   if (player.dead) return;
   let pitchIn = 0, rollIn = 0;
-  // Pitch: arrows + stick (W/S reserved for boost/brake)
-  if (G.keys.arrowup) pitchIn -= 1;
-  if (G.keys.arrowdown) pitchIn += 1;
+  // Pitch climb/dive: ↑↓ and W/S (beginner-friendly 3D height control)
+  if (G.keys.arrowup || G.keys.w) pitchIn -= 1;
+  if (G.keys.arrowdown || G.keys.s) pitchIn += 1;
   if (G.keys.a || G.keys.arrowleft) rollIn += 1;
   if (G.keys.d || G.keys.arrowright) rollIn -= 1;
   pitchIn += G.stick.y;
@@ -2387,37 +2589,39 @@ function updateFlight(dt) {
   rollIn = THREE.MathUtils.clamp(rollIn, -1, 1);
 
   if (Math.abs(pitchIn) > 0.04) {
-    player.pitch = THREE.MathUtils.clamp(player.pitch + pitchIn * 1.35 * dt, -0.78, 0.78);
+    // Strong pitch response so climb/dive visibly moves camera + altitude
+    player.pitch = THREE.MathUtils.clamp(player.pitch + pitchIn * 2.15 * dt, -1.05, 1.05);
   } else {
-    player.pitch = THREE.MathUtils.damp(player.pitch, 0, 1.5, dt);
+    // Soft auto-level only — still holds attitude while climbing
+    player.pitch = THREE.MathUtils.damp(player.pitch, 0, 0.55, dt);
   }
-  const rollTarget = rollIn * 0.85;
+  const rollTarget = rollIn * 0.9;
   player.roll = THREE.MathUtils.damp(player.roll, rollTarget, 10, dt);
-  // Tighter turns when braking
   const turnMul = player.speed < BASE_SPEED * 0.92 ? 1.45 : 1.15;
   player.yaw += -player.roll * turnMul * dt;
 
   syncPlayerMesh();
 
-  // Constant auto-thrust with W boost / S brake
+  // SHIFT boost · CTRL brake (W/S reserved for pitch)
   let targetSpeed = BASE_SPEED;
-  if (G.keys.w) targetSpeed = BOOST_SPEED;
-  else if (G.keys.s) targetSpeed = BRAKE_SPEED;
+  if (G.keys.shift || G.keys.shiftleft || G.keys.shiftright) targetSpeed = BOOST_SPEED;
+  else if (G.keys.control || G.keys.controlleft || G.keys.controlright || G.keys.ctrl) targetSpeed = BRAKE_SPEED;
   player.speed = THREE.MathUtils.damp(player.speed, targetSpeed, 4.5, dt);
 
   const forward = getPlayerForward(new THREE.Vector3());
   player.mesh.position.addScaledVector(forward, player.speed * dt);
+
+  // Extra vertical authority from pitch so Y-axis motion is unmistakable
+  player.mesh.position.y += -Math.sin(player.pitch) * player.speed * 0.35 * dt;
 
   if (player.mesh.position.y < 28) { player.mesh.position.y = 28; player.pitch = Math.max(player.pitch, 0.05); }
   if (player.mesh.position.y > 280) { player.mesh.position.y = 280; player.pitch = Math.min(player.pitch, -0.05); }
 
   const throttle = THREE.MathUtils.clamp((player.speed - BRAKE_SPEED) / (BOOST_SPEED - BRAKE_SPEED), 0, 1);
   pulsePlumes(player.mesh, 0.55 + throttle * 0.9, dt);
-  // Continuous dense wingtip vapor at cruise+
   emitVapor(player.mesh, 0.75 + throttle * 0.55 + Math.abs(player.roll) * 0.4);
   SFX.setEngine(player.speed, true);
 
-  // Hold SPACE / FIRE for twin wing MGs (pulsed by heat)
   if ((G.keys[" "] || G.keys.space || G.firingTouch) && !G.overheated) fireMissile();
   else {
     const cool = G.overheated ? GUN_OVERHEAT_COOL : GUN_COOL_RATE;
@@ -2466,9 +2670,9 @@ function updateCamera(dt) {
   const defaultLook = player.mesh.position.clone().addScaledVector(forward, 24);
   let lookTarget = defaultLook;
 
-  // Sight harness — hold SHIFT / TRACK to swivel onto nearest bandit
+  // Sight harness — hold TRACK / T to swivel onto nearest revealed bandit
   const tracking = isTrackHeld() && !player.dead;
-  const threat = tracking ? nearestThreat() : null;
+  const threat = tracking ? nearestThreat(FHE_REVEAL * 1.2) : null;
   if (threat) {
     lookTarget = threat.mesh.position.clone();
   }
@@ -2576,20 +2780,23 @@ function steerDogfight(e, dt, isBoss) {
 
 function updateEnemies(dt) {
   const playerFwd = getPlayerForward(new THREE.Vector3());
+  updateFheFog();
 
   for (let i = G.enemies.length - 1; i >= 0; i--) {
     const e = G.enemies[i];
     const dist = steerDogfight(e, dt, false);
-    pulsePlumes(e.mesh, e.mode === "pass" ? 1.1 : 0.75, dt);
-    emitVapor(e.mesh, e.mode === "pass" ? 0.85 : 0.55);
+    if (e.revealed) {
+      pulsePlumes(e.mesh, e.mode === "pass" ? 1.1 : 0.75, dt);
+      emitVapor(e.mesh, e.mode === "pass" ? 0.85 : 0.55);
+    }
 
     const toEnemy = e.mesh.position.clone().sub(player.mesh.position).normalize();
     const ahead = playerFwd.dot(toEnemy);
     const behind = ahead < -0.25;
     e.fireCD -= dt;
 
-    // Strafe during approach / pass when visible — avoid endless rear guns
-    if (e.fireCD <= 0 && dist < 175 && dist > 48) {
+    // Only fire once FHE-revealed inside local field
+    if (e.revealed && e.fireCD <= 0 && dist < 175 && dist > 48) {
       if (e.mode === "approach" || e.mode === "pass") {
         e.fireCD = 1.35 + Math.random() * 0.9;
         if (Math.random() < 0.55) enemyFirePlasma(e, behind);
@@ -2609,15 +2816,17 @@ function updateEnemies(dt) {
   if (G.boss) {
     const b = G.boss;
     const dist = steerDogfight(b, dt, true);
-    pulsePlumes(b.mesh, 0.95, dt);
-    emitVapor(b.mesh, 0.7);
+    if (b.revealed) {
+      pulsePlumes(b.mesh, 0.95, dt);
+      emitVapor(b.mesh, 0.7);
+    }
     const toBoss = b.mesh.position.clone().sub(player.mesh.position).normalize();
     const bossBehind = playerFwd.dot(toBoss) < -0.15;
     b.fireCD -= dt;
     b.turretCD = (b.turretCD || 0) - dt;
 
-    // Wing batteries — yellow plasma inside 100-unit engagement field
-    if (dist < 100 && dist > 35 && b.turretCD <= 0) {
+    // Wing batteries — only when Flagship is FHE-revealed
+    if (b.revealed && dist < 100 && dist > 35 && b.turretCD <= 0) {
       b.turretCD = 0.38;
       const turrets = b.mesh.userData.turrets || [];
       const dir = player.mesh.position.clone().sub(b.mesh.position).normalize();
@@ -2630,7 +2839,6 @@ function updateEnemies(dt) {
           (Math.random() - 0.5) * 0.05,
           (Math.random() - 0.5) * 0.06
         )).normalize();
-        // Yellow AA tracers
         const end = o.clone().addScaledVector(aim, 70);
         const geo = new THREE.BufferGeometry().setFromPoints([o.clone(), end]);
         const mat = new THREE.LineBasicMaterial({ color: 0xffee55, transparent: true, opacity: 1, depthWrite: false });
@@ -2659,15 +2867,16 @@ function updateMissiles(dt) {
     m.life -= dt;
     const cruise = m.speed || 840;
 
-    // Strong arcade homing — pull hard onto lock
+    // Strong arcade auto-aim curve — tracers bend onto lock
     if (m.target && m.target.parent) {
       const toT = m.target.position.clone().sub(m.mesh.position);
       const dist = toT.length();
       if (dist > 0.5) {
         toT.normalize();
+        const pull = m.homing ? 14 : 9;
         const desired = toT.multiplyScalar(cruise);
-        m.vel.lerp(desired, Math.min(1, 9 * dt));
-        if (m.vel.length() > cruise * 1.05) m.vel.setLength(cruise);
+        m.vel.lerp(desired, Math.min(1, pull * dt));
+        if (m.vel.length() > cruise * 1.08) m.vel.setLength(cruise);
       }
     } else if (m.forward) {
       m.vel.lerp(m.forward.clone().multiplyScalar(cruise), Math.min(1, 4 * dt));
@@ -2693,13 +2902,15 @@ function updateMissiles(dt) {
 
     let hit = false;
     for (let j = G.enemies.length - 1; j >= 0; j--) {
-      if (m.mesh.position.distanceTo(G.enemies[j].mesh.position) < 10) {
-        hurtEnemy(G.enemies[j], j, m.dmg || 1);
+      const en = G.enemies[j];
+      if (!en.revealed && !isFheRevealed(en)) continue;
+      if (m.mesh.position.distanceTo(en.mesh.position) < 10) {
+        hurtEnemy(en, j, m.dmg || 1);
         hit = true;
         break;
       }
     }
-    if (!hit && G.boss && m.mesh.position.distanceTo(G.boss.mesh.position) < 32) {
+    if (!hit && G.boss && (G.boss.revealed || isFheRevealed(G.boss)) && m.mesh.position.distanceTo(G.boss.mesh.position) < 32) {
       damageBoss(m.dmg || 1);
       hit = true;
     }
@@ -2756,13 +2967,13 @@ function updateRelics(dt) {
     const r = G.relics[i];
     r.life -= dt;
     r.mesh.rotation.y += r.spin * dt;
-    if (!player.dead && player.mesh.position.distanceTo(r.mesh.position) < 8) {
+    r.mesh.position.y += Math.sin(G.t * 4 + i) * 0.02;
+    if (!player.dead && player.mesh.position.distanceTo(r.mesh.position) < 10) {
+      const pos = r.mesh.position.clone();
       scene.remove(r.mesh);
       G.relics.splice(i, 1);
-      G.tickets++;
+      collectChip(pos);
       flashScreen(false);
-      showPop("MEGAPOT RELIC SECURED");
-      updateHUD();
       continue;
     }
     if (r.life <= 0) {
@@ -2846,6 +3057,7 @@ function frame(ts) {
     updateOcean(G.t);
     updateRain(dt);
     updateThunder(dt);
+    updateFheTicker(dt);
     updateCamera(dt);
     updateLockHUD();
     updateThreatPointers();
@@ -2877,21 +3089,27 @@ function frame(ts) {
 /* —— Input —— */
 addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
-  if (["w", "a", "s", "d", " ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) e.preventDefault();
+  if (["w", "a", "s", "d", " ", "arrowup", "arrowdown", "arrowleft", "arrowright", "t"].includes(k)) e.preventDefault();
   if (e.code === "ShiftLeft" || e.code === "ShiftRight" || k === "shift") {
     G.keys.shift = true;
-    $("trackBtn").classList.add("on");
+    e.preventDefault();
+  }
+  if (e.code === "ControlLeft" || e.code === "ControlRight" || k === "control") {
+    G.keys.control = true;
+    G.keys.ctrl = true;
     e.preventDefault();
   }
   G.keys[k] = true;
   if (e.code.startsWith("Arrow")) G.keys[e.code.toLowerCase()] = true;
-  // SPACE held — guns fire in updateFlight; no single-shot here
 });
 addEventListener("keyup", (e) => {
   const k = e.key.toLowerCase();
   if (e.code === "ShiftLeft" || e.code === "ShiftRight" || k === "shift") {
     G.keys.shift = false;
-    if (!G.trackAssist) $("trackBtn").classList.remove("on");
+  }
+  if (e.code === "ControlLeft" || e.code === "ControlRight" || k === "control") {
+    G.keys.control = false;
+    G.keys.ctrl = false;
   }
   G.keys[k] = false;
   if (e.code.startsWith("Arrow")) G.keys[e.code.toLowerCase()] = false;
@@ -2917,7 +3135,7 @@ $("fireBtn").addEventListener("click", (e) => e.preventDefault());
   };
   const up = () => {
     G.trackAssist = false;
-    if (!G.keys.shift) btn.classList.remove("on");
+    btn.classList.remove("on");
   };
   btn.addEventListener("touchstart", down, { passive: false });
   btn.addEventListener("touchend", up);
@@ -2978,8 +3196,14 @@ $("btnEngage").addEventListener("click", () => {
   $("btnPause").classList.add("show");
   G.running = true;
   G.paused = false;
+  G.chips = 0;
+  G.tickerLines = [];
+  G.tickerAcc = 0;
+  G.thunderT = 6;
   startWave(0);
   updateHUD();
+  SFX.setEngine(BASE_SPEED, true);
+  pushTicker("Fetching encrypted bot vector from Inco network…", false);
 });
 
 $("btnRedeployFail").addEventListener("click", () => { SFX.resume(); redeploy(); });
