@@ -321,12 +321,64 @@
     .fire-btn.show { display: grid; place-items: center; }
     .fire-btn:active { background: rgba(255, 77, 109, 0.45); }
 
+    .track-btn {
+      display: none; position: absolute; z-index: 12;
+      right: 1rem; bottom: calc(6.2rem + var(--safe-b));
+      width: 72px; height: 52px; border-radius: 12px;
+      border: 2px solid rgba(92, 225, 255, 0.55);
+      background: rgba(12, 40, 64, 0.5);
+      backdrop-filter: blur(10px);
+      color: #b8f0ff; font-family: var(--display);
+      font-size: 0.52rem; letter-spacing: 0.1em;
+      pointer-events: auto; touch-action: none;
+      place-items: center;
+    }
+    .track-btn.show { display: grid; }
+    .track-btn.on, .track-btn:active {
+      background: rgba(61, 255, 168, 0.35);
+      border-color: rgba(61, 255, 168, 0.85);
+      color: #e8fff4;
+      box-shadow: 0 0 18px rgba(61, 255, 168, 0.45);
+    }
+
+    /* Off-screen threat triangles */
+    #threats { position: absolute; inset: 0; z-index: 8; pointer-events: none; overflow: hidden; }
+    .threat-ptr {
+      position: absolute; width: 0; height: 0;
+      border-left: 9px solid transparent;
+      border-right: 9px solid transparent;
+      border-bottom: 16px solid #ff3355;
+      filter: drop-shadow(0 0 6px #ff3355) drop-shadow(0 0 14px rgba(255, 40, 70, 0.85));
+      animation: threatBlink 0.55s ease-in-out infinite;
+    }
+    .threat-ptr.boss {
+      border-left-width: 11px; border-right-width: 11px; border-bottom-width: 20px;
+      border-bottom-color: #ffc857;
+      filter: drop-shadow(0 0 8px #ffc857);
+    }
+    .threat-ptr .rng {
+      position: absolute; left: 50%; top: 18px; transform: translateX(-50%);
+      font-family: var(--mono); font-size: 0.55rem; color: #ff8a9a;
+      text-shadow: 0 0 6px #000; white-space: nowrap;
+      border: none; width: auto; height: auto;
+    }
+    .threat-ptr.boss .rng { color: #ffc857; }
+    @keyframes threatBlink {
+      50% { opacity: 0.55; filter: drop-shadow(0 0 12px #ff5577); }
+    }
+
+    .cross.tracking {
+      border-color: rgba(92, 225, 255, 0.85);
+      box-shadow: 0 0 22px rgba(92, 225, 255, 0.55);
+    }
+    .cross.tracking::before, .cross.tracking::after { background: rgba(92, 225, 255, 0.9); }
+
     .hint {
       position: absolute; z-index: 9; pointer-events: none;
       bottom: calc(0.75rem + var(--safe-b)); right: 0.7rem;
       font-family: var(--mono); font-size: 0.58rem; color: var(--muted);
       background: rgba(6, 14, 22, 0.35); padding: 0.3rem 0.5rem;
-      border: 1px solid rgba(92, 225, 255, 0.15); max-width: 44vw; text-align: right;
+      border: 1px solid rgba(92, 225, 255, 0.15); max-width: 48vw; text-align: right;
     }
     @media (pointer: coarse) { .hint { display: none; } }
 
@@ -419,6 +471,7 @@
     <div class="threat-edge" id="threatEdge"></div>
     <div class="cross" id="cross"></div>
     <div id="locks"></div>
+    <div id="threats"></div>
     <div id="floats"></div>
     <div class="flash" id="flash"></div>
     <div class="pop" id="pop"></div>
@@ -458,12 +511,13 @@
     </div>
 
     <button class="pause" id="btnPause" type="button" aria-label="Pause">❚❚</button>
-    <div class="hint">WASD / Arrows · SPACE fire · Survive 3 waves → Flagship</div>
+    <div class="hint">WASD · SPACE fire · HOLD SHIFT track · Red arrows = off-screen threats</div>
 
     <div class="stick-zone" id="stickZone">
       <div class="stick-base"></div>
       <div class="stick-knob" id="stickKnob"></div>
     </div>
+    <button class="track-btn" id="trackBtn" type="button">TRACK</button>
     <button class="fire-btn" id="fireBtn" type="button">FIRE</button>
 
     <div class="brief" id="brief">
@@ -472,9 +526,10 @@
         <p class="sub">3D aerial dogfight · Megapot combat drops</p>
         <ul>
           <li><strong>Fly:</strong> WASD / Arrows or mobile joystick</li>
-          <li><strong>Lock &amp; Fire:</strong> Green box = lock · SPACE launches missile</li>
-          <li><strong>Survive:</strong> Clear 3 waves, then destroy the Flagship</li>
-          <li><strong>Earn:</strong> Kills grant +100 PTS and Megapot tickets</li>
+          <li><strong>Track:</strong> Hold SHIFT (or TRACK) to swivel camera onto nearest bandit</li>
+          <li><strong>Threat arrows:</strong> Red edge triangles point to off-screen jets</li>
+          <li><strong>Fire:</strong> Green lock box · SPACE / FIRE launches missiles</li>
+          <li><strong>Earn:</strong> Survive 3 waves → Flagship · kills = tickets</li>
         </ul>
         <button class="btn-engage" id="btnEngage" type="button">ENGAGE</button>
       </div>
@@ -533,6 +588,7 @@ const isTouch = window.matchMedia("(pointer: coarse)").matches
 if (isTouch) {
   $("stickZone").classList.add("show");
   $("fireBtn").classList.add("show");
+  $("trackBtn").classList.add("show");
 }
 
 const renderer = new THREE.WebGLRenderer({
@@ -1111,6 +1167,8 @@ const G = {
   tracers: [],
   crossHitFrames: 0,
   threatTimer: 0,
+  trackAssist: false,
+  trackLook: null,
 };
 
 /* Flight forward = world -Z rotated by yaw/pitch. Model nose is +X → offset quat. */
@@ -1130,12 +1188,15 @@ function syncPlayerMesh() {
 }
 
 function spawnAwayFromPlayer(minR, maxR) {
-  const ang = Math.random() * Math.PI * 2;
+  // Bias spawns into the forward hemisphere so first contact is engageable
+  const fwd = getPlayerForward(new THREE.Vector3());
+  const base = Math.atan2(fwd.x, fwd.z);
+  const ang = base + (Math.random() - 0.5) * Math.PI * 1.1; // ~±99° of nose
   const dist = minR + Math.random() * (maxR - minR);
   return {
-    x: player.mesh.position.x + Math.cos(ang) * dist,
-    y: THREE.MathUtils.clamp(player.mesh.position.y + (Math.random() - 0.35) * 60, 55, 220),
-    z: player.mesh.position.z + Math.sin(ang) * dist,
+    x: player.mesh.position.x + Math.sin(ang) * dist,
+    y: THREE.MathUtils.clamp(player.mesh.position.y + (Math.random() - 0.25) * 55, 55, 220),
+    z: player.mesh.position.z + Math.cos(ang) * dist,
   };
 }
 
@@ -1285,9 +1346,11 @@ function spawnEnemy(opts) {
     speed: (opts && opts.speed) || 75,
     bank: (Math.random() - 0.5) * 0.35,
     fireCD: 1.5 + Math.random() * 2,
-    mode: "chase", // chase | peel
-    peelTimer: 0,
+    mode: "approach", // approach | pass | circle
+    phaseT: 0,
     peelSide: side,
+    orbitSide: side,
+    passDir: null,
   });
 }
 
@@ -1300,7 +1363,10 @@ function spawnBoss() {
   mesh.lookAt(mesh.position.clone().add(toP));
   mesh.rotateY(Math.PI / 2);
   scene.add(mesh);
-  G.boss = { mesh, hp: 40, maxHp: 40, speed: 55, fireCD: 0, mode: "chase", peelTimer: 0, peelSide: 1 };
+  G.boss = {
+    mesh, hp: 40, maxHp: 40, speed: 55, fireCD: 0,
+    mode: "approach", phaseT: 0, peelSide: 1, orbitSide: 1, passDir: null,
+  };
   showPop("CRITICAL: FLAGSHIP DETECTED");
   flashScreen(true);
   camShake.t = 0.6;
@@ -1498,9 +1564,13 @@ function clearEntities() {
   G.boss = null;
   G.bossPhase = false;
   $("locks").innerHTML = "";
+  $("threats").innerHTML = "";
   $("floats").innerHTML = "";
-  $("cross").classList.remove("hit");
+  $("cross").classList.remove("hit", "tracking");
   $("threatEdge").classList.remove("on");
+  $("trackBtn").classList.remove("on");
+  G.trackAssist = false;
+  G.trackLook = null;
 }
 
 function startWave(index) {
@@ -1557,8 +1627,11 @@ function redeploy() {
   showPop("REDEPLOYED — WEAPONS HOT");
 }
 
-/* —— Projection / lock / radar —— */
+/* —— Projection / lock / radar / off-screen threats —— */
 const _proj = new THREE.Vector3();
+const _camLocal = new THREE.Vector3();
+const _right = new THREE.Vector3();
+
 function projectToScreen(worldPos) {
   _proj.copy(worldPos).project(camera);
   return {
@@ -1566,6 +1639,84 @@ function projectToScreen(worldPos) {
     y: (-_proj.y * 0.5 + 0.5) * innerHeight,
     z: _proj.z,
   };
+}
+
+function isTrackHeld() {
+  return !!(G.trackAssist || G.keys.shift || G.keys["shiftleft"] || G.keys["shiftright"]);
+}
+
+function nearestThreat(maxRange) {
+  const range = maxRange || DETECT_RANGE * 2.4;
+  let best = null;
+  let bestD = Infinity;
+  for (const e of G.enemies) {
+    const d = e.mesh.position.distanceToSquared(player.mesh.position);
+    if (d < bestD && d < range * range) { bestD = d; best = e; }
+  }
+  if (G.boss) {
+    const d = G.boss.mesh.position.distanceToSquared(player.mesh.position);
+    if (d < bestD && d < range * range) best = G.boss;
+  }
+  return best;
+}
+
+function updateThreatPointers() {
+  const layer = $("threats");
+  layer.innerHTML = "";
+  if (!G.running || player.dead) return;
+
+  const candidates = G.enemies.slice();
+  if (G.boss) candidates.push(G.boss);
+
+  const margin = 30;
+  const cx = innerWidth * 0.5;
+  const cy = innerHeight * 0.5;
+  const hw = cx - margin;
+  const hh = cy - margin;
+
+  for (const e of candidates) {
+    const dist = e.mesh.position.distanceTo(player.mesh.position);
+    if (dist > DETECT_RANGE * 2.2) continue;
+
+    const scr = projectToScreen(e.mesh.position);
+    const onScreen =
+      scr.z > -1 && scr.z < 1 &&
+      scr.x > margin && scr.x < innerWidth - margin &&
+      scr.y > margin && scr.y < innerHeight - margin;
+    if (onScreen) continue;
+
+    // Camera-space vector (Three.js: camera looks down -Z)
+    _camLocal.copy(e.mesh.position).applyMatrix4(camera.matrixWorldInverse);
+    let dx = _camLocal.x;
+    let dy = -_camLocal.y; // screen Y increases downward
+    if (_camLocal.z > 0) {
+      // Behind camera — flip so pointer still indicates turn direction
+      dx = -dx;
+      dy = -dy;
+    }
+    const ang = Math.atan2(dy, dx);
+    const cos = Math.cos(ang);
+    const sin = Math.sin(ang);
+    const tx = Math.abs(cos) < 1e-5 ? Infinity : hw / Math.abs(cos);
+    const ty = Math.abs(sin) < 1e-5 ? Infinity : hh / Math.abs(sin);
+    const tEdge = Math.min(tx, ty);
+    const px = cx + cos * tEdge;
+    const py = cy + sin * tEdge;
+
+    const el = document.createElement("div");
+    el.className = "threat-ptr" + (e === G.boss ? " boss" : "");
+    el.style.left = px + "px";
+    el.style.top = py + "px";
+    // Default triangle points up; rotate so tip faces threat
+    el.style.transform = `translate(-50%, -50%) rotate(${ang + Math.PI / 2}rad)`;
+    const rng = document.createElement("div");
+    rng.className = "rng";
+    rng.textContent = Math.round(dist) + "m";
+    // Counter-rotate label so text stays readable
+    rng.style.transform = `translateX(-50%) rotate(${-(ang + Math.PI / 2)}rad)`;
+    el.appendChild(rng);
+    layer.appendChild(el);
+  }
 }
 
 function updateLockHUD() {
@@ -1604,6 +1755,7 @@ function updateLockHUD() {
   }
   G.lockTarget = best;
   $("cross").classList.toggle("locked", !!best);
+  $("cross").classList.toggle("tracking", isTrackHeld() && !!nearestThreat());
   SFX.setLock(!!best && G.running && !player.dead);
 }
 
@@ -1616,6 +1768,7 @@ function drawRadar() {
   rctx.arc(cx, cy, R, 0, Math.PI * 2);
   rctx.fill();
 
+  // Forward sweep wedge (always top / nose-up)
   const grd = rctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.72);
   grd.addColorStop(0, "rgba(40,120,160,0.55)");
   grd.addColorStop(1, "rgba(5,15,25,0.1)");
@@ -1634,24 +1787,47 @@ function drawRadar() {
     rctx.stroke();
   }
 
-  rctx.fillStyle = "#fff";
+  // Crosshair axes
+  rctx.strokeStyle = "rgba(92,225,255,0.18)";
+  rctx.lineWidth = 1;
   rctx.beginPath();
-  rctx.moveTo(cx, cy - 10);
-  rctx.lineTo(cx + 7, cy + 8);
-  rctx.lineTo(cx - 7, cy + 8);
+  rctx.moveTo(cx, cy - R); rctx.lineTo(cx, cy + R);
+  rctx.moveTo(cx - R, cy); rctx.lineTo(cx + R, cy);
+  rctx.stroke();
+
+  // Player: fixed green triangle at center, always facing UP
+  rctx.fillStyle = "#3dffa8";
+  rctx.strokeStyle = "rgba(61,255,168,0.7)";
+  rctx.lineWidth = 1.5;
+  rctx.beginPath();
+  rctx.moveTo(cx, cy - 11);
+  rctx.lineTo(cx + 8, cy + 9);
+  rctx.lineTo(cx - 8, cy + 9);
   rctx.closePath();
   rctx.fill();
+  rctx.stroke();
+
+  // Local frame from player heading (XZ), nose = +forward → radar UP
+  const fwd = getPlayerForward(new THREE.Vector3());
+  let fx = fwd.x, fz = fwd.z;
+  const flen = Math.hypot(fx, fz) || 1;
+  fx /= flen; fz /= flen;
+  // Right vector in XZ (90° CW from above): (x,z) → (z, -x)
+  const rx = fz, rz = -fx;
+  const scale = (R * 0.85) / DETECT_RANGE;
 
   const plot = (pos, color, size) => {
     const dx = pos.x - player.mesh.position.x;
     const dz = pos.z - player.mesh.position.z;
     const dist = Math.hypot(dx, dz);
     if (dist > DETECT_RANGE) return;
-    const ang = Math.atan2(dx, -dz) - player.yaw;
-    const rr = (dist / DETECT_RANGE) * R * 0.85;
+    const localFwd = dx * fx + dz * fz;   // +ahead
+    const localRight = dx * rx + dz * rz; // +right
+    const sx = cx + localRight * scale;
+    const sy = cy - localFwd * scale;     // ahead = up
     rctx.fillStyle = color;
     rctx.beginPath();
-    rctx.arc(cx + Math.sin(ang) * rr, cy - Math.cos(ang) * rr, size, 0, Math.PI * 2);
+    rctx.arc(sx, sy, size, 0, Math.PI * 2);
     rctx.fill();
   };
 
@@ -1738,51 +1914,114 @@ function updateCamera(dt) {
     camera.position.x += (Math.random() - 0.5) * camShake.t * 6;
     camera.position.y += (Math.random() - 0.5) * camShake.t * 6;
   }
-  const look = player.mesh.position.clone().addScaledVector(forward, 24);
+
+  // Default chase look-ahead
+  const defaultLook = player.mesh.position.clone().addScaledVector(forward, 24);
+  let lookTarget = defaultLook;
+
+  // Sight harness — hold SHIFT / TRACK to swivel onto nearest bandit
+  const tracking = isTrackHeld() && !player.dead;
+  const threat = tracking ? nearestThreat() : null;
+  if (threat) {
+    lookTarget = threat.mesh.position.clone();
+  }
+
+  if (!G.trackLook) G.trackLook = defaultLook.clone();
+  G.trackLook.lerp(lookTarget, 1 - Math.exp(-(threat ? 5.5 : 7) * dt));
+
   camera.up.set(0, 1, 0);
-  camera.lookAt(look);
-  camera.rotateZ(-player.roll * 0.4);
+  camera.lookAt(G.trackLook);
+  camera.rotateZ(-player.roll * (threat ? 0.22 : 0.4));
 }
 
+/** Attack-run loop: approach → overhead pass → wide circle ahead → re-engage */
 function steerDogfight(e, dt, isBoss) {
-  const toPlayer = _tmpV.copy(player.mesh.position).sub(e.mesh.position);
+  const playerPos = player.mesh.position;
+  const playerFwd = getPlayerForward(new THREE.Vector3());
+  const toPlayer = _tmpV.copy(playerPos).sub(e.mesh.position);
   const dist = toPlayer.length();
-  toPlayer.normalize();
+  if (dist > 0.001) toPlayer.normalize();
 
-  if (dist < 50) {
-    e.mode = "peel";
-    e.peelTimer = 1.4 + Math.random() * 0.8;
-  } else if (dist > 160 && e.peelTimer <= 0) {
-    e.mode = "chase";
+  const toEnemyN = e.mesh.position.clone().sub(playerPos).normalize();
+  const aheadOfPlayer = playerFwd.dot(toEnemyN); // +1 in front of player nose
+
+  _right.crossVectors(playerFwd, new THREE.Vector3(0, 1, 0));
+  if (_right.lengthSq() < 0.001) _right.set(1, 0, 0);
+  else _right.normalize();
+
+  // Migrate legacy modes
+  if (e.mode === "chase" || e.mode === "peel" || !e.mode) {
+    e.mode = "approach";
+    e.phaseT = 0;
+  }
+  e.phaseT = (e.phaseT || 0) + dt;
+  if (e.orbitSide == null) e.orbitSide = e.peelSide || 1;
+
+  // Break out of blind-spot tail lock — force a front-quarter circle
+  if (aheadOfPlayer < -0.25 && dist < 140 && e.mode === "approach") {
+    e.mode = "circle";
+    e.phaseT = 0;
+    e.orbitSide = e.orbitSide || (Math.random() < 0.5 ? 1 : -1);
   }
 
-  if (e.mode === "peel") {
-    e.peelTimer -= dt;
-    const up = new THREE.Vector3(0, 1, 0);
-    const side = new THREE.Vector3().crossVectors(toPlayer, up).normalize();
-    if (side.lengthSq() < 0.01) side.set(1, 0, 0);
-    side.multiplyScalar(e.peelSide || 1);
-    const climb = new THREE.Vector3(0, 0.55, 0);
-    const away = toPlayer.clone().multiplyScalar(-0.35);
-    const dir = side.add(climb).add(away).normalize();
-    e.mesh.position.addScaledVector(dir, e.speed * 1.05 * dt);
-    e.mesh.lookAt(e.mesh.position.clone().add(dir));
-    e.mesh.rotateY(Math.PI / 2); // model +X → lookAt -Z
-    if (e.peelTimer <= 0) e.mode = "chase";
+  const desired = new THREE.Vector3();
+
+  if (e.mode === "approach") {
+    // Lead point slightly above / in front so they enter forward FOV on the pass
+    const aim = playerPos.clone()
+      .addScaledVector(playerFwd, 12)
+      .add(new THREE.Vector3(0, isBoss ? 28 : 22, 0))
+      .addScaledVector(_right, e.bank * 25);
+    desired.copy(aim).sub(e.mesh.position).normalize();
+    if (dist < (isBoss ? 80 : 68)) {
+      e.mode = "pass";
+      e.phaseT = 0;
+      // Punch through overhead into the player's forward quarter
+      e.passDir = playerFwd.clone()
+        .multiplyScalar(0.55)
+        .add(new THREE.Vector3(0, 0.85, 0))
+        .addScaledVector(_right, e.orbitSide * 0.35)
+        .addScaledVector(toPlayer, -0.25)
+        .normalize();
+    }
+  } else if (e.mode === "pass") {
+    desired.copy(e.passDir || playerFwd);
+    if (e.phaseT > (isBoss ? 2.0 : 1.55) || (aheadOfPlayer > 0.35 && dist > 90)) {
+      e.mode = "circle";
+      e.phaseT = 0;
+    }
   } else {
-    const side = new THREE.Vector3().crossVectors(toPlayer, new THREE.Vector3(0, 1, 0)).normalize();
-    const dir = toPlayer.clone().addScaledVector(side, e.bank * 0.35).normalize();
-    e.mesh.position.addScaledVector(dir, e.speed * dt);
-    e.mesh.lookAt(e.mesh.position.clone().add(dir));
-    e.mesh.rotateY(Math.PI / 2);
+    // Wide circle / turn in front of the player
+    const orbit = playerPos.clone()
+      .addScaledVector(playerFwd, (isBoss ? 200 : 165) + Math.sin(e.phaseT * 0.9) * 25)
+      .addScaledVector(_right, e.orbitSide * (95 + Math.sin(e.phaseT * 1.4) * 35))
+      .add(new THREE.Vector3(0, 20 + Math.cos(e.phaseT * 1.1) * 18, 0));
+    desired.copy(orbit).sub(e.mesh.position);
+    const od = desired.length();
+    if (od > 0.001) desired.multiplyScalar(1 / od);
+    // Tangential bank for a sweeping turn
+    desired.addScaledVector(_right, e.orbitSide * 0.22).normalize();
+
+    if (od < 45 || e.phaseT > (isBoss ? 4.2 : 3.4)) {
+      e.mode = "approach";
+      e.phaseT = 0;
+      e.orbitSide *= -1; // alternate flanks
+    }
   }
 
-  // Soft floor/ceiling + separation so they never sit on the player
+  const spdMul = e.mode === "pass" ? 1.3 : e.mode === "circle" ? 1.08 : 1.0;
+  e.mesh.position.addScaledVector(desired, e.speed * spdMul * dt);
+  e.mesh.lookAt(e.mesh.position.clone().add(desired));
+  e.mesh.rotateY(Math.PI / 2);
+
   e.mesh.position.y = THREE.MathUtils.clamp(e.mesh.position.y, 40, 250);
-  if (dist < 28) {
-    e.mesh.position.addScaledVector(toPlayer, -(30 - dist) * 2.2 * dt);
-    e.mode = "peel";
-    e.peelTimer = Math.max(e.peelTimer, 1.2);
+  if (dist < 26) {
+    e.mesh.position.addScaledVector(toPlayer, -(28 - dist) * 2.4 * dt);
+    if (e.mode === "approach") {
+      e.mode = "pass";
+      e.phaseT = 0;
+      e.passDir = playerFwd.clone().add(new THREE.Vector3(0, 0.9, 0)).normalize();
+    }
   }
   return dist;
 }
@@ -1793,15 +2032,23 @@ function updateEnemies(dt) {
   for (let i = G.enemies.length - 1; i >= 0; i--) {
     const e = G.enemies[i];
     const dist = steerDogfight(e, dt, false);
-    pulsePlumes(e.mesh, 0.75);
-    if (e.mode === "peel") emitVapor(e.mesh, 0.55);
+    pulsePlumes(e.mesh, e.mode === "pass" ? 1.1 : 0.75);
+    if (e.mode === "pass" || e.mode === "circle") emitVapor(e.mesh, 0.6);
 
     const toEnemy = e.mesh.position.clone().sub(player.mesh.position).normalize();
-    const behind = playerFwd.dot(toEnemy) < -0.2;
+    const ahead = playerFwd.dot(toEnemy);
+    const behind = ahead < -0.25;
     e.fireCD -= dt;
-    if (behind && dist < 170 && dist > 55 && e.fireCD <= 0) {
-      e.fireCD = 1.6 + Math.random() * 1.1;
-      if (Math.random() < 0.55) enemyFirePlasma(e, true);
+
+    // Strafe during approach / pass when visible — avoid endless rear guns
+    if (e.fireCD <= 0 && dist < 175 && dist > 48) {
+      if (e.mode === "approach" || e.mode === "pass") {
+        e.fireCD = 1.35 + Math.random() * 0.9;
+        if (Math.random() < 0.55) enemyFirePlasma(e, behind);
+      } else if (behind && Math.random() < 0.25) {
+        e.fireCD = 2.0;
+        enemyFirePlasma(e, true);
+      }
     }
 
     if (dist > 980) {
@@ -1814,14 +2061,16 @@ function updateEnemies(dt) {
   if (G.boss) {
     const b = G.boss;
     const dist = steerDogfight(b, dt, true);
-    pulsePlumes(b.mesh, 0.9);
-    if (b.mode === "peel") emitVapor(b.mesh, 0.7);
+    pulsePlumes(b.mesh, 0.95);
+    if (b.mode === "pass" || b.mode === "circle") emitVapor(b.mesh, 0.75);
     const toBoss = b.mesh.position.clone().sub(player.mesh.position).normalize();
     const bossBehind = playerFwd.dot(toBoss) < -0.15;
     b.fireCD -= dt;
-    if (dist < 220 && dist > 55 && b.fireCD <= 0) {
-      b.fireCD = 1.0;
-      enemyFirePlasma({ mesh: b.mesh }, bossBehind);
+    if (dist < 230 && dist > 55 && b.fireCD <= 0) {
+      b.fireCD = 0.95;
+      if (b.mode !== "circle" || Math.random() < 0.4) {
+        enemyFirePlasma({ mesh: b.mesh }, bossBehind);
+      }
     }
   }
 }
@@ -2017,6 +2266,7 @@ function frame(ts) {
     updateOcean(G.t);
     updateCamera(dt);
     updateLockHUD();
+    updateThreatPointers();
     drawRadar();
     updateHUD();
   } else {
@@ -2024,6 +2274,7 @@ function frame(ts) {
     updateParticles(dt);
     updateOcean(G.t);
     updateClouds(dt);
+    $("threats").innerHTML = "";
     if (!G.running && !player.dead) {
       camera.position.set(
         Math.cos(G.t * 0.2) * 40,
@@ -2043,17 +2294,45 @@ function frame(ts) {
 addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
   if (["w", "a", "s", "d", " ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) e.preventDefault();
+  if (e.code === "ShiftLeft" || e.code === "ShiftRight" || k === "shift") {
+    G.keys.shift = true;
+    $("trackBtn").classList.add("on");
+    e.preventDefault();
+  }
   G.keys[k] = true;
   if (e.code.startsWith("Arrow")) G.keys[e.code.toLowerCase()] = true;
   if ((k === " " || e.code === "Space") && G.running) fireMissile();
 });
 addEventListener("keyup", (e) => {
-  G.keys[e.key.toLowerCase()] = false;
+  const k = e.key.toLowerCase();
+  if (e.code === "ShiftLeft" || e.code === "ShiftRight" || k === "shift") {
+    G.keys.shift = false;
+    if (!G.trackAssist) $("trackBtn").classList.remove("on");
+  }
+  G.keys[k] = false;
   if (e.code.startsWith("Arrow")) G.keys[e.code.toLowerCase()] = false;
 });
 
 $("fireBtn").addEventListener("touchstart", (e) => { e.preventDefault(); fireMissile(); }, { passive: false });
 $("fireBtn").addEventListener("click", () => fireMissile());
+
+(function bindTrackBtn() {
+  const btn = $("trackBtn");
+  const down = (e) => {
+    e.preventDefault();
+    G.trackAssist = true;
+    btn.classList.add("on");
+  };
+  const up = () => {
+    G.trackAssist = false;
+    if (!G.keys.shift) btn.classList.remove("on");
+  };
+  btn.addEventListener("touchstart", down, { passive: false });
+  btn.addEventListener("touchend", up);
+  btn.addEventListener("touchcancel", up);
+  btn.addEventListener("mousedown", down);
+  addEventListener("mouseup", up);
+})();
 
 (function bindStick() {
   const zone = $("stickZone");
