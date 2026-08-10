@@ -77,8 +77,34 @@
       border-color: #39ff8a;
       animation: lockpulse 0.4s ease-in-out infinite;
     }
+    .cross.hit {
+      border-color: #ff3355 !important;
+      box-shadow: 0 0 28px rgba(255, 50, 80, 0.95) !important;
+      animation: none;
+    }
+    .cross.hit::before, .cross.hit::after { background: #ff3355; }
     @keyframes lockpulse {
       50% { box-shadow: 0 0 20px rgba(57, 255, 138, 0.7); transform: translate(-50%, -50%) scale(1.06); }
+    }
+
+    .float-pts.hit .a { color: #ff6b8a; }
+    .float-pts.hit .b { display: none; }
+
+    /* Rear-threat edge alarm */
+    .threat-edge {
+      position: absolute; inset: 0; z-index: 5; pointer-events: none;
+      opacity: 0;
+      background:
+        linear-gradient(90deg, rgba(255, 30, 60, 0.55), transparent 18%, transparent 82%, rgba(255, 30, 60, 0.55)),
+        linear-gradient(0deg, rgba(255, 30, 60, 0.35), transparent 22%, transparent 78%, rgba(255, 30, 60, 0.25));
+      transition: opacity 0.12s;
+    }
+    .threat-edge.on {
+      opacity: 1;
+      animation: threatPulse 0.35s ease-in-out infinite;
+    }
+    @keyframes threatPulse {
+      50% { opacity: 0.35; }
     }
 
     #locks { position: absolute; inset: 0; z-index: 7; pointer-events: none; overflow: hidden; }
@@ -390,6 +416,7 @@
     <canvas id="c"></canvas>
     <div class="frame"><i></i></div>
     <div class="dmg" id="dmg"></div>
+    <div class="threat-edge" id="threatEdge"></div>
     <div class="cross" id="cross"></div>
     <div id="locks"></div>
     <div id="floats"></div>
@@ -518,49 +545,49 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x2a4a78, 0.00085);
-scene.background = new THREE.Color(0x1a3a6a);
+scene.fog = new THREE.FogExp2(0x4a88b8, 0.0007);
+scene.background = new THREE.Color(0x1a4a7a);
 
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.5, 8000);
 const camShake = { t: 0 };
 
-/* —— Cinematic sunset / high-altitude lighting —— */
-scene.add(new THREE.AmbientLight(0x6a88b8, 0.35));
-const sun = new THREE.DirectionalLight(0xffd4a0, 2.2);
-sun.position.set(420, 280, -180);
+/* —— High-altitude deep blue lighting —— */
+scene.add(new THREE.AmbientLight(0x7aa0c8, 0.42));
+const sun = new THREE.DirectionalLight(0xffffff, 1.85);
+sun.position.set(180, 420, 120);
 sun.castShadow = false;
 scene.add(sun);
-const sunFill = new THREE.DirectionalLight(0x88bbff, 0.55);
-sunFill.position.set(-200, 120, 160);
+const sunFill = new THREE.DirectionalLight(0x88c4ff, 0.55);
+sunFill.position.set(-220, 160, -80);
 scene.add(sunFill);
-scene.add(new THREE.HemisphereLight(0xffc090, 0x0a3050, 0.55));
+scene.add(new THREE.HemisphereLight(0x9ec8ff, 0x0a2840, 0.65));
 
-/* Brilliant sun disc */
+/* Sun disc (cool white) */
 (function buildSunDisc() {
   const sunMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(48, 16, 16),
-    new THREE.MeshBasicMaterial({ color: 0xffe0a8, fog: false })
+    new THREE.SphereGeometry(42, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xf5fbff, fog: false })
   );
   sunMesh.position.copy(sun.position).normalize().multiplyScalar(2800);
-  sunMesh.position.y = Math.max(400, sunMesh.position.y);
+  sunMesh.position.y = Math.max(520, sunMesh.position.y);
   scene.add(sunMesh);
   const glow = new THREE.Mesh(
-    new THREE.SphereGeometry(90, 16, 16),
-    new THREE.MeshBasicMaterial({ color: 0xffaa55, transparent: true, opacity: 0.22, depthWrite: false, fog: false })
+    new THREE.SphereGeometry(85, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xa8d4ff, transparent: true, opacity: 0.2, depthWrite: false, fog: false })
   );
   glow.position.copy(sunMesh.position);
   scene.add(glow);
 })();
 
-/* Sunset / deep-blue sky gradient */
+/* Deep blue → light cyan military sky */
 (function buildSky() {
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
     uniforms: {
-      zenith: { value: new THREE.Color(0x0b1c3d) },
-      mid: { value: new THREE.Color(0x2a5f9e) },
-      horizon: { value: new THREE.Color(0xff9a5c) },
-      glow: { value: new THREE.Color(0xffc98a) },
+      zenith: { value: new THREE.Color(0x0a2a5c) },
+      mid: { value: new THREE.Color(0x2a6db8) },
+      horizon: { value: new THREE.Color(0x9ad4f5) },
+      glow: { value: new THREE.Color(0xd8f0ff) },
       sunDir: { value: sun.position.clone().normalize() },
     },
     vertexShader: `
@@ -574,12 +601,10 @@ scene.add(new THREE.HemisphereLight(0xffc090, 0x0a3050, 0.55));
       varying vec3 vPos;
       void main(){
         float h = vPos.y;
-        vec3 col = mix(horizon, mid, smoothstep(-0.05, 0.35, h));
-        col = mix(col, zenith, smoothstep(0.25, 0.9, h));
-        float sunAmt = pow(max(0.0, dot(normalize(vPos), normalize(sunDir))), 24.0);
-        col += glow * sunAmt * 1.4;
-        float rim = pow(1.0 - abs(h), 3.0);
-        col = mix(col, horizon, rim * 0.35);
+        vec3 col = mix(horizon, mid, smoothstep(-0.08, 0.28, h));
+        col = mix(col, zenith, smoothstep(0.2, 0.92, h));
+        float sunAmt = pow(max(0.0, dot(normalize(vPos), normalize(sunDir))), 48.0);
+        col += glow * sunAmt * 0.9;
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -634,13 +659,14 @@ const oceanUniforms = {
   uTime: { value: 0 },
   uDeep: { value: new THREE.Color(0x041e38) },
   uShallow: { value: new THREE.Color(0x0e6a9a) },
-  uSpec: { value: new THREE.Color(0xffe0b0) },
+  uSpec: { value: new THREE.Color(0xd8f4ff) },
   uSun: { value: sun.position.clone().normalize() },
 };
 const oceanMat = new THREE.ShaderMaterial({
   uniforms: oceanUniforms,
   transparent: true,
   side: THREE.DoubleSide,
+  depthWrite: false,
   vertexShader: `
     uniform float uTime;
     varying vec2 vUv;
@@ -649,9 +675,10 @@ const oceanMat = new THREE.ShaderMaterial({
     void main(){
       vUv = uv;
       vec3 p = position;
-      float w = sin(p.x * 0.018 + uTime * 1.4) * 1.6
-              + cos(p.y * 0.014 - uTime * 1.1) * 1.2
-              + sin((p.x + p.y) * 0.01 + uTime * 0.8) * 0.8;
+      float w = sin(p.x * 0.022 + uTime * 1.15) * 2.4
+              + cos(p.y * 0.017 - uTime * 0.95) * 1.8
+              + sin((p.x + p.y) * 0.012 + uTime * 0.7) * 1.1
+              + sin(p.x * 0.045 - uTime * 1.8) * 0.55;
       p.z += w;
       vWave = w;
       vec4 world = modelMatrix * vec4(p, 1.0);
@@ -666,19 +693,20 @@ const oceanMat = new THREE.ShaderMaterial({
     varying float vWave;
     void main(){
       float fres = pow(1.0 - abs(normalize(cameraPosition - vWorld).y), 2.0);
-      vec3 col = mix(uDeep, uShallow, 0.35 + vWave * 0.08 + fres * 0.25);
-      // Moving grid
-      vec2 g = fract(vWorld.xz * 0.012 - vec2(uTime * 0.08, uTime * 0.05));
-      float line = smoothstep(0.02, 0.0, abs(g.x - 0.5) - 0.47)
-                 + smoothstep(0.02, 0.0, abs(g.y - 0.5) - 0.47);
-      col += vec3(0.15, 0.55, 0.75) * line * 0.35;
-      // Specular sun glint
-      float spec = pow(max(0.0, dot(normalize(vec3(vWave * 0.15, 1.0, vWave * 0.1)), normalize(uSun))), 48.0);
-      col += uSpec * spec * 0.85;
-      gl_FragColor = vec4(col, 0.92);
+      vec3 col = mix(uDeep, uShallow, 0.32 + vWave * 0.06 + fres * 0.28);
+      // Glowing translucent perspective grid
+      vec2 g = fract(vWorld.xz * 0.012 - vec2(uTime * 0.06, uTime * 0.04));
+      float gx = abs(g.x - 0.5);
+      float gz = abs(g.y - 0.5);
+      float line = smoothstep(0.032, 0.0, gx - 0.465) + smoothstep(0.032, 0.0, gz - 0.465);
+      col += vec3(0.2, 0.9, 1.0) * line * (0.35 + 0.2 * sin(uTime * 2.0 + vWorld.x * 0.02));
+      float spec = pow(max(0.0, dot(normalize(vec3(vWave * 0.12, 1.0, vWave * 0.08)), normalize(uSun))), 56.0);
+      col += uSpec * spec * 0.65;
+      float alpha = 0.72 + line * 0.18 + fres * 0.08;
+      gl_FragColor = vec4(col, clamp(alpha, 0.55, 0.92));
     }`,
 });
-const ocean = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000, 96, 96), oceanMat);
+const ocean = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000, 128, 128), oceanMat);
 ocean.rotation.x = -Math.PI / 2;
 scene.add(ocean);
 
@@ -1080,7 +1108,92 @@ const G = {
   bossPhase: false,
   t: 0,
   last: 0,
+  tracers: [],
+  crossHitFrames: 0,
+  threatTimer: 0,
 };
+
+/* Flight forward = world -Z rotated by yaw/pitch. Model nose is +X → offset quat. */
+const _fwd = new THREE.Vector3();
+const _qFlight = new THREE.Quaternion();
+const _qModel = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
+const _tmpV = new THREE.Vector3();
+
+function getPlayerForward(target) {
+  const out = target || _fwd;
+  return out.set(0, 0, -1).applyEuler(new THREE.Euler(player.pitch, player.yaw, 0, "YXZ"));
+}
+
+function syncPlayerMesh() {
+  _qFlight.setFromEuler(new THREE.Euler(player.pitch, player.yaw, player.roll, "YXZ"));
+  player.mesh.quaternion.copy(_qFlight).multiply(_qModel);
+}
+
+function spawnAwayFromPlayer(minR, maxR) {
+  const ang = Math.random() * Math.PI * 2;
+  const dist = minR + Math.random() * (maxR - minR);
+  return {
+    x: player.mesh.position.x + Math.cos(ang) * dist,
+    y: THREE.MathUtils.clamp(player.mesh.position.y + (Math.random() - 0.35) * 60, 55, 220),
+    z: player.mesh.position.z + Math.sin(ang) * dist,
+  };
+}
+
+function flashCrosshairHit() {
+  G.crossHitFrames = 3;
+  $("cross").classList.add("hit");
+}
+
+function spawnHitFloat(worldPos, text) {
+  const scr = projectToScreen(worldPos);
+  const el = document.createElement("div");
+  el.className = "float-pts hit";
+  el.style.left = (scr.z < 1 && scr.z > -1 ? scr.x : innerWidth * 0.5) + "px";
+  el.style.top = (scr.z < 1 && scr.z > -1 ? scr.y : innerHeight * 0.42) + "px";
+  el.innerHTML = `<span class="a">${text}</span>`;
+  $("floats").appendChild(el);
+  setTimeout(() => el.remove(), 1200);
+}
+
+function pulseThreat() {
+  G.threatTimer = 0.85;
+  $("threatEdge").classList.add("on");
+}
+
+function fireTracer(origin, dir) {
+  const d = dir.clone().normalize();
+  const end = origin.clone().addScaledVector(d, 110);
+  const geo = new THREE.BufferGeometry().setFromPoints([origin.clone(), end]);
+  const mat = new THREE.LineBasicMaterial({
+    color: 0x3dffa8,
+    transparent: true,
+    opacity: 1,
+    depthWrite: false,
+  });
+  const line = new THREE.Line(geo, mat);
+  scene.add(line);
+  const geo2 = new THREE.BufferGeometry().setFromPoints([origin.clone(), end]);
+  const mat2 = new THREE.LineBasicMaterial({ color: 0xb8fff0, transparent: true, opacity: 0.7, depthWrite: false });
+  const line2 = new THREE.Line(geo2, mat2);
+  scene.add(line2);
+  G.tracers.push({ line, line2, life: 0.14 });
+
+  // Instant hit test along tracer ray
+  const step = 8;
+  for (let s = step; s <= 110; s += step) {
+    const p = origin.clone().addScaledVector(d, s);
+    for (let j = G.enemies.length - 1; j >= 0; j--) {
+      if (p.distanceTo(G.enemies[j].mesh.position) < 6.5) {
+        destroyEnemy(G.enemies[j], j);
+        return;
+      }
+    }
+    if (G.boss && p.distanceTo(G.boss.mesh.position) < 14) {
+      damageBoss(1);
+      return;
+    }
+  }
+}
 
 /* —— UI helpers —— */
 function showPop(msg) {
@@ -1156,37 +1269,38 @@ function awardKill(worldPos, pts) {
 
 /* —— Combat entities —— */
 function spawnEnemy(opts) {
-  const ang = Math.random() * Math.PI * 2;
-  const dist = 260 + Math.random() * 200;
+  const p = spawnAwayFromPlayer(300, 500);
   const mesh = makeJet({
     body: 0x6a3038, accent: 0xff4d6d, exhaust: 0xff8866, glow: 0x330000, scale: 1,
   });
-  mesh.position.set(
-    player.mesh.position.x + Math.cos(ang) * dist,
-    70 + Math.random() * 80,
-    player.mesh.position.z + Math.sin(ang) * dist
-  );
+  mesh.position.set(p.x, p.y, p.z);
+  const toP = player.mesh.position.clone().sub(mesh.position).normalize();
+  mesh.lookAt(mesh.position.clone().add(toP));
+  mesh.rotateY(Math.PI / 2);
   scene.add(mesh);
+  const side = Math.random() < 0.5 ? 1 : -1;
   G.enemies.push({
     mesh,
     hp: 1,
     speed: (opts && opts.speed) || 75,
-    bank: (Math.random() - 0.5) * 0.45,
-    fireCD: 1 + Math.random() * 2,
+    bank: (Math.random() - 0.5) * 0.35,
+    fireCD: 1.5 + Math.random() * 2,
+    mode: "chase", // chase | peel
+    peelTimer: 0,
+    peelSide: side,
   });
 }
 
 function spawnBoss() {
   G.bossPhase = true;
   const mesh = makeFlagship();
-  const ang = Math.random() * Math.PI * 2;
-  mesh.position.set(
-    player.mesh.position.x + Math.cos(ang) * 320,
-    100,
-    player.mesh.position.z + Math.sin(ang) * 320
-  );
+  const p = spawnAwayFromPlayer(400, 520);
+  mesh.position.set(p.x, p.y, p.z);
+  const toP = player.mesh.position.clone().sub(mesh.position).normalize();
+  mesh.lookAt(mesh.position.clone().add(toP));
+  mesh.rotateY(Math.PI / 2);
   scene.add(mesh);
-  G.boss = { mesh, hp: 40, maxHp: 40, speed: 55, fireCD: 0 };
+  G.boss = { mesh, hp: 40, maxHp: 40, speed: 55, fireCD: 0, mode: "chase", peelTimer: 0, peelSide: 1 };
   showPop("CRITICAL: FLAGSHIP DETECTED");
   flashScreen(true);
   camShake.t = 0.6;
@@ -1243,6 +1357,8 @@ function destroyEnemy(e, idx) {
   explode(pos, 1.3, false);
   dropRelic(pos);
   awardKill(pos, 100);
+  flashCrosshairHit();
+  spawnHitFloat(pos, "HIT +100");
   scene.remove(e.mesh);
   G.enemies.splice(idx, 1);
   checkWaveProgress();
@@ -1252,13 +1368,15 @@ function damageBoss(amt) {
   if (!G.boss) return;
   G.boss.hp -= amt;
   explode(G.boss.mesh.position.clone(), 0.5, false);
+  flashCrosshairHit();
+  spawnHitFloat(G.boss.mesh.position.clone(), "HIT");
   updateHUD();
   if (G.boss.hp <= 0) {
     const pos = G.boss.mesh.position.clone();
     explode(pos, 4, true);
     explode(pos.clone().add(new THREE.Vector3(8, 0, 0)), 2, true);
     awardKill(pos, 1000);
-    G.tickets += 4; // bonus jackpot vouchers
+    G.tickets += 4;
     scene.remove(G.boss.mesh);
     G.boss = null;
     G.bossPhase = false;
@@ -1271,18 +1389,23 @@ function fireMissile() {
   if (!G.running || G.paused || player.dead || G.fireCD > 0) return;
   G.fireCD = 0.28;
   SFX.missile();
-  const target = G.lockTarget;
-  const origin = player.mesh.position.clone();
-  const forward = new THREE.Vector3(1, 0, 0).applyQuaternion(player.mesh.quaternion);
-  origin.add(forward.multiplyScalar(6));
+
+  const forward = getPlayerForward(new THREE.Vector3());
+  // Spawn ahead of nose — never inside the player hull
+  const origin = player.mesh.position.clone().addScaledVector(forward, 12);
+
+  // Neon-teal tracer burst
+  fireTracer(origin.clone(), forward);
 
   const mesh = new THREE.Mesh(
     new THREE.CylinderGeometry(0.18, 0.12, 3.2, 6),
     new THREE.MeshBasicMaterial({ color: 0xff5577 })
   );
-  mesh.rotation.z = Math.PI / 2;
   mesh.position.copy(origin);
+  // Orient missile along velocity (+Y cylinder → align to forward)
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), forward.clone().normalize());
   scene.add(mesh);
+
   const trail = new THREE.Mesh(
     new THREE.SphereGeometry(0.5, 6, 6),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 })
@@ -1291,28 +1414,27 @@ function fireMissile() {
   scene.add(trail);
 
   let tgtMesh = null;
-  if (target && target.mesh) tgtMesh = target.mesh;
-  else if (G.boss && G.lockTarget === G.boss) tgtMesh = G.boss.mesh;
+  if (G.lockTarget && G.lockTarget.mesh) tgtMesh = G.lockTarget.mesh;
 
-  const vel = new THREE.Vector3(1, 0, 0).applyQuaternion(player.mesh.quaternion).multiplyScalar(220);
-  G.missiles.push({ mesh, trail, vel, target: tgtMesh, life: 4, isBossLock: tgtMesh && G.boss && tgtMesh === G.boss.mesh });
+  const vel = forward.clone().multiplyScalar(280);
+  G.missiles.push({
+    mesh, trail, vel, target: tgtMesh, life: 3.5,
+    forward: forward.clone(),
+  });
 }
 
-function enemyFirePlasma(e) {
+function enemyFirePlasma(e, fromBehind) {
   const origin = e.mesh.position.clone();
   const dir = player.mesh.position.clone().sub(origin).normalize();
-  origin.addScaledVector(dir, 4);
+  origin.addScaledVector(dir, 6);
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.7, 6, 6),
     new THREE.MeshBasicMaterial({ color: 0xff2244 })
   );
   mesh.position.copy(origin);
   scene.add(mesh);
-  G.plasma.push({
-    mesh,
-    vel: dir.multiplyScalar(160),
-    life: 2.5,
-  });
+  G.plasma.push({ mesh, vel: dir.multiplyScalar(160), life: 2.5 });
+  if (fromBehind) pulseThreat();
 }
 
 function hurtPlayer(amount) {
@@ -1363,16 +1485,22 @@ function clearEntities() {
   for (const p of G.plasma) scene.remove(p.mesh);
   for (const r of G.relics) scene.remove(r.mesh);
   for (const p of G.particles) scene.remove(p.mesh);
+  for (const t of G.tracers) { scene.remove(t.line); scene.remove(t.line2); }
   if (G.boss) scene.remove(G.boss.mesh);
   G.enemies = [];
   G.missiles = [];
   G.plasma = [];
   G.relics = [];
   G.particles = [];
+  G.tracers = [];
+  G.crossHitFrames = 0;
+  G.threatTimer = 0;
   G.boss = null;
   G.bossPhase = false;
   $("locks").innerHTML = "";
   $("floats").innerHTML = "";
+  $("cross").classList.remove("hit");
+  $("threatEdge").classList.remove("on");
 }
 
 function startWave(index) {
@@ -1445,9 +1573,7 @@ function updateLockHUD() {
   layer.innerHTML = "";
   let best = null;
   let bestScore = Infinity;
-  const forward = new THREE.Vector3(0, 0, -1).applyEuler(
-    new THREE.Euler(player.pitch, player.yaw, 0, "YXZ")
-  );
+  const forward = getPlayerForward(new THREE.Vector3());
 
   const candidates = [...G.enemies];
   if (G.boss) candidates.push(G.boss);
@@ -1552,32 +1678,31 @@ function updateFlight(dt) {
   pitchIn = THREE.MathUtils.clamp(pitchIn, -1, 1);
   rollIn = THREE.MathUtils.clamp(rollIn, -1, 1);
 
-  player.pitch += pitchIn * 1.1 * dt;
-  player.pitch = THREE.MathUtils.clamp(player.pitch, -0.85, 0.85);
-  player.roll = THREE.MathUtils.lerp(player.roll, rollIn * 0.9, 4 * dt);
-  player.yaw += -player.roll * 1.35 * dt;
-  player.pitch *= 1 - 0.15 * dt;
+  // Smooth pitch / roll — accumulate then damp, no snap/flicker
+  if (Math.abs(pitchIn) > 0.04) {
+    player.pitch = THREE.MathUtils.clamp(player.pitch + pitchIn * 1.25 * dt, -0.72, 0.72);
+  } else {
+    player.pitch = THREE.MathUtils.damp(player.pitch, 0, 1.4, dt);
+  }
+  const rollTarget = rollIn * 0.78; // locked bank ~45°
+  player.roll = THREE.MathUtils.damp(player.roll, rollTarget, 9, dt);
+  player.yaw += -player.roll * 1.2 * dt;
 
-  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(player.pitch, player.yaw, player.roll, "YXZ"));
-  player.mesh.quaternion.copy(q);
-  player.mesh.rotateY(-Math.PI / 2);
+  syncPlayerMesh();
 
-  const forward = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(player.pitch, player.yaw, 0, "YXZ"));
-  player.speed = THREE.MathUtils.lerp(player.speed, 88 + Math.abs(player.pitch) * 25, dt);
+  const forward = getPlayerForward(new THREE.Vector3());
+  player.speed = THREE.MathUtils.damp(player.speed, 90 + Math.abs(player.pitch) * 24 + Math.abs(player.roll) * 10, 3.5, dt);
   player.mesh.position.addScaledVector(forward, player.speed * dt);
 
   if (player.mesh.position.y < 28) { player.mesh.position.y = 28; player.pitch = Math.max(player.pitch, 0.05); }
   if (player.mesh.position.y > 280) { player.mesh.position.y = 280; player.pitch = Math.min(player.pitch, -0.05); }
 
-  // Exhaust plumes scale with throttle / speed
   const throttle = THREE.MathUtils.clamp((player.speed - 70) / 50, 0, 1) + Math.abs(player.pitch) * 0.35;
   pulsePlumes(player.mesh, throttle);
-  // High-G vapor trails from wingtips
   const gLoad = Math.abs(player.roll) + Math.abs(pitchIn) * 0.6;
   emitVapor(player.mesh, gLoad);
   SFX.setEngine(player.speed, true);
 
-  // Damage smoke from engines
   if (player.health < 40 && player.health > 0) {
     player.smokeAcc += dt;
     if (player.smokeAcc > 0.08) {
@@ -1603,9 +1728,11 @@ function updateFlight(dt) {
 }
 
 function updateCamera(dt) {
-  const forward = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(player.pitch * 0.7, player.yaw, 0, "YXZ"));
-  const ideal = player.mesh.position.clone().addScaledVector(forward, -18).add(new THREE.Vector3(0, 5.5, 0));
-  camera.position.lerp(ideal, 1 - Math.pow(0.001, dt));
+  const forward = getPlayerForward(new THREE.Vector3());
+  const ideal = player.mesh.position.clone()
+    .addScaledVector(forward, -18)
+    .add(new THREE.Vector3(0, 5.5, 0));
+  camera.position.lerp(ideal, 1 - Math.exp(-6 * dt));
   if (camShake.t > 0) {
     camShake.t -= dt;
     camera.position.x += (Math.random() - 0.5) * camShake.t * 6;
@@ -1614,35 +1741,70 @@ function updateCamera(dt) {
   const look = player.mesh.position.clone().addScaledVector(forward, 24);
   camera.up.set(0, 1, 0);
   camera.lookAt(look);
-  camera.rotateZ(-player.roll * 0.45);
+  camera.rotateZ(-player.roll * 0.4);
+}
+
+function steerDogfight(e, dt, isBoss) {
+  const toPlayer = _tmpV.copy(player.mesh.position).sub(e.mesh.position);
+  const dist = toPlayer.length();
+  toPlayer.normalize();
+
+  if (dist < 50) {
+    e.mode = "peel";
+    e.peelTimer = 1.4 + Math.random() * 0.8;
+  } else if (dist > 160 && e.peelTimer <= 0) {
+    e.mode = "chase";
+  }
+
+  if (e.mode === "peel") {
+    e.peelTimer -= dt;
+    const up = new THREE.Vector3(0, 1, 0);
+    const side = new THREE.Vector3().crossVectors(toPlayer, up).normalize();
+    if (side.lengthSq() < 0.01) side.set(1, 0, 0);
+    side.multiplyScalar(e.peelSide || 1);
+    const climb = new THREE.Vector3(0, 0.55, 0);
+    const away = toPlayer.clone().multiplyScalar(-0.35);
+    const dir = side.add(climb).add(away).normalize();
+    e.mesh.position.addScaledVector(dir, e.speed * 1.05 * dt);
+    e.mesh.lookAt(e.mesh.position.clone().add(dir));
+    e.mesh.rotateY(Math.PI / 2); // model +X → lookAt -Z
+    if (e.peelTimer <= 0) e.mode = "chase";
+  } else {
+    const side = new THREE.Vector3().crossVectors(toPlayer, new THREE.Vector3(0, 1, 0)).normalize();
+    const dir = toPlayer.clone().addScaledVector(side, e.bank * 0.35).normalize();
+    e.mesh.position.addScaledVector(dir, e.speed * dt);
+    e.mesh.lookAt(e.mesh.position.clone().add(dir));
+    e.mesh.rotateY(Math.PI / 2);
+  }
+
+  // Soft floor/ceiling + separation so they never sit on the player
+  e.mesh.position.y = THREE.MathUtils.clamp(e.mesh.position.y, 40, 250);
+  if (dist < 28) {
+    e.mesh.position.addScaledVector(toPlayer, -(30 - dist) * 2.2 * dt);
+    e.mode = "peel";
+    e.peelTimer = Math.max(e.peelTimer, 1.2);
+  }
+  return dist;
 }
 
 function updateEnemies(dt) {
-  const playerFwd = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(player.pitch, player.yaw, 0, "YXZ"));
+  const playerFwd = getPlayerForward(new THREE.Vector3());
 
   for (let i = G.enemies.length - 1; i >= 0; i--) {
     const e = G.enemies[i];
-    const toPlayer = player.mesh.position.clone().sub(e.mesh.position);
-    const dist = toPlayer.length();
-    toPlayer.normalize();
-    const side = new THREE.Vector3().crossVectors(toPlayer, new THREE.Vector3(0, 1, 0)).normalize();
-    const dir = toPlayer.clone().addScaledVector(side, e.bank).normalize();
-    e.mesh.position.addScaledVector(dir, e.speed * dt);
-    e.mesh.lookAt(e.mesh.position.clone().add(dir));
-    e.mesh.rotateY(Math.PI);
-    pulsePlumes(e.mesh, 0.7 + Math.random() * 0.2);
-    if (Math.abs(e.bank) > 0.2) emitVapor(e.mesh, 0.45);
+    const dist = steerDogfight(e, dt, false);
+    pulsePlumes(e.mesh, 0.75);
+    if (e.mode === "peel") emitVapor(e.mesh, 0.55);
 
-    // Behind player? (enemy is in rear hemisphere)
     const toEnemy = e.mesh.position.clone().sub(player.mesh.position).normalize();
-    const behind = playerFwd.dot(toEnemy) < -0.15;
+    const behind = playerFwd.dot(toEnemy) < -0.2;
     e.fireCD -= dt;
-    if (behind && dist < 180 && e.fireCD <= 0) {
-      e.fireCD = 1.4 + Math.random() * 1.2;
-      if (Math.random() < 0.55) enemyFirePlasma(e);
+    if (behind && dist < 170 && dist > 55 && e.fireCD <= 0) {
+      e.fireCD = 1.6 + Math.random() * 1.1;
+      if (Math.random() < 0.55) enemyFirePlasma(e, true);
     }
 
-    if (dist > 950) {
+    if (dist > 980) {
       scene.remove(e.mesh);
       G.enemies.splice(i, 1);
       checkWaveProgress();
@@ -1651,18 +1813,15 @@ function updateEnemies(dt) {
 
   if (G.boss) {
     const b = G.boss;
-    const toP = player.mesh.position.clone().sub(b.mesh.position);
-    const dist = toP.length();
-    toP.normalize();
-    b.mesh.position.addScaledVector(toP, b.speed * dt);
-    b.mesh.lookAt(b.mesh.position.clone().add(toP));
-    b.mesh.rotateY(Math.PI);
+    const dist = steerDogfight(b, dt, true);
+    pulsePlumes(b.mesh, 0.9);
+    if (b.mode === "peel") emitVapor(b.mesh, 0.7);
+    const toBoss = b.mesh.position.clone().sub(player.mesh.position).normalize();
+    const bossBehind = playerFwd.dot(toBoss) < -0.15;
     b.fireCD -= dt;
-    if (dist < 220 && b.fireCD <= 0) {
-      b.fireCD = 0.9;
-      // Fake as enemy fire from boss
-      enemyFirePlasma({ mesh: b.mesh });
-      enemyFirePlasma({ mesh: b.mesh });
+    if (dist < 220 && dist > 55 && b.fireCD <= 0) {
+      b.fireCD = 1.0;
+      enemyFirePlasma({ mesh: b.mesh }, bossBehind);
     }
   }
 }
@@ -1671,34 +1830,51 @@ function updateMissiles(dt) {
   for (let i = G.missiles.length - 1; i >= 0; i--) {
     const m = G.missiles[i];
     m.life -= dt;
+
+    // Soft seek — never reverse past player; only turn toward target if ahead
     if (m.target && m.target.parent) {
-      const desired = m.target.position.clone().sub(m.mesh.position).normalize().multiplyScalar(280);
-      m.vel.lerp(desired, 3.5 * dt);
+      const toT = m.target.position.clone().sub(m.mesh.position);
+      const dist = toT.length();
+      if (dist > 1) {
+        toT.normalize();
+        const ahead = m.vel.clone().normalize().dot(toT);
+        if (ahead > 0.05) {
+          const desired = toT.multiplyScalar(300);
+          m.vel.lerp(desired, Math.min(2.2 * dt, 0.12));
+        }
+      }
     }
+
+    // Keep mostly forward bias
+    if (m.forward) {
+      m.vel.addScaledVector(m.forward, 40 * dt);
+      if (m.vel.length() > 320) m.vel.setLength(320);
+    }
+
     m.mesh.position.addScaledVector(m.vel, dt);
-    m.mesh.lookAt(m.mesh.position.clone().add(m.vel));
-    m.mesh.rotateZ(Math.PI / 2);
+    const vDir = m.vel.clone().normalize();
+    m.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vDir);
     m.trail.position.copy(m.mesh.position);
 
-    if (Math.random() < 0.5) {
+    if (Math.random() < 0.45) {
       const s = new THREE.Mesh(
-        new THREE.SphereGeometry(0.55, 4, 4),
+        new THREE.SphereGeometry(0.5, 4, 4),
         new THREE.MeshBasicMaterial({ color: 0xeeeeee, transparent: true, opacity: 0.5 })
       );
       s.position.copy(m.mesh.position);
       scene.add(s);
-      G.particles.push({ mesh: s, vel: new THREE.Vector3(), life: 1, decay: 0.045, smoke: true });
+      G.particles.push({ mesh: s, vel: new THREE.Vector3(), life: 1, decay: 0.05, smoke: true });
     }
 
     let hit = false;
     for (let j = G.enemies.length - 1; j >= 0; j--) {
-      if (m.mesh.position.distanceTo(G.enemies[j].mesh.position) < 6) {
+      if (m.mesh.position.distanceTo(G.enemies[j].mesh.position) < 7) {
         destroyEnemy(G.enemies[j], j);
         hit = true;
         break;
       }
     }
-    if (!hit && G.boss && m.mesh.position.distanceTo(G.boss.mesh.position) < 14) {
+    if (!hit && G.boss && m.mesh.position.distanceTo(G.boss.mesh.position) < 16) {
       damageBoss(2);
       hit = true;
     }
@@ -1707,6 +1883,28 @@ function updateMissiles(dt) {
       scene.remove(m.trail);
       G.missiles.splice(i, 1);
     }
+  }
+}
+
+function updateTracers(dt) {
+  for (let i = G.tracers.length - 1; i >= 0; i--) {
+    const t = G.tracers[i];
+    t.life -= dt;
+    t.line.material.opacity = Math.max(0, t.life * 8);
+    t.line2.material.opacity = Math.max(0, t.life * 4);
+    if (t.life <= 0) {
+      scene.remove(t.line);
+      scene.remove(t.line2);
+      G.tracers.splice(i, 1);
+    }
+  }
+  if (G.crossHitFrames > 0) {
+    G.crossHitFrames--;
+    if (G.crossHitFrames <= 0) $("cross").classList.remove("hit");
+  }
+  if (G.threatTimer > 0) {
+    G.threatTimer -= dt;
+    if (G.threatTimer <= 0) $("threatEdge").classList.remove("on");
   }
 }
 
@@ -1811,6 +2009,7 @@ function frame(ts) {
     updateFlight(dt);
     updateEnemies(dt);
     updateMissiles(dt);
+    updateTracers(dt);
     updatePlasma(dt);
     updateRelics(dt);
     updateParticles(dt);
@@ -1821,6 +2020,7 @@ function frame(ts) {
     drawRadar();
     updateHUD();
   } else {
+    updateTracers(dt);
     updateParticles(dt);
     updateOcean(G.t);
     updateClouds(dt);
