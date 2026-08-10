@@ -464,6 +464,50 @@
     .heat-bar.hot { border-color: rgba(255, 77, 109, 0.7); }
     .heat-bar.hot > i { background: #ff4d6d; box-shadow: 0 0 10px #ff4d6d; }
 
+    .overheat-banner {
+      position: absolute; z-index: 18; left: 50%; top: 58%;
+      transform: translate(-50%, -50%);
+      padding: 0.55rem 1.2rem;
+      font-family: var(--display); font-size: clamp(0.75rem, 2.4vw, 1rem);
+      letter-spacing: 0.18em; color: #ff3355;
+      background: rgba(40, 4, 10, 0.85);
+      border: 2px solid #ff3355;
+      box-shadow: 0 0 28px rgba(255, 50, 80, 0.55);
+      opacity: 0; pointer-events: none; transition: opacity 0.12s;
+      text-shadow: 0 0 12px #ff3355;
+    }
+    .overheat-banner.show {
+      opacity: 1;
+      animation: overheatFlash 0.28s step-end infinite;
+    }
+    @keyframes overheatFlash {
+      50% { opacity: 0.35; border-color: #fff; color: #fff; }
+    }
+
+    .target-bracket {
+      position: absolute; width: 34px; height: 34px;
+      margin: -17px 0 0 -17px; pointer-events: none;
+      border: 2px solid #ff3355;
+      transform: rotate(45deg);
+      box-shadow: 0 0 12px rgba(255, 40, 70, 0.85), inset 0 0 8px rgba(255, 50, 80, 0.25);
+      animation: bracketPulse 0.7s ease-in-out infinite;
+    }
+    .target-bracket.boss {
+      width: 52px; height: 52px; margin: -26px 0 0 -26px;
+      border-color: #ffc857;
+      box-shadow: 0 0 16px rgba(255, 200, 87, 0.9);
+    }
+    .target-bracket .tag {
+      position: absolute; left: 50%; top: 110%;
+      transform: translateX(-50%) rotate(-45deg);
+      font-family: var(--mono); font-size: 0.55rem; color: #ff6b8a;
+      text-shadow: 0 0 6px #000; white-space: nowrap;
+    }
+    .target-bracket.boss .tag { color: #ffc857; }
+    @keyframes bracketPulse {
+      50% { box-shadow: 0 0 20px rgba(255, 80, 100, 1); }
+    }
+
     .brief, .endcard {
       position: absolute; inset: 0; z-index: 30;
       display: flex; align-items: center; justify-content: center;
@@ -538,6 +582,7 @@
     <div class="flash" id="flash"></div>
     <div class="pop" id="pop"></div>
     <div class="level-alert" id="levelAlert"></div>
+    <div class="overheat-banner" id="overheatBanner">GUNS OVERHEATED</div>
 
     <div class="heat-wrap" id="heatWrap">
       <div class="lbl">MG TEMP</div>
@@ -555,7 +600,7 @@
       <div class="lbl">Shield / AP</div>
       <div class="bar" id="shieldBar"><i id="shieldFill"></i></div>
       <div class="bar-label"><span>INTEGRITY</span><b id="hudShield">100%</b></div>
-      <div class="row"><div class="lbl">Speed</div><div class="val" id="hudSpeed">Mach 1.4</div></div>
+      <div class="row"><div class="lbl">Speed</div><div class="val" id="hudSpeed">240 KNOTS</div></div>
       <div class="row"><div class="lbl">Missiles</div><div class="val mint">INF</div></div>
     </div>
 
@@ -645,9 +690,9 @@ const BOOST_SPEED = 336;
 const BRAKE_SPEED = 126;
 const KILL_PTS = 500;
 const BOSS_KILL_PTS = 2500;
-const GUN_HEAT_PER_SHOT = 0.055;
-const GUN_COOL_RATE = 0.38;
-const GUN_OVERHEAT_COOL = 0.55;
+const GUN_HEAT_PER_SHOT = 0.085;
+const GUN_COOL_RATE = 0.32;
+const GUN_OVERHEAT_COOL = 0.48;
 const WAVE_DEFS = [
   {
     id: 1, name: "LEVEL 1 — SCOUT PATROL",
@@ -694,7 +739,8 @@ const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.5, 80
 const camShake = { t: 0 };
 
 /* —— Overcast WWII battlefield lighting —— */
-scene.add(new THREE.AmbientLight(0xb0b4b8, 0.55));
+const ambientLight = new THREE.AmbientLight(0xb0b4b8, 0.55);
+scene.add(ambientLight);
 const sun = new THREE.DirectionalLight(0xe8e4d8, 1.15);
 sun.position.set(120, 280, 80);
 sun.castShadow = false;
@@ -702,7 +748,8 @@ scene.add(sun);
 const sunFill = new THREE.DirectionalLight(0x8a9098, 0.4);
 sunFill.position.set(-180, 120, -100);
 scene.add(sunFill);
-scene.add(new THREE.HemisphereLight(0xc8ccd0, 0x5a6058, 0.55));
+const hemiLight = new THREE.HemisphereLight(0xc8ccd0, 0x5a6058, 0.55);
+scene.add(hemiLight);
 
 /* Soft overcast sun disc */
 (function buildSunDisc() {
@@ -905,6 +952,80 @@ function updateRain(dt) {
   }
   rainLines.position.set(origin.x, origin.y - 40, origin.z);
   rainGeo.attributes.position.needsUpdate = true;
+}
+
+function spawnLightningBolt() {
+  const origin = player.mesh.position;
+  const pts = [];
+  let x = origin.x + (Math.random() - 0.5) * 180;
+  let y = origin.y + 140 + Math.random() * 80;
+  let z = origin.z + (Math.random() - 0.5) * 180;
+  pts.push(new THREE.Vector3(x, y, z));
+  const segs = 6 + Math.floor(Math.random() * 5);
+  for (let i = 0; i < segs; i++) {
+    x += (Math.random() - 0.5) * 40;
+    y -= 18 + Math.random() * 28;
+    z += (Math.random() - 0.5) * 40;
+    pts.push(new THREE.Vector3(x, y, z));
+    // Branch
+    if (Math.random() < 0.45) {
+      pts.push(new THREE.Vector3(x, y, z));
+      pts.push(new THREE.Vector3(
+        x + (Math.random() - 0.5) * 50,
+        y - 10 - Math.random() * 20,
+        z + (Math.random() - 0.5) * 50
+      ));
+      pts.push(new THREE.Vector3(x, y, z));
+    }
+  }
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({
+    color: 0xd8f0ff, transparent: true, opacity: 0.95, depthWrite: false,
+  });
+  const line = new THREE.Line(geo, mat);
+  scene.add(line);
+  const mat2 = new THREE.LineBasicMaterial({
+    color: 0x88eeff, transparent: true, opacity: 0.55, depthWrite: false,
+  });
+  const line2 = new THREE.Line(geo.clone(), mat2);
+  scene.add(line2);
+  G.boltLines.push(line, line2);
+}
+
+function clearLightningBolts() {
+  for (const L of G.boltLines) scene.remove(L);
+  G.boltLines = [];
+}
+
+function triggerLightning() {
+  ambientLight.intensity = 4.0;
+  hemiLight.intensity = 1.8;
+  sun.intensity = 3.2;
+  scene.background.setHex(0xe8eef5);
+  G.lightningFrames = 2;
+  camShake.t = Math.max(camShake.t, 0.42);
+  clearLightningBolts();
+  spawnLightningBolt();
+  if (Math.random() < 0.5) spawnLightningBolt();
+}
+
+function updateThunder(dt) {
+  if (G.lightningFrames > 0) {
+    G.lightningFrames--;
+    if (G.lightningFrames <= 0) {
+      ambientLight.intensity = 0.55;
+      hemiLight.intensity = 0.55;
+      sun.intensity = 1.15;
+      scene.background.setHex(0x2a3140);
+      clearLightningBolts();
+    }
+  }
+  if (!G.running || G.paused) return;
+  G.thunderT -= dt;
+  if (G.thunderT <= 0) {
+    G.thunderT = 4 + Math.random() * 4;
+    triggerLightning();
+  }
 }
 
 (function buildIslands() {
@@ -1435,6 +1556,9 @@ const G = {
   firingTouch: false,
   heat: 0,
   overheated: false,
+  thunderT: 4 + Math.random() * 4,
+  lightningFrames: 0,
+  boltLines: [],
 };
 
 /* Flight forward = world -Z rotated by yaw/pitch. Model nose is +X → offset quat. */
@@ -1456,13 +1580,13 @@ function syncPlayerMesh() {
 function spawnAwayFromPlayer(minR, maxR, frontal) {
   const fwd = getPlayerForward(new THREE.Vector3());
   const base = Math.atan2(fwd.x, fwd.z);
-  // Aggressive frontal patrols — tight cone on the nose
-  const spread = frontal ? Math.PI * 0.28 : Math.PI * 1.1;
+  // Strict 120° forward cone for on-screen engagements
+  const spread = frontal ? (Math.PI * 120) / 180 : Math.PI * 1.1;
   const ang = base + (Math.random() - 0.5) * spread;
-  const dist = minR + Math.random() * (maxR - minR);
+  const dist = (minR || 150) + Math.random() * ((maxR || 250) - (minR || 150));
   return {
     x: player.mesh.position.x + Math.sin(ang) * dist,
-    y: THREE.MathUtils.clamp(player.mesh.position.y + (Math.random() - 0.35) * 35, 55, 220),
+    y: THREE.MathUtils.clamp(player.mesh.position.y + (Math.random() - 0.4) * 28, 55, 200),
     z: player.mesh.position.z + Math.cos(ang) * dist,
   };
 }
@@ -1528,9 +1652,11 @@ function showLevelAlert(msg, warn) {
 function updateHeatHUD() {
   const fill = $("heatFill");
   const bar = $("heatBar");
+  const banner = $("overheatBanner");
   if (!fill || !bar) return;
   fill.style.width = Math.round(THREE.MathUtils.clamp(G.heat, 0, 1) * 100) + "%";
   bar.classList.toggle("hot", G.overheated || G.heat > 0.85);
+  if (banner) banner.classList.toggle("show", !!G.overheated);
 }
 
 function flashScreen(red) {
@@ -1556,14 +1682,11 @@ function updateHUD() {
   $("hudShield").textContent = h + "%";
   $("shieldFill").style.width = h + "%";
   $("shieldBar").classList.toggle("danger", h < 40);
-  // Arcade Mach readout from throttle band
-  let mach = 1.4;
-  if (player.speed >= (BASE_SPEED + BOOST_SPEED) * 0.5) {
-    mach = THREE.MathUtils.mapLinear(player.speed, BASE_SPEED, BOOST_SPEED, 1.4, 2.0);
-  } else {
-    mach = THREE.MathUtils.mapLinear(player.speed, BRAKE_SPEED, BASE_SPEED, 0.8, 1.4);
-  }
-  $("hudSpeed").textContent = "Mach " + THREE.MathUtils.clamp(mach, 0.8, 2.0).toFixed(1);
+  // WWII airspeed — knots (cruise ~240)
+  const knots = Math.round(
+    THREE.MathUtils.mapLinear(player.speed, BRAKE_SPEED, BOOST_SPEED, 130, 340)
+  );
+  $("hudSpeed").textContent = THREE.MathUtils.clamp(knots, 120, 360) + " KNOTS";
   $("hudTickets").textContent = String(G.tickets);
   $("hudScore").textContent = String(G.score);
   const odds = Math.min(99.9, (G.tickets / CIRC) * 100);
@@ -1615,14 +1738,14 @@ function awardKill(worldPos, pts, ticketAmt) {
 
 /* —— Combat entities —— */
 function spawnEnemy(opts) {
-  const p = spawnAwayFromPlayer(180, 220, true);
+  const p = spawnAwayFromPlayer(150, 230, true);
   const reinforced = !!(opts && opts.reinforced);
   const mesh = makeJet({
     body: reinforced ? 0x3a3834 : 0x4a4038,
     camo: reinforced ? 0x2e322c : 0x3a3830,
-    accent: 0x6a2a28,
+    accent: 0xff4d6d,
     stripe: false,
-    glow: 0x220808,
+    glow: 0xff2244,
     scale: reinforced ? 1.12 : 1.05,
   });
   mesh.position.set(p.x, p.y, p.z);
@@ -1651,7 +1774,7 @@ function spawnEnemy(opts) {
 function spawnBoss() {
   G.bossPhase = true;
   const mesh = makeFlagship();
-  const p = spawnAwayFromPlayer(240, 300, true);
+  const p = spawnAwayFromPlayer(160, 220, true);
   mesh.position.set(p.x, p.y, p.z);
   const toP = player.mesh.position.clone().sub(mesh.position).normalize();
   mesh.lookAt(mesh.position.clone().add(toP));
@@ -1787,6 +1910,7 @@ function fireMissile() {
   if (G.heat >= 1) {
     G.overheated = true;
     showPop("GUNS OVERHEATED");
+    updateHeatHUD();
   }
   updateHeatHUD();
   SFX.missile();
@@ -2098,26 +2222,40 @@ function updateLockHUD() {
   const candidates = [...G.enemies];
   if (G.boss) candidates.push(G.boss);
 
-  const margin = -40; // allow slight off-edge magnetism
   for (const e of candidates) {
     const to = e.mesh.position.clone().sub(player.mesh.position);
     const dist = to.length();
-    if (dist > DETECT_RANGE * 1.6) continue;
+    if (dist > DETECT_RANGE * 2) continue;
     to.normalize();
     const dot = forward.dot(to);
-    // Front hemisphere + on (or near) screen → instant lock square
-    if (dot < Math.cos(LOCK_FOV)) continue;
     const scr = projectToScreen(e.mesh.position);
-    if (scr.z > 1 || scr.z < -1) continue;
-    if (scr.x < margin || scr.x > innerWidth - margin || scr.y < margin || scr.y > innerHeight - margin) continue;
+    const onScreen =
+      scr.z > -1 && scr.z < 1 &&
+      scr.x > -20 && scr.x < innerWidth + 20 &&
+      scr.y > -20 && scr.y < innerHeight + 20;
 
+    // Neon-red diamond bracket on every on-screen threat
+    if (onScreen) {
+      const br = document.createElement("div");
+      br.className = "target-bracket" + (e === G.boss ? " boss" : "");
+      br.style.left = scr.x + "px";
+      br.style.top = scr.y + "px";
+      const tag = document.createElement("div");
+      tag.className = "tag";
+      tag.textContent = Math.round(dist) + "m";
+      br.appendChild(tag);
+      layer.appendChild(br);
+    }
+
+    // Green lock box for best front-hemisphere contact
+    if (dot < Math.cos(LOCK_FOV) || !onScreen) continue;
     const box = document.createElement("div");
     box.className = "lockbox";
     box.style.left = scr.x + "px";
     box.style.top = scr.y + "px";
     const d = document.createElement("div");
     d.className = "dist";
-    d.textContent = Math.round(dist) + "m";
+    d.textContent = "LOCK";
     box.appendChild(d);
     layer.appendChild(box);
     const score = (1 - dot) * 40 + dist * 0.008;
@@ -2455,30 +2593,37 @@ function updateEnemies(dt) {
     b.fireCD -= dt;
     b.turretCD = (b.turretCD || 0) - dt;
 
-    // Heavy AA battery — plasma lines from turrets
-    if (dist < 280 && dist > 50 && b.turretCD <= 0) {
-      b.turretCD = 0.55;
+    // Wing batteries — yellow plasma inside 100-unit engagement field
+    if (dist < 100 && dist > 35 && b.turretCD <= 0) {
+      b.turretCD = 0.38;
       const turrets = b.mesh.userData.turrets || [];
       const dir = player.mesh.position.clone().sub(b.mesh.position).normalize();
       const sources = turrets.length
         ? turrets.map((t) => { const wp = new THREE.Vector3(); t.getWorldPosition(wp); return wp; })
         : [b.mesh.position.clone()];
-      // Fire 2–3 random turrets per salvo
-      const picks = sources.sort(() => Math.random() - 0.5).slice(0, 3);
-      for (const o of picks) {
+      for (const o of sources) {
         const aim = dir.clone().add(new THREE.Vector3(
-          (Math.random() - 0.5) * 0.08,
           (Math.random() - 0.5) * 0.06,
-          (Math.random() - 0.5) * 0.08
+          (Math.random() - 0.5) * 0.05,
+          (Math.random() - 0.5) * 0.06
         )).normalize();
-        fireOrangeTracer(o, aim, 90);
+        // Yellow AA tracers
+        const end = o.clone().addScaledVector(aim, 70);
+        const geo = new THREE.BufferGeometry().setFromPoints([o.clone(), end]);
+        const mat = new THREE.LineBasicMaterial({ color: 0xffee55, transparent: true, opacity: 1, depthWrite: false });
+        const line = new THREE.Line(geo, mat);
+        scene.add(line);
+        const mat2 = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, depthWrite: false });
+        const line2 = new THREE.Line(geo.clone(), mat2);
+        scene.add(line2);
+        G.tracers.push({ line, line2, life: 0.1 });
         const mesh = new THREE.Mesh(
-          new THREE.SphereGeometry(0.45, 5, 5),
-          new THREE.MeshBasicMaterial({ color: 0xff6622 })
+          new THREE.SphereGeometry(0.5, 5, 5),
+          new THREE.MeshBasicMaterial({ color: 0xffdd33 })
         );
         mesh.position.copy(o);
         scene.add(mesh);
-        G.plasma.push({ mesh, vel: aim.multiplyScalar(175), life: 2.4 });
+        G.plasma.push({ mesh, vel: aim.multiplyScalar(200), life: 1.8 });
       }
       if (bossBehind) pulseThreat();
     }
@@ -2531,7 +2676,7 @@ function updateMissiles(dt) {
         break;
       }
     }
-    if (!hit && G.boss && m.mesh.position.distanceTo(G.boss.mesh.position) < 20) {
+    if (!hit && G.boss && m.mesh.position.distanceTo(G.boss.mesh.position) < 32) {
       damageBoss(m.dmg || 1);
       hit = true;
     }
@@ -2677,6 +2822,7 @@ function frame(ts) {
     updateClouds(dt);
     updateOcean(G.t);
     updateRain(dt);
+    updateThunder(dt);
     updateCamera(dt);
     updateLockHUD();
     updateThreatPointers();
@@ -2688,6 +2834,7 @@ function frame(ts) {
     updateOcean(G.t);
     updateClouds(dt);
     updateRain(dt);
+    updateThunder(dt);
     $("threats").innerHTML = "";
     if (!G.running && !player.dead) {
       camera.position.set(
