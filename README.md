@@ -34,6 +34,18 @@ IncoNetworkBridge.PublishDecrypted(packet)
 2. Add `IncoNetworkBridge` (auto-finds FoW)  
 3. Add `FoWSandboxTester` for Play Mode tests  
 4. Put `FogOfWarAgent` on enemy prefabs (or rely on `UnitActor.Spawn`)  
+5. Add `FogWorldQuadController` (atmospheric fog quad + `VeilWar/FogOverlay`)  
+6. Add `FogOfWarMinimap` (strategy RawImage + unit dots)  
+
+### Visual polish
+- Shader: `Assets/Shaders/VeilFogOverlay.shader` (`VeilWar/FogOverlay`)
+- Shader Graph guide: `Assets/Shaders/SHADER_GRAPH_SETUP.md`
+- Custom HLSL: `Assets/Shaders/ShaderGraph/VeilFog_CustomFunction.hlsl`
+- FoW texture is **128²+** with CPU bilinear upsample + GPU `FilterMode.Bilinear`
+
+## Repos / live
+- Unity: https://github.com/thesithunyein/veil-war
+- Web Megapot companion: https://github.com/thesithunyein/veil-web → https://veil.sithunyein.com
 
 ## Architecture (UI/UX)
 
