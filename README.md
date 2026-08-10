@@ -45,10 +45,10 @@ IncoNetworkBridge.PublishDecrypted(packet)
 
 ## Repos / live
 - Unity: https://github.com/thesithunyein/veil-war
-- **Judge sandbox (GitHub Pages):** https://thesithunyein.github.io/veil-war/
-- Landing: https://veil.sithunyein.com
+- **Judge sandbox (live):** https://veil.sithunyein.com/
+- **GitHub Pages mirror:** https://thesithunyein.github.io/veil-war/
 
-Push to `main` / `master` deploys `web-sandbox/` via `.github/workflows/deploy.yml` → `gh-pages`.
+Push to `main` / `master` deploys `web-sandbox/` via Vercel (veil.sithunyein.com) and `.github/workflows/deploy.yml` → `gh-pages`.
 
 ## Architecture (UI/UX)
 

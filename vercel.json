@@ -2,5 +2,9 @@
   "framework": null,
   "installCommand": null,
   "buildCommand": null,
-  "outputDirectory": "web"
+  "outputDirectory": "web-sandbox",
+  "rewrites": [
+    { "source": "/play", "destination": "/index.html" },
+    { "source": "/sandbox", "destination": "/index.html" }
+  ]
 }
