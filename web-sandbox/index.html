@@ -750,16 +750,19 @@ const GUN_OVERHEAT_COOL = 0.48;
 const WAVE_DEFS = [
   {
     id: 1, name: "LEVEL 1 — SCOUT PATROL",
-    count: 3, interval: 2100, speed: 72, hp: 30, vaults: 3,
+    count: 5, interval: 850, speed: 225, hp: 20, vaults: 3,
     blurb: "LEVEL 1: SCOUT PATROL ENGAGING — REMAINING VAULTS: 3",
   },
   {
     id: 2, name: "LEVEL 2 — BOMBER ESCORT",
-    count: 5, interval: 1500, speed: 88, hp: 45, vaults: 2,
+    count: 8, interval: 650, speed: 248, hp: 28, vaults: 2,
     blurb: "LEVEL 2: BOMBER ESCORT ENGAGING — REMAINING VAULTS: 2",
   },
 ];
-const BOSS_HP = 220;
+const BOSS_HP = 180;
+const MG_DMG = 2; // Twin MGs clear a scout in ~1s sustained fire
+const STORM_BG = 0x0a1220;
+const STORM_FOG = 0x0d1528;
 const BOSS_LEVEL_BLURB = "LEVEL 3: BOSS DUEL — MEGAPOT FLAGSHIP ONLINE";
 
 const $ = (id) => document.getElementById(id);
@@ -784,10 +787,11 @@ renderer.setSize(innerWidth, innerHeight, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
+renderer.setClearColor(STORM_BG, 1);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x333b4d, 0.0022);
-scene.background = new THREE.Color(0x2a3140);
+scene.fog = new THREE.FogExp2(STORM_FOG, 0.0018);
+scene.background = new THREE.Color(STORM_BG);
 
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.5, 8000);
 const camShake = { t: 0 };
@@ -802,7 +806,7 @@ scene.add(sun);
 const sunFill = new THREE.DirectionalLight(0x8a9098, 0.4);
 sunFill.position.set(-180, 120, -100);
 scene.add(sunFill);
-const hemiLight = new THREE.HemisphereLight(0xc8ccd0, 0x5a6058, 0.55);
+const hemiLight = new THREE.HemisphereLight(0x4a6080, 0x1a2228, 0.55);
 scene.add(hemiLight);
 
 /* Soft overcast sun disc */
@@ -873,27 +877,29 @@ const cloudTex = makeCloudTexture();
 const clouds = [];
 (function buildClouds() {
   const mat = new THREE.SpriteMaterial({
-    map: cloudTex, color: 0xd8d8d4, transparent: true, opacity: 0.5,
+    map: cloudTex, color: 0x3a4050, transparent: true, opacity: 0.55,
     depthWrite: false, fog: true,
   });
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 90; i++) {
     const cluster = new THREE.Group();
     const n = 5 + (i % 5);
     for (let j = 0; j < n; j++) {
       const spr = new THREE.Sprite(mat.clone());
-      const s = 50 + Math.random() * 110;
-      spr.scale.set(s, s * 0.5, 1);
-      spr.material.opacity = 0.2 + Math.random() * 0.35;
-      spr.position.set((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 22, (Math.random() - 0.5) * 70);
+      const s = 60 + Math.random() * 140;
+      spr.scale.set(s, s * 0.45, 1);
+      spr.material.color.setHex(Math.random() < 0.5 ? 0x2a303c : 0x4a5568);
+      spr.material.opacity = 0.25 + Math.random() * 0.4;
+      spr.position.set((Math.random() - 0.5) * 120, (Math.random() - 0.5) * 28, (Math.random() - 0.5) * 80);
       cluster.add(spr);
     }
     cluster.position.set(
-      (Math.random() - 0.5) * 2600,
-      40 + Math.random() * 160,
-      (Math.random() - 0.5) * 2600
+      (Math.random() - 0.5) * 2800,
+      70 + Math.random() * 180,
+      (Math.random() - 0.5) * 2800
     );
     scene.add(cluster);
-    clouds.push({ mesh: cluster, speed: 2 + Math.random() * 8 });
+    // Fast-drifting storm banks
+    clouds.push({ mesh: cluster, speed: 28 + Math.random() * 55 });
   }
 })();
 
@@ -1052,15 +1058,17 @@ function clearLightningBolts() {
 }
 
 function triggerLightning() {
-  ambientLight.intensity = 4.0;
-  hemiLight.intensity = 1.8;
-  sun.intensity = 3.2;
-  scene.background.setHex(0xe8eef5);
-  G.lightningFrames = 2;
-  camShake.t = Math.max(camShake.t, 0.42);
+  // Blinding white flash — unmistakable battlefield thunder
+  ambientLight.intensity = 10.0;
+  hemiLight.intensity = 3.5;
+  sun.intensity = 6.0;
+  scene.background.setHex(0xffffff);
+  renderer.setClearColor(0xffffff, 1);
+  G.lightningFrames = 3;
+  camShake.t = Math.max(camShake.t, 0.55);
   clearLightningBolts();
   spawnLightningBolt();
-  if (Math.random() < 0.5) spawnLightningBolt();
+  if (Math.random() < 0.65) spawnLightningBolt();
 }
 
 function updateThunder(dt) {
@@ -1070,7 +1078,8 @@ function updateThunder(dt) {
       ambientLight.intensity = 0.55;
       hemiLight.intensity = 0.55;
       sun.intensity = 1.15;
-      scene.background.setHex(0x2a3140);
+      scene.background.setHex(STORM_BG);
+      renderer.setClearColor(STORM_BG, 1);
       clearLightningBolts();
     }
   }
@@ -1083,16 +1092,16 @@ function updateThunder(dt) {
 }
 
 (function buildIslands() {
-  const rock = new THREE.MeshStandardMaterial({ color: 0x3d6b45, roughness: 0.9 });
-  const sand = new THREE.MeshStandardMaterial({ color: 0xc2b280, roughness: 1 });
-  for (let i = 0; i < 16; i++) {
+  // Low dark berms only — no tall cones that read as grounded enemies
+  const rock = new THREE.MeshStandardMaterial({ color: 0x1e2830, roughness: 0.95, metalness: 0.05 });
+  for (let i = 0; i < 12; i++) {
     const isle = new THREE.Group();
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(40 + Math.random() * 50, 55 + Math.random() * 60, 12, 8), sand);
-    base.position.y = 4;
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(35 + Math.random() * 40, 50 + Math.random() * 45, 6, 8),
+      rock
+    );
+    base.position.y = 2;
     isle.add(base);
-    const hill = new THREE.Mesh(new THREE.ConeGeometry(30 + Math.random() * 40, 40 + Math.random() * 70, 7), rock);
-    hill.position.y = 28;
-    isle.add(hill);
     isle.position.set((Math.random() - 0.5) * 2800, 0, (Math.random() - 0.5) * 2800);
     scene.add(isle);
   }
@@ -1242,6 +1251,154 @@ function makeJet(scheme) {
   });
 
   g.scale.setScalar(scheme.scale || 1);
+  return g;
+}
+
+/** Hostile scout fighter / twin-engine bomber — dark camo + red combat silhouette */
+function makeEnemyCraft(isBomber) {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({
+    color: isBomber ? 0x2a3228 : 0x323a30,
+    metalness: 0.4, roughness: 0.62,
+    emissive: 0x5a1010, emissiveIntensity: 0.65,
+  });
+  const wingMat = new THREE.MeshStandardMaterial({
+    color: 0x1e2420, metalness: 0.35, roughness: 0.7,
+    emissive: 0x3a0808, emissiveIntensity: 0.5,
+  });
+  const wireMat = new THREE.LineBasicMaterial({
+    color: 0xff2a4a, transparent: true, opacity: 0.95,
+  });
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: 0xff2244, transparent: true, opacity: 0.75,
+  });
+
+  const addWire = (mesh) => {
+    const edges = new THREE.EdgesGeometry(mesh.geometry);
+    const lines = new THREE.LineSegments(edges, wireMat);
+    mesh.add(lines);
+  };
+
+  const fuseLen = isBomber ? 11 : 7.4;
+  const fuseR = isBomber ? 0.95 : 0.58;
+  const fuse = new THREE.Mesh(
+    new THREE.CylinderGeometry(fuseR * 0.85, fuseR, fuseLen, 10),
+    bodyMat
+  );
+  fuse.rotation.z = Math.PI / 2;
+  g.add(fuse);
+  addWire(fuse);
+
+  const nose = new THREE.Mesh(
+    new THREE.ConeGeometry(fuseR * 0.95, isBomber ? 2.8 : 1.8, 8),
+    bodyMat
+  );
+  nose.rotation.z = -Math.PI / 2;
+  nose.position.x = fuseLen * 0.5 + (isBomber ? 1.0 : 0.7);
+  g.add(nose);
+  addWire(nose);
+
+  const span = isBomber ? 18 : 11;
+  const wings = new THREE.Mesh(
+    new THREE.BoxGeometry(isBomber ? 2.6 : 1.7, 0.22, span),
+    wingMat
+  );
+  wings.position.set(0.2, 0, 0);
+  g.add(wings);
+  addWire(wings);
+
+  // Wingtip red glow beacons
+  [-1, 1].forEach((side) => {
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), glowMat);
+    tip.position.set(0.2, 0.1, side * (span * 0.48));
+    g.add(tip);
+  });
+
+  g.userData.props = [];
+  if (isBomber) {
+    [-1, 1].forEach((side) => {
+      const eng = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.62, 3.4, 8),
+        bodyMat
+      );
+      eng.rotation.z = Math.PI / 2;
+      eng.position.set(0.4, -0.45, side * 3.6);
+      g.add(eng);
+      addWire(eng);
+      const propG = new THREE.Group();
+      propG.position.set(2.3, -0.45, side * 3.6);
+      const disc = new THREE.Mesh(
+        new THREE.CircleGeometry(1.5, 18),
+        new THREE.MeshBasicMaterial({
+          color: 0xff4466, transparent: true, opacity: 0.4,
+          side: THREE.DoubleSide, depthWrite: false,
+        })
+      );
+      disc.rotation.y = Math.PI / 2;
+      propG.add(disc);
+      g.add(propG);
+      g.userData.props.push(propG);
+    });
+    const secondWing = new THREE.Mesh(
+      new THREE.BoxGeometry(1.8, 0.16, span * 0.72),
+      wingMat
+    );
+    secondWing.position.set(-1.2, 1.4, 0);
+    g.add(secondWing);
+    addWire(secondWing);
+  } else {
+    const propG = new THREE.Group();
+    propG.position.set(fuseLen * 0.5 + 0.2, 0, 0);
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(1.55, 20),
+      new THREE.MeshBasicMaterial({
+        color: 0xff3355, transparent: true, opacity: 0.38,
+        side: THREE.DoubleSide, depthWrite: false,
+      })
+    );
+    disc.rotation.y = Math.PI / 2;
+    propG.add(disc);
+    g.add(propG);
+    g.userData.props.push(propG);
+  }
+
+  const hStab = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, isBomber ? 5.5 : 3.4), wingMat);
+  hStab.position.set(-fuseLen * 0.42, 0.15, 0);
+  g.add(hStab);
+  addWire(hStab);
+  const rudder = new THREE.Mesh(new THREE.BoxGeometry(1.5, isBomber ? 2.4 : 1.7, 0.14), bodyMat);
+  rudder.position.set(-fuseLen * 0.44, isBomber ? 1.3 : 0.95, 0);
+  g.add(rudder);
+  addWire(rudder);
+
+  // Cockpit canopy
+  const canopy = new THREE.Mesh(
+    new THREE.SphereGeometry(fuseR * 0.9, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshStandardMaterial({
+      color: 0x1a1018, metalness: 0.85, roughness: 0.2,
+      emissive: 0xff2244, emissiveIntensity: 0.35, transparent: true, opacity: 0.8,
+    })
+  );
+  canopy.rotation.z = Math.PI / 2;
+  canopy.position.set(fuseLen * 0.08, fuseR * 0.85, 0);
+  g.add(canopy);
+
+  g.userData.gunMounts = [];
+  g.userData.wingTips = [];
+  g.userData.plumes = [];
+  g.userData.exhausts = [];
+  [-1, 1].forEach((side) => {
+    const gun = new THREE.Object3D();
+    gun.position.set(1.2, -0.1, side * (isBomber ? 4 : 2.8));
+    g.add(gun);
+    g.userData.gunMounts.push(gun);
+    const tip = new THREE.Object3D();
+    tip.position.set(-0.5, 0.05, side * (span * 0.45));
+    g.add(tip);
+    g.userData.wingTips.push(tip);
+  });
+
+  g.scale.setScalar(isBomber ? 1.55 : 1.35);
   return g;
 }
 
@@ -1660,13 +1817,14 @@ function syncPlayerMesh() {
 function spawnAwayFromPlayer(minR, maxR, frontal) {
   const fwd = getPlayerForward(new THREE.Vector3());
   const base = Math.atan2(fwd.x, fwd.z);
-  // Strict 120° forward cone for on-screen engagements
   const spread = frontal ? (Math.PI * 120) / 180 : Math.PI * 1.1;
   const ang = base + (Math.random() - 0.5) * spread;
   const dist = (minR || 150) + Math.random() * ((maxR || 250) - (minR || 150));
+  // Lock altitude to player height — sky combat only, never ocean floor
+  const py = player.mesh.position.y;
   return {
     x: player.mesh.position.x + Math.sin(ang) * dist,
-    y: THREE.MathUtils.clamp(player.mesh.position.y + (Math.random() - 0.4) * 28, 55, 200),
+    y: THREE.MathUtils.clamp(py + (Math.random() - 0.5) * 18, Math.max(55, py - 25), Math.min(240, py + 25)),
     z: player.mesh.position.z + Math.cos(ang) * dist,
   };
 }
@@ -1823,31 +1981,25 @@ function awardKill(worldPos, pts, ticketAmt) {
 
 /* —— Combat entities —— */
 function spawnEnemy(opts) {
-  const p = spawnAwayFromPlayer(175, 260, true);
+  // Spawn just outside FHE veil so chase quickly reveals them in the sky
+  const p = spawnAwayFromPlayer(130, 195, true);
   const reinforced = !!(opts && opts.reinforced);
-  const mesh = makeJet({
-    body: reinforced ? 0x3a3834 : 0x4a4038,
-    camo: reinforced ? 0x2e322c : 0x3a3830,
-    accent: 0xff4d6d,
-    stripe: false,
-    glow: 0xff2244,
-    scale: reinforced ? 1.12 : 1.05,
-  });
+  const mesh = makeEnemyCraft(reinforced);
   mesh.position.set(p.x, p.y, p.z);
   const toP = player.mesh.position.clone().sub(mesh.position).normalize();
   mesh.lookAt(mesh.position.clone().add(toP));
   mesh.rotateY(Math.PI / 2);
   scene.add(mesh);
   const side = Math.random() < 0.5 ? 1 : -1;
-  const hp = (opts && opts.hp) || 30;
+  const hp = (opts && opts.hp) || 20;
   G.enemies.push({
     mesh,
     hp,
     maxHp: hp,
-    speed: (opts && opts.speed) || 72,
+    speed: (opts && opts.speed) || 225,
     bank: (Math.random() - 0.5) * 0.35,
-    fireCD: 1.5 + Math.random() * 2,
-    mode: "approach",
+    fireCD: 0.4 + Math.random() * 0.8,
+    mode: "chase",
     phaseT: 0,
     peelSide: side,
     orbitSide: side,
@@ -1868,8 +2020,8 @@ function spawnBoss() {
   mesh.rotateY(Math.PI / 2);
   scene.add(mesh);
   G.boss = {
-    mesh, hp: BOSS_HP, maxHp: BOSS_HP, speed: 78, fireCD: 0, turretCD: 0,
-    mode: "approach", phaseT: 0, peelSide: 1, orbitSide: 1, passDir: null,
+    mesh, hp: BOSS_HP, maxHp: BOSS_HP, speed: 220, fireCD: 0, turretCD: 0,
+    mode: "chase", phaseT: 0, peelSide: 1, orbitSide: 1, passDir: null,
     revealed: false,
   };
   mesh.visible = false;
@@ -2061,6 +2213,23 @@ function fireOrangeTracer(origin, dir, length) {
   G.tracers.push({ line, line2, life: 0.08 });
 }
 
+function fireRedTracer(origin, dir, length) {
+  const d = dir.clone().normalize();
+  const end = origin.clone().addScaledVector(d, length || 90);
+  const geo = new THREE.BufferGeometry().setFromPoints([origin.clone(), end]);
+  const mat = new THREE.LineBasicMaterial({
+    color: 0xff1a3c, transparent: true, opacity: 1, depthWrite: false,
+  });
+  const line = new THREE.Line(geo, mat);
+  scene.add(line);
+  const mat2 = new THREE.LineBasicMaterial({
+    color: 0xff6688, transparent: true, opacity: 0.8, depthWrite: false,
+  });
+  const line2 = new THREE.Line(geo.clone(), mat2);
+  scene.add(line2);
+  G.tracers.push({ line, line2, life: 0.1 });
+}
+
 function fireMissile() {
   if (!G.running || G.paused || player.dead || G.fireCD > 0) return;
   if (G.overheated) return;
@@ -2136,7 +2305,7 @@ function fireMissile() {
       forward: fireDir.clone(),
       speed: ROUND_SPEED,
       gun: true,
-      dmg: 1,
+      dmg: MG_DMG,
       homing: !!tgtMesh,
     });
   }
@@ -2147,17 +2316,17 @@ function enemyFirePlasma(e, fromBehind) {
   const dir = player.mesh.position.clone().sub(origin).normalize();
   const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
   if (right.lengthSq() < 0.01) right.set(1, 0, 0);
-  // Twin orange MG streaks toward player
+  // Twin bright-red retaliatory tracers
   for (const side of [-1, 1]) {
     const o = origin.clone().addScaledVector(dir, 8).addScaledVector(right, side * 3.5);
-    fireOrangeTracer(o, dir, 70);
+    fireRedTracer(o, dir, 85);
     const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.35, 5, 5),
-      new THREE.MeshBasicMaterial({ color: 0xffaa33 })
+      new THREE.SphereGeometry(0.4, 5, 5),
+      new THREE.MeshBasicMaterial({ color: 0xff2244 })
     );
     mesh.position.copy(o);
     scene.add(mesh);
-    G.plasma.push({ mesh, vel: dir.clone().multiplyScalar(190), life: 2.2 });
+    G.plasma.push({ mesh, vel: dir.clone().multiplyScalar(220), life: 2.0 });
   }
   if (fromBehind) pulseThreat();
 }
@@ -2686,7 +2855,7 @@ function updateCamera(dt) {
   camera.rotateZ(-player.roll * (threat ? 0.75 : 1.05));
 }
 
-/** Attack-run loop: approach → overhead pass → wide circle ahead → re-engage */
+/** Aggressive pursuit — swarm the player at matching altitude */
 function steerDogfight(e, dt, isBoss) {
   const playerPos = player.mesh.position;
   const playerFwd = getPlayerForward(new THREE.Vector3());
@@ -2694,88 +2863,64 @@ function steerDogfight(e, dt, isBoss) {
   const dist = toPlayer.length();
   if (dist > 0.001) toPlayer.normalize();
 
-  const toEnemyN = e.mesh.position.clone().sub(playerPos).normalize();
-  const aheadOfPlayer = playerFwd.dot(toEnemyN); // +1 in front of player nose
-
   _right.crossVectors(playerFwd, new THREE.Vector3(0, 1, 0));
   if (_right.lengthSq() < 0.001) _right.set(1, 0, 0);
   else _right.normalize();
 
-  // Migrate legacy modes
-  if (e.mode === "chase" || e.mode === "peel" || !e.mode) {
-    e.mode = "approach";
-    e.phaseT = 0;
-  }
   e.phaseT = (e.phaseT || 0) + dt;
-  if (e.orbitSide == null) e.orbitSide = e.peelSide || 1;
-
-  // Break out of blind-spot tail lock — force a front-quarter circle
-  if (aheadOfPlayer < -0.25 && dist < 140 && e.mode === "approach") {
-    e.mode = "circle";
-    e.phaseT = 0;
-    e.orbitSide = e.orbitSide || (Math.random() < 0.5 ? 1 : -1);
-  }
+  if (e.orbitSide == null) e.orbitSide = e.peelSide || (Math.random() < 0.5 ? 1 : -1);
 
   const desired = new THREE.Vector3();
+  const altTarget = playerPos.y + Math.sin((e.phaseT || 0) * 1.8 + (e.orbitSide || 1)) * (isBoss ? 14 : 10);
 
-  if (e.mode === "approach") {
-    // Lead point slightly above / in front so they enter forward FOV on the pass
-    const aim = playerPos.clone()
-      .addScaledVector(playerFwd, 12)
-      .add(new THREE.Vector3(0, isBoss ? 28 : 22, 0))
-      .addScaledVector(_right, e.bank * 25);
-    desired.copy(aim).sub(e.mesh.position).normalize();
-    if (dist < (isBoss ? 80 : 68)) {
-      e.mode = "pass";
-      e.phaseT = 0;
-      // Punch through overhead into the player's forward quarter
-      e.passDir = playerFwd.clone()
-        .multiplyScalar(0.55)
-        .add(new THREE.Vector3(0, 0.85, 0))
-        .addScaledVector(_right, e.orbitSide * 0.35)
-        .addScaledVector(toPlayer, -0.25)
-        .normalize();
-    }
-  } else if (e.mode === "pass") {
-    desired.copy(e.passDir || playerFwd);
-    if (e.phaseT > (isBoss ? 2.0 : 1.55) || (aheadOfPlayer > 0.35 && dist > 90)) {
-      e.mode = "circle";
-      e.phaseT = 0;
-    }
+  if (dist > 155) {
+    // Hard chase — cut off and match player track
+    e.mode = "chase";
+    desired.copy(playerPos)
+      .addScaledVector(playerFwd, 35)
+      .addScaledVector(_right, e.orbitSide * 18)
+      .sub(e.mesh.position);
+  } else if (dist > 65) {
+    // Swarm combat pocket — stay in knife-fight range
+    e.mode = "swarm";
+    desired.copy(playerPos)
+      .addScaledVector(playerFwd, 6 + Math.sin(e.phaseT * 2.2) * 10)
+      .addScaledVector(_right, e.orbitSide * (28 + Math.sin(e.phaseT * 1.6) * 16))
+      .sub(e.mesh.position);
   } else {
-    // Wide circle / turn in front of the player
-    const orbit = playerPos.clone()
-      .addScaledVector(playerFwd, (isBoss ? 200 : 165) + Math.sin(e.phaseT * 0.9) * 25)
-      .addScaledVector(_right, e.orbitSide * (95 + Math.sin(e.phaseT * 1.4) * 35))
-      .add(new THREE.Vector3(0, 20 + Math.cos(e.phaseT * 1.1) * 18, 0));
-    desired.copy(orbit).sub(e.mesh.position);
-    const od = desired.length();
-    if (od > 0.001) desired.multiplyScalar(1 / od);
-    // Tangential bank for a sweeping turn
-    desired.addScaledVector(_right, e.orbitSide * 0.22).normalize();
-
-    if (od < 45 || e.phaseT > (isBoss ? 4.2 : 3.4)) {
-      e.mode = "approach";
+    // Too close — slash past then reverse flank
+    e.mode = "pass";
+    desired.copy(playerFwd)
+      .multiplyScalar(0.7)
+      .addScaledVector(_right, e.orbitSide * 0.75)
+      .add(new THREE.Vector3(0, 0.12, 0));
+    if (e.phaseT > 1.1) {
+      e.orbitSide *= -1;
       e.phaseT = 0;
-      e.orbitSide *= -1; // alternate flanks
     }
   }
 
-  const spdMul = e.mode === "pass" ? 1.3 : e.mode === "circle" ? 1.08 : 1.0;
-  e.mesh.position.addScaledVector(desired, e.speed * spdMul * dt);
+  if (desired.lengthSq() > 0.0001) desired.normalize();
+  else desired.copy(playerFwd);
+
+  // Catch-up thrust when player boosts away
+  const catchUp = dist > 220 ? 1.9 : dist > 140 ? 1.5 : dist > 90 ? 1.25 : 1.1;
+  const baseSpd = isBoss
+    ? Math.max(e.speed, player.speed * 0.88)
+    : Math.max(e.speed, player.speed * 0.95);
+  e.mesh.position.addScaledVector(desired, baseSpd * catchUp * dt);
+
+  // Lock sky altitude to the player — never sink to the ocean grid
+  e.mesh.position.y = THREE.MathUtils.damp(e.mesh.position.y, altTarget, 5.5, dt);
+  e.mesh.position.y = THREE.MathUtils.clamp(e.mesh.position.y, 45, 260);
+
   e.mesh.lookAt(e.mesh.position.clone().add(desired));
   e.mesh.rotateY(Math.PI / 2);
 
-  e.mesh.position.y = THREE.MathUtils.clamp(e.mesh.position.y, 40, 250);
-  if (dist < 26) {
-    e.mesh.position.addScaledVector(toPlayer, -(28 - dist) * 2.4 * dt);
-    if (e.mode === "approach") {
-      e.mode = "pass";
-      e.phaseT = 0;
-      e.passDir = playerFwd.clone().add(new THREE.Vector3(0, 0.9, 0)).normalize();
-    }
+  if (dist < 22) {
+    e.mesh.position.addScaledVector(toPlayer, -(24 - dist) * 2.8 * dt);
   }
-  return dist;
+  return e.mesh.position.distanceTo(playerPos);
 }
 
 function updateEnemies(dt) {
@@ -2795,21 +2940,18 @@ function updateEnemies(dt) {
     const behind = ahead < -0.25;
     e.fireCD -= dt;
 
-    // Only fire once FHE-revealed inside local field
-    if (e.revealed && e.fireCD <= 0 && dist < 175 && dist > 48) {
-      if (e.mode === "approach" || e.mode === "pass") {
-        e.fireCD = 1.35 + Math.random() * 0.9;
-        if (Math.random() < 0.55) enemyFirePlasma(e, behind);
-      } else if (behind && Math.random() < 0.25) {
-        e.fireCD = 2.0;
-        enemyFirePlasma(e, true);
-      }
+    // Spray bright red plasma when inside 150m dogfight envelope
+    if (e.revealed && e.fireCD <= 0 && dist <= 150 && dist > 28) {
+      e.fireCD = 0.55 + Math.random() * 0.45;
+      enemyFirePlasma(e, behind);
     }
 
-    if (dist > 980) {
-      scene.remove(e.mesh);
-      G.enemies.splice(i, 1);
-      checkWaveProgress();
+    if (dist > 1200) {
+      // Re-tether far stragglers instead of despawning — keep the swarm hunting
+      const p = spawnAwayFromPlayer(100, 150, true);
+      e.mesh.position.set(p.x, p.y, p.z);
+      e.revealed = false;
+      e.mesh.visible = false;
     }
   }
 
@@ -2904,7 +3046,7 @@ function updateMissiles(dt) {
     for (let j = G.enemies.length - 1; j >= 0; j--) {
       const en = G.enemies[j];
       if (!en.revealed && !isFheRevealed(en)) continue;
-      if (m.mesh.position.distanceTo(en.mesh.position) < 10) {
+      if (m.mesh.position.distanceTo(en.mesh.position) < 14) {
         hurtEnemy(en, j, m.dmg || 1);
         hit = true;
         break;
@@ -3010,9 +3152,11 @@ function updateParticles(dt) {
 function updateClouds(dt) {
   for (const c of clouds) {
     c.mesh.position.x += c.speed * dt;
+    c.mesh.position.z += c.speed * 0.22 * dt;
     if (c.mesh.position.x > player.mesh.position.x + 1400) {
       c.mesh.position.x = player.mesh.position.x - 1400;
       c.mesh.position.z = player.mesh.position.z + (Math.random() - 0.5) * 2000;
+      c.mesh.position.y = 70 + Math.random() * 180;
     }
   }
 }
