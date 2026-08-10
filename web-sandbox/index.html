@@ -427,6 +427,43 @@
     }
     .pop.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
+    .level-alert {
+      position: absolute; z-index: 17; left: 50%; top: 22%;
+      transform: translate(-50%, -50%) scale(0.92);
+      padding: 0.85rem 1.35rem; text-align: center; max-width: min(92vw, 520px);
+      background: rgba(6, 12, 22, 0.82);
+      border: 1px solid rgba(92, 225, 255, 0.65);
+      box-shadow: 0 0 40px rgba(61, 255, 168, 0.28), inset 0 0 24px rgba(92, 225, 255, 0.06);
+      opacity: 0; pointer-events: none; transition: 0.3s ease;
+      font-family: var(--display); font-size: clamp(0.68rem, 2.2vw, 0.92rem);
+      letter-spacing: 0.12em; color: var(--cyan);
+      text-shadow: 0 0 16px rgba(92, 225, 255, 0.55);
+    }
+    .level-alert.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .level-alert.warn { border-color: rgba(255, 200, 87, 0.75); color: var(--amber); }
+
+    .heat-wrap {
+      position: absolute; z-index: 10; left: 50%;
+      bottom: calc(1.1rem + var(--safe-b));
+      transform: translateX(-50%);
+      width: min(42vw, 200px); pointer-events: none;
+    }
+    .heat-wrap .lbl {
+      font-family: var(--display); font-size: 0.42rem; letter-spacing: 0.16em;
+      color: var(--muted); text-align: center; margin-bottom: 0.2rem;
+    }
+    .heat-bar {
+      height: 6px; background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(92, 225, 255, 0.3); overflow: hidden;
+    }
+    .heat-bar > i {
+      display: block; height: 100%; width: 0%;
+      background: linear-gradient(90deg, #5ce1ff, #ffc857 70%, #ff4d6d);
+      transition: width 0.08s linear;
+    }
+    .heat-bar.hot { border-color: rgba(255, 77, 109, 0.7); }
+    .heat-bar.hot > i { background: #ff4d6d; box-shadow: 0 0 10px #ff4d6d; }
+
     .brief, .endcard {
       position: absolute; inset: 0; z-index: 30;
       display: flex; align-items: center; justify-content: center;
@@ -500,6 +537,12 @@
     <div id="floats"></div>
     <div class="flash" id="flash"></div>
     <div class="pop" id="pop"></div>
+    <div class="level-alert" id="levelAlert"></div>
+
+    <div class="heat-wrap" id="heatWrap">
+      <div class="lbl">MG TEMP</div>
+      <div class="heat-bar" id="heatBar"><i id="heatFill"></i></div>
+    </div>
 
     <div class="hud tm">
       <div class="lbl">Score</div>
@@ -551,10 +594,10 @@
         <p class="sub">Gritty WWII dogfight · Megapot combat drops</p>
         <ul>
           <li><strong>Fly:</strong> Auto-thrust · A/D bank · ↑↓ pitch · W boost / S brake</li>
-          <li><strong>Guns:</strong> Hold SPACE / FIRE — twin wing orange MG tracers</li>
-          <li><strong>Track:</strong> Hold SHIFT (or TRACK) to swivel onto nearest bandit</li>
-          <li><strong>Fog of war:</strong> Dense mist hides bombers until they break through</li>
-          <li><strong>Earn:</strong> +500 PTS + tickets · 3 waves → Megapot Bomber</li>
+          <li><strong>Guns:</strong> Hold SPACE — pulse to manage MG heat / overheat</li>
+          <li><strong>Levels:</strong> Scout Patrol → Bomber Escort → Flagship Boss Duel</li>
+          <li><strong>Storm:</strong> Heavy rain & mist — bandits break through the fog</li>
+          <li><strong>Earn:</strong> +500 PTS + tickets · survive all three levels</li>
         </ul>
         <button class="btn-engage" id="btnEngage" type="button">ENGAGE</button>
       </div>
@@ -595,17 +638,30 @@ import * as THREE from "three";
 
 const CIRC = 4200;
 const DETECT_RANGE = 280;
-const LOCK_FOV = Math.PI * 0.52; // ~front hemisphere auto-lock
-const BASE_SPEED = 390;   // ~Mach 1.4 cruise (units/sec)
-const BOOST_SPEED = 560;  // Mach 2.0
-const BRAKE_SPEED = 210;  // Mach 0.8
+const LOCK_FOV = Math.PI * 0.52;
+// ~40% slower cruise for readable dogfights
+const BASE_SPEED = 234;
+const BOOST_SPEED = 336;
+const BRAKE_SPEED = 126;
 const KILL_PTS = 500;
 const BOSS_KILL_PTS = 2500;
+const GUN_HEAT_PER_SHOT = 0.055;
+const GUN_COOL_RATE = 0.38;
+const GUN_OVERHEAT_COOL = 0.55;
 const WAVE_DEFS = [
-  { id: 1, name: "WAVE 1 — SCOUT PATROL",      count: 4,  interval: 1800, speed: 95 },
-  { id: 2, name: "WAVE 2 — INTERCEPTOR SWARM", count: 7,  interval: 1400, speed: 115 },
-  { id: 3, name: "WAVE 3 — HEAVY WING",        count: 10, interval: 1100, speed: 135 },
+  {
+    id: 1, name: "LEVEL 1 — SCOUT PATROL",
+    count: 3, interval: 2100, speed: 72, hp: 30, vaults: 3,
+    blurb: "LEVEL 1: SCOUT PATROL ENGAGING — REMAINING VAULTS: 3",
+  },
+  {
+    id: 2, name: "LEVEL 2 — BOMBER ESCORT",
+    count: 5, interval: 1500, speed: 88, hp: 45, vaults: 2,
+    blurb: "LEVEL 2: BOMBER ESCORT ENGAGING — REMAINING VAULTS: 2",
+  },
 ];
+const BOSS_HP = 220;
+const BOSS_LEVEL_BLURB = "LEVEL 3: BOSS DUEL — MEGAPOT FLAGSHIP ONLINE";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("c");
@@ -631,8 +687,8 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0xaaaaaa, 0.002);
-scene.background = new THREE.Color(0x9aa3a8);
+scene.fog = new THREE.FogExp2(0x333b4d, 0.0022);
+scene.background = new THREE.Color(0x2a3140);
 
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.5, 8000);
 const camShake = { t: 0 };
@@ -670,10 +726,10 @@ scene.add(new THREE.HemisphereLight(0xc8ccd0, 0x5a6058, 0.55));
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
     uniforms: {
-      zenith: { value: new THREE.Color(0x6a7580) },
-      mid: { value: new THREE.Color(0x8a949c) },
-      horizon: { value: new THREE.Color(0xb8b8b4) },
-      glow: { value: new THREE.Color(0xd8d4c8) },
+      zenith: { value: new THREE.Color(0x1e2838) },
+      mid: { value: new THREE.Color(0x333b4d) },
+      horizon: { value: new THREE.Color(0x4a5360) },
+      glow: { value: new THREE.Color(0x6a7080) },
       sunDir: { value: sun.position.clone().normalize() },
     },
     vertexShader: `
@@ -796,6 +852,61 @@ const ocean = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000, 128, 128), ocea
 ocean.rotation.x = -Math.PI / 2;
 scene.add(ocean);
 
+/* —— Storm rain (thousands of falling streaks) —— */
+const RAIN_COUNT = 3200;
+const rainPositions = new Float32Array(RAIN_COUNT * 6);
+const rainVel = new Float32Array(RAIN_COUNT);
+for (let i = 0; i < RAIN_COUNT; i++) {
+  const i6 = i * 6;
+  rainPositions[i6] = (Math.random() - 0.5) * 420;
+  rainPositions[i6 + 1] = Math.random() * 280;
+  rainPositions[i6 + 2] = (Math.random() - 0.5) * 420;
+  const len = 2.5 + Math.random() * 5.5;
+  rainPositions[i6 + 3] = rainPositions[i6];
+  rainPositions[i6 + 4] = rainPositions[i6 + 1] - len;
+  rainPositions[i6 + 5] = rainPositions[i6 + 2];
+  rainVel[i] = 55 + Math.random() * 90;
+}
+const rainGeo = new THREE.BufferGeometry();
+rainGeo.setAttribute("position", new THREE.BufferAttribute(rainPositions, 3));
+const rainMat = new THREE.LineBasicMaterial({
+  color: 0xa8b0bc,
+  transparent: true,
+  opacity: 0.28,
+  depthWrite: false,
+});
+const rainLines = new THREE.LineSegments(rainGeo, rainMat);
+scene.add(rainLines);
+
+function updateRain(dt) {
+  const pos = rainGeo.attributes.position.array;
+  const origin = player.mesh.position;
+  const fwd = getPlayerForward(new THREE.Vector3());
+  const drift = player.speed * 0.4;
+  for (let i = 0; i < RAIN_COUNT; i++) {
+    const i6 = i * 6;
+    const fall = rainVel[i] * dt;
+    pos[i6 + 1] -= fall;
+    pos[i6 + 4] -= fall;
+    // Drift streaks aft relative to flight (local to rain volume)
+    pos[i6] -= fwd.x * drift * dt;
+    pos[i6 + 2] -= fwd.z * drift * dt;
+    pos[i6 + 3] -= fwd.x * drift * dt;
+    pos[i6 + 5] -= fwd.z * drift * dt;
+
+    if (pos[i6 + 1] < -30 || Math.abs(pos[i6]) > 240 || Math.abs(pos[i6 + 2]) > 240) {
+      const nx = (Math.random() - 0.5) * 400;
+      const ny = 60 + Math.random() * 200;
+      const nz = (Math.random() - 0.5) * 400;
+      const len = 2.5 + Math.random() * 5.5;
+      pos[i6] = nx; pos[i6 + 1] = ny; pos[i6 + 2] = nz;
+      pos[i6 + 3] = nx; pos[i6 + 4] = ny - len; pos[i6 + 5] = nz;
+    }
+  }
+  rainLines.position.set(origin.x, origin.y - 40, origin.z);
+  rainGeo.attributes.position.needsUpdate = true;
+}
+
 (function buildIslands() {
   const rock = new THREE.MeshStandardMaterial({ color: 0x3d6b45, roughness: 0.9 });
   const sand = new THREE.MeshStandardMaterial({ color: 0xc2b280, roughness: 1 });
@@ -813,76 +924,67 @@ scene.add(ocean);
 })();
 
 function makeJet(scheme) {
+  // Single parent group — all parts roll/pitch together via mesh.quaternion
   const g = new THREE.Group();
   const bodyMat = new THREE.MeshStandardMaterial({
-    color: scheme.body,
-    metalness: 0.25,
-    roughness: 0.72,
+    color: scheme.body, metalness: 0.25, roughness: 0.72,
   });
   const camoMat = new THREE.MeshStandardMaterial({
-    color: scheme.camo || scheme.body,
-    metalness: 0.18,
-    roughness: 0.8,
+    color: scheme.camo || scheme.body, metalness: 0.18, roughness: 0.8,
   });
   const accent = new THREE.MeshStandardMaterial({
-    color: scheme.accent,
-    metalness: 0.35,
-    roughness: 0.45,
-    emissive: scheme.glow || 0x000000,
-    emissiveIntensity: scheme.glow ? 0.35 : 0,
+    color: scheme.accent, metalness: 0.35, roughness: 0.45,
+    emissive: scheme.glow || 0x000000, emissiveIntensity: scheme.glow ? 0.35 : 0,
   });
   const stripeMat = new THREE.MeshStandardMaterial({
-    color: scheme.stripe || 0xc9a227,
-    metalness: 0.3,
-    roughness: 0.55,
+    color: typeof scheme.stripe === "number" ? scheme.stripe : 0xc9a227,
+    metalness: 0.3, roughness: 0.55,
   });
   const glassMat = new THREE.MeshStandardMaterial({
-    color: 0x1a2830,
-    metalness: 0.9,
-    roughness: 0.15,
-    transparent: true,
-    opacity: 0.75,
+    color: 0x1a2830, metalness: 0.9, roughness: 0.15, transparent: true, opacity: 0.75,
   });
 
-  // Rounded fuselage (nose → tail along +X)
-  const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.72, 7.2, 12), bodyMat);
+  // Fuselage along +X (nose forward)
+  const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.68, 6.8, 12), bodyMat);
   fuse.rotation.z = Math.PI / 2;
+  fuse.position.x = 0.2;
   g.add(fuse);
-  const mid = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.48, 3.2, 12), camoMat);
-  mid.rotation.z = Math.PI / 2;
-  mid.position.x = -4.2;
-  g.add(mid);
+  const aft = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.42, 2.8, 12), camoMat);
+  aft.rotation.z = Math.PI / 2;
+  aft.position.x = -3.6;
+  g.add(aft);
 
-  // Rounded nose / spinner fairing
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.62, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), bodyMat);
+  const nose = new THREE.Mesh(
+    new THREE.SphereGeometry(0.58, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.55),
+    bodyMat
+  );
   nose.rotation.z = -Math.PI / 2;
-  nose.position.x = 3.55;
+  nose.position.x = 3.4;
   g.add(nose);
 
-  // White spinner cone
   const spinner = new THREE.Mesh(
-    new THREE.ConeGeometry(0.38, 0.85, 10),
+    new THREE.ConeGeometry(0.36, 0.8, 10),
     new THREE.MeshStandardMaterial({ color: 0xe8e4dc, metalness: 0.4, roughness: 0.35 })
   );
   spinner.rotation.z = -Math.PI / 2;
-  spinner.position.x = 4.35;
+  spinner.position.x = 4.15;
   g.add(spinner);
 
-  // Spinning propeller disc + blades
+  // Propeller (spins on local X)
   const propGroup = new THREE.Group();
-  propGroup.position.x = 4.05;
+  propGroup.position.x = 3.9;
   const disc = new THREE.Mesh(
-    new THREE.CircleGeometry(1.85, 28),
+    new THREE.CircleGeometry(1.7, 28),
     new THREE.MeshBasicMaterial({
-      color: 0x6a6a6a, transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false,
+      color: 0x6a6a6a, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false,
     })
   );
   disc.rotation.y = Math.PI / 2;
   propGroup.add(disc);
   const bladeMat = new THREE.MeshStandardMaterial({ color: 0x2a2a28, metalness: 0.5, roughness: 0.4 });
   for (let i = 0; i < 3; i++) {
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.7, 0.22), bladeMat);
-    blade.position.y = 0.85;
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.55, 0.2), bladeMat);
+    blade.position.y = 0.78;
     const hub = new THREE.Group();
     hub.add(blade);
     hub.rotation.x = (i / 3) * Math.PI * 2;
@@ -891,76 +993,75 @@ function makeJet(scheme) {
   g.add(propGroup);
   g.userData.props = [propGroup];
 
-  // Elliptical Spitfire-style wing
-  const wingShape = new THREE.Shape();
-  wingShape.moveTo(0, 0);
-  wingShape.quadraticCurveTo(-1.2, 5.2, -3.8, 5.6);
-  wingShape.quadraticCurveTo(-5.2, 2.8, -5.0, 0.15);
-  wingShape.quadraticCurveTo(-5.2, -2.8, -3.8, -5.6);
-  wingShape.quadraticCurveTo(-1.2, -5.2, 0, 0);
-  const wing = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(wingShape, { depth: 0.14, bevelEnabled: false }),
-    camoMat
-  );
-  wing.rotation.x = Math.PI / 2;
-  wing.rotation.z = Math.PI / 2;
-  wing.position.set(0.2, -0.08, 0);
-  g.add(wing);
+  // —— Horizontal elliptical wings (left / right), span along ±Z ——
+  // Half-wing shape in XY (x=chord, y=span); extrude thickness; lay flat onto XZ
+  const halfShape = new THREE.Shape();
+  halfShape.moveTo(1.35, 0.05);
+  halfShape.lineTo(1.05, 4.9);
+  halfShape.quadraticCurveTo(0.35, 5.35, -0.55, 5.05);
+  halfShape.quadraticCurveTo(-1.15, 2.6, -1.45, 0.05);
+  halfShape.lineTo(1.35, 0.05);
+  const wingGeo = new THREE.ExtrudeGeometry(halfShape, { depth: 0.14, bevelEnabled: false });
+  wingGeo.translate(0, 0, -0.07);
 
-  // Yellow leading-edge ID stripes
+  const wingR = new THREE.Mesh(wingGeo, camoMat);
+  wingR.rotation.x = -Math.PI / 2; // shape Y (span) → world −Z
+  wingR.position.set(0.15, -0.05, 0);
+  g.add(wingR);
+
+  const wingL = new THREE.Mesh(wingGeo.clone(), camoMat);
+  wingL.rotation.x = -Math.PI / 2;
+  wingL.scale.y = -1; // mirror span → world +Z (local scale before rotation)
+  wingL.position.set(0.15, -0.05, 0);
+  g.add(wingL);
+
   if (scheme.stripe !== false) {
-    [-4.2, 4.2].forEach((z) => {
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.55), stripeMat);
-      stripe.position.set(1.6, -0.02, z > 0 ? 4.4 : -4.4);
+    [-1, 1].forEach((side) => {
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.05, 0.5), stripeMat);
+      stripe.position.set(1.35, 0.02, side * 4.55);
       g.add(stripe);
     });
   }
 
-  // Radiator scoop under nose (Typhoon / Mustang cue)
-  const scoop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.45, 0.85), bodyMat);
-  scoop.position.set(1.6, -0.55, 0);
+  const scoop = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.4, 0.75), bodyMat);
+  scoop.position.set(1.5, -0.52, 0);
   g.add(scoop);
 
-  // Horizontal stabilizers + vertical rudder
-  const hStab = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 3.4), camoMat);
-  hStab.position.set(-5.4, 0.15, 0);
+  const hStab = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.08, 3.2), camoMat);
+  hStab.position.set(-4.9, 0.12, 0);
   g.add(hStab);
-  const rudder = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.7, 0.12), camoMat);
-  rudder.position.set(-5.5, 0.95, 0);
-  rudder.rotation.z = 0.08;
+  const rudder = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.55, 0.12), camoMat);
+  rudder.position.set(-5.0, 0.9, 0);
   g.add(rudder);
-  const rudderTip = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.55, 0.1), accent);
-  rudderTip.position.set(-5.85, 1.55, 0);
+  const rudderTip = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.1), accent);
+  rudderTip.position.set(-5.35, 1.45, 0);
   g.add(rudderTip);
 
-  // Bubble canopy
   const canopy = new THREE.Mesh(
-    new THREE.SphereGeometry(0.62, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.SphereGeometry(0.58, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2),
     glassMat
   );
   canopy.rotation.z = Math.PI / 2;
-  canopy.position.set(0.6, 0.55, 0);
+  canopy.position.set(0.5, 0.52, 0);
   g.add(canopy);
 
-  // Wing gun mounts + wingtip vapor anchors
   g.userData.gunMounts = [];
   g.userData.wingTips = [];
   g.userData.plumes = [];
   g.userData.exhausts = [];
   [-1, 1].forEach((side) => {
     const gun = new THREE.Object3D();
-    gun.position.set(1.8, -0.05, side * 3.4);
+    gun.position.set(1.5, -0.02, side * 3.2);
     g.add(gun);
     g.userData.gunMounts.push(gun);
 
     const tip = new THREE.Object3D();
-    tip.position.set(-0.6, 0.02, side * 5.5);
+    tip.position.set(-0.4, 0.02, side * 5.15);
     g.add(tip);
     g.userData.wingTips.push(tip);
 
-    // Extra mid-wing trail emitters for dense speed lines
     const midTip = new THREE.Object3D();
-    midTip.position.set(-1.2, 0.02, side * 3.2);
+    midTip.position.set(-0.9, 0.02, side * 3.0);
     g.add(midTip);
     g.userData.wingTips.push(midTip);
   });
@@ -1037,10 +1138,32 @@ function makeFlagship() {
     }
   });
 
-  // Dorsal turret cue
-  const turret = new THREE.Mesh(new THREE.SphereGeometry(1.1, 10, 8), dark);
-  turret.position.set(2, 2.2, 0);
-  g.add(turret);
+  // AA battery turrets (dorsal + waist + nose)
+  g.userData.turrets = [];
+  const turretMat = new THREE.MeshStandardMaterial({
+    color: 0x3a4038, metalness: 0.45, roughness: 0.4, emissive: 0x441008, emissiveIntensity: 0.4,
+  });
+  [
+    [6, 2.4, 0],
+    [0, 2.5, 0],
+    [-8, 2.2, 0],
+    [2, 0.4, 12],
+    [2, 0.4, -12],
+  ].forEach(([x, y, z]) => {
+    const t = new THREE.Group();
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.95, 10, 8), turretMat);
+    t.add(dome);
+    const barrel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.15, 2.2, 6),
+      new THREE.MeshBasicMaterial({ color: 0x222222 })
+    );
+    barrel.rotation.z = Math.PI / 2;
+    barrel.position.x = 1.3;
+    t.add(barrel);
+    t.position.set(x, y, z);
+    g.add(t);
+    g.userData.turrets.push(t);
+  });
 
   g.scale.setScalar(1.15);
   return g;
@@ -1310,6 +1433,8 @@ const G = {
   trackAssist: false,
   trackLook: null,
   firingTouch: false,
+  heat: 0,
+  overheated: false,
 };
 
 /* Flight forward = world -Z rotated by yaw/pitch. Model nose is +X → offset quat. */
@@ -1380,22 +1505,6 @@ function fireTracer(origin, dir) {
   const line2 = new THREE.Line(geo2, mat2);
   scene.add(line2);
   G.tracers.push({ line, line2, life: 0.14 });
-
-  // Instant hit test along tracer ray
-  const step = 10;
-  for (let s = step; s <= 160; s += step) {
-    const p = origin.clone().addScaledVector(d, s);
-    for (let j = G.enemies.length - 1; j >= 0; j--) {
-      if (p.distanceTo(G.enemies[j].mesh.position) < 9) {
-        destroyEnemy(G.enemies[j], j);
-        return;
-      }
-    }
-    if (G.boss && p.distanceTo(G.boss.mesh.position) < 16) {
-      damageBoss(1);
-      return;
-    }
-  }
 }
 
 /* —— UI helpers —— */
@@ -1405,6 +1514,23 @@ function showPop(msg) {
   el.classList.add("show");
   clearTimeout(showPop._t);
   showPop._t = setTimeout(() => el.classList.remove("show"), 1600);
+}
+
+function showLevelAlert(msg, warn) {
+  const el = $("levelAlert");
+  el.textContent = msg;
+  el.classList.toggle("warn", !!warn);
+  el.classList.add("show");
+  clearTimeout(showLevelAlert._t);
+  showLevelAlert._t = setTimeout(() => el.classList.remove("show"), 2800);
+}
+
+function updateHeatHUD() {
+  const fill = $("heatFill");
+  const bar = $("heatBar");
+  if (!fill || !bar) return;
+  fill.style.width = Math.round(THREE.MathUtils.clamp(G.heat, 0, 1) * 100) + "%";
+  bar.classList.toggle("hot", G.overheated || G.heat > 0.85);
 }
 
 function flashScreen(red) {
@@ -1454,7 +1580,7 @@ function updateHUD() {
     $("bossBar").classList.remove("show");
   }
 
-  if (G.bossPhase) $("hudWave").textContent = "BOSS — MEGAPOT FLAGSHIP";
+  if (G.bossPhase) $("hudWave").textContent = "LEVEL 3 — BOSS DUEL";
   else if (WAVE_DEFS[G.waveIndex]) $("hudWave").textContent = WAVE_DEFS[G.waveIndex].name;
 }
 
@@ -1490,8 +1616,14 @@ function awardKill(worldPos, pts, ticketAmt) {
 /* —— Combat entities —— */
 function spawnEnemy(opts) {
   const p = spawnAwayFromPlayer(180, 220, true);
+  const reinforced = !!(opts && opts.reinforced);
   const mesh = makeJet({
-    body: 0x4a4038, camo: 0x3a3830, accent: 0x6a2a28, stripe: false, glow: 0x220808, scale: 1.05,
+    body: reinforced ? 0x3a3834 : 0x4a4038,
+    camo: reinforced ? 0x2e322c : 0x3a3830,
+    accent: 0x6a2a28,
+    stripe: false,
+    glow: 0x220808,
+    scale: reinforced ? 1.12 : 1.05,
   });
   mesh.position.set(p.x, p.y, p.z);
   const toP = player.mesh.position.clone().sub(mesh.position).normalize();
@@ -1499,10 +1631,12 @@ function spawnEnemy(opts) {
   mesh.rotateY(Math.PI / 2);
   scene.add(mesh);
   const side = Math.random() < 0.5 ? 1 : -1;
+  const hp = (opts && opts.hp) || 30;
   G.enemies.push({
     mesh,
-    hp: 1,
-    speed: (opts && opts.speed) || 110,
+    hp,
+    maxHp: hp,
+    speed: (opts && opts.speed) || 72,
     bank: (Math.random() - 0.5) * 0.35,
     fireCD: 1.5 + Math.random() * 2,
     mode: "approach",
@@ -1510,6 +1644,7 @@ function spawnEnemy(opts) {
     peelSide: side,
     orbitSide: side,
     passDir: null,
+    reinforced,
   });
 }
 
@@ -1523,12 +1658,14 @@ function spawnBoss() {
   mesh.rotateY(Math.PI / 2);
   scene.add(mesh);
   G.boss = {
-    mesh, hp: 40, maxHp: 40, speed: 95, fireCD: 0,
+    mesh, hp: BOSS_HP, maxHp: BOSS_HP, speed: 78, fireCD: 0, turretCD: 0,
     mode: "approach", phaseT: 0, peelSide: 1, orbitSide: 1, passDir: null,
   };
+  showLevelAlert(BOSS_LEVEL_BLURB, true);
   showPop("CRITICAL: HEAVY BOMBER DETECTED");
   flashScreen(true);
   camShake.t = 0.6;
+  $("hudWave").textContent = "LEVEL 3 — BOSS DUEL";
   updateHUD();
 }
 
@@ -1577,11 +1714,23 @@ function dropRelic(pos) {
   G.relics.push({ mesh, life: 14, spin: 2 + Math.random() });
 }
 
+function hurtEnemy(e, idx, dmg) {
+  e.hp -= dmg;
+  explode(e.mesh.position.clone(), 0.25, false);
+  flashCrosshairHit();
+  if (e.hp <= 0) {
+    destroyEnemy(e, idx);
+    return true;
+  }
+  spawnHitFloat(e.mesh.position.clone(), "HIT");
+  return false;
+}
+
 function destroyEnemy(e, idx) {
   const pos = e.mesh.position.clone();
   explode(pos, 1.85, false);
   dropRelic(pos);
-  const tickets = 1 + (Math.random() < 0.55 ? 1 : 0); // 1–2 Megapot tickets
+  const tickets = 1 + (Math.random() < 0.55 ? 1 : 0);
   awardKill(pos, KILL_PTS, tickets);
   flashCrosshairHit();
   spawnHitFloat(pos, "HIT +" + KILL_PTS);
@@ -1593,7 +1742,7 @@ function destroyEnemy(e, idx) {
 function damageBoss(amt) {
   if (!G.boss) return;
   G.boss.hp -= amt;
-  explode(G.boss.mesh.position.clone(), 0.65, false);
+  explode(G.boss.mesh.position.clone(), 0.45, false);
   flashCrosshairHit();
   spawnHitFloat(G.boss.mesh.position.clone(), "HIT");
   updateHUD();
@@ -1631,7 +1780,15 @@ function fireOrangeTracer(origin, dir, length) {
 
 function fireMissile() {
   if (!G.running || G.paused || player.dead || G.fireCD > 0) return;
-  G.fireCD = 0.07; // machine-gun cyclic rate
+  if (G.overheated) return;
+
+  G.fireCD = 0.09;
+  G.heat = Math.min(1, G.heat + GUN_HEAT_PER_SHOT);
+  if (G.heat >= 1) {
+    G.overheated = true;
+    showPop("GUNS OVERHEATED");
+  }
+  updateHeatHUD();
   SFX.missile();
 
   const forward = getPlayerForward(new THREE.Vector3());
@@ -1659,12 +1816,12 @@ function fireMissile() {
     }
   }
 
-  const ROUND_SPEED = 920;
+  const ROUND_SPEED = 720;
   for (const origin of origins) {
-    fireOrangeTracer(origin, forward, 100);
+    fireOrangeTracer(origin, forward, 85);
 
     const mesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08, 0.05, 2.4, 4),
+      new THREE.CylinderGeometry(0.07, 0.045, 2.1, 4),
       new THREE.MeshBasicMaterial({ color: 0xff9933 })
     );
     mesh.position.copy(origin);
@@ -1672,8 +1829,8 @@ function fireMissile() {
     scene.add(mesh);
 
     const trail = new THREE.Mesh(
-      new THREE.SphereGeometry(0.2, 4, 4),
-      new THREE.MeshBasicMaterial({ color: 0xffcc66, transparent: true, opacity: 0.6 })
+      new THREE.SphereGeometry(0.18, 4, 4),
+      new THREE.MeshBasicMaterial({ color: 0xffcc66, transparent: true, opacity: 0.55 })
     );
     trail.position.copy(origin);
     scene.add(trail);
@@ -1682,28 +1839,12 @@ function fireMissile() {
       mesh, trail,
       vel: forward.clone().multiplyScalar(ROUND_SPEED),
       target: tgtMesh,
-      life: 1.4,
+      life: 1.25,
       forward: forward.clone(),
       speed: ROUND_SPEED,
       gun: true,
+      dmg: 1,
     });
-  }
-
-  // Quick hit probe along both barrels
-  for (const origin of origins) {
-    for (let s = 8; s <= 140; s += 12) {
-      const p = origin.clone().addScaledVector(forward, s);
-      for (let j = G.enemies.length - 1; j >= 0; j--) {
-        if (p.distanceTo(G.enemies[j].mesh.position) < 9) {
-          destroyEnemy(G.enemies[j], j);
-          return;
-        }
-      }
-      if (G.boss && p.distanceTo(G.boss.mesh.position) < 18) {
-        damageBoss(1);
-        return;
-      }
-    }
   }
 }
 
@@ -1804,8 +1945,10 @@ function startWave(index) {
   G.spawnAcc = 0;
   G.bossPhase = false;
   if (WAVE_DEFS[index]) {
-    showPop(WAVE_DEFS[index].name);
-    $("hudWave").textContent = WAVE_DEFS[index].name;
+    const def = WAVE_DEFS[index];
+    showPop(def.name);
+    showLevelAlert(def.blurb || def.name, index > 0);
+    $("hudWave").textContent = def.name;
   }
   updateHUD();
 }
@@ -1818,7 +1961,6 @@ function checkWaveProgress() {
     if (G.waveIndex < WAVE_DEFS.length - 1) {
       startWave(G.waveIndex + 1);
     } else {
-      // All waves cleared → flagship
       showPop("INCO SHROUD BREACH");
       setTimeout(() => spawnBoss(), 1200);
     }
@@ -1841,6 +1983,8 @@ function redeploy() {
   G.score = 0;
   G.tickets = 0;
   G.fireCD = 0;
+  G.heat = 0;
+  G.overheated = false;
   G.running = true;
   G.paused = false;
   SFX.setLock(false);
@@ -2112,8 +2256,14 @@ function updateFlight(dt) {
   emitVapor(player.mesh, 0.75 + throttle * 0.55 + Math.abs(player.roll) * 0.4);
   SFX.setEngine(player.speed, true);
 
-  // Hold SPACE / FIRE for twin wing MGs
-  if (G.keys[" "] || G.keys.space || G.firingTouch) fireMissile();
+  // Hold SPACE / FIRE for twin wing MGs (pulsed by heat)
+  if ((G.keys[" "] || G.keys.space || G.firingTouch) && !G.overheated) fireMissile();
+  else {
+    const cool = G.overheated ? GUN_OVERHEAT_COOL : GUN_COOL_RATE;
+    G.heat = Math.max(0, G.heat - cool * dt);
+    if (G.overheated && G.heat <= 0.28) G.overheated = false;
+  }
+  updateHeatHUD();
 
   if (player.health < 40 && player.health > 0) {
     player.smokeAcc += dt;
@@ -2303,11 +2453,34 @@ function updateEnemies(dt) {
     const toBoss = b.mesh.position.clone().sub(player.mesh.position).normalize();
     const bossBehind = playerFwd.dot(toBoss) < -0.15;
     b.fireCD -= dt;
-    if (dist < 230 && dist > 55 && b.fireCD <= 0) {
-      b.fireCD = 0.95;
-      if (b.mode !== "circle" || Math.random() < 0.4) {
-        enemyFirePlasma({ mesh: b.mesh }, bossBehind);
+    b.turretCD = (b.turretCD || 0) - dt;
+
+    // Heavy AA battery — plasma lines from turrets
+    if (dist < 280 && dist > 50 && b.turretCD <= 0) {
+      b.turretCD = 0.55;
+      const turrets = b.mesh.userData.turrets || [];
+      const dir = player.mesh.position.clone().sub(b.mesh.position).normalize();
+      const sources = turrets.length
+        ? turrets.map((t) => { const wp = new THREE.Vector3(); t.getWorldPosition(wp); return wp; })
+        : [b.mesh.position.clone()];
+      // Fire 2–3 random turrets per salvo
+      const picks = sources.sort(() => Math.random() - 0.5).slice(0, 3);
+      for (const o of picks) {
+        const aim = dir.clone().add(new THREE.Vector3(
+          (Math.random() - 0.5) * 0.08,
+          (Math.random() - 0.5) * 0.06,
+          (Math.random() - 0.5) * 0.08
+        )).normalize();
+        fireOrangeTracer(o, aim, 90);
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(0.45, 5, 5),
+          new THREE.MeshBasicMaterial({ color: 0xff6622 })
+        );
+        mesh.position.copy(o);
+        scene.add(mesh);
+        G.plasma.push({ mesh, vel: aim.multiplyScalar(175), life: 2.4 });
       }
+      if (bossBehind) pulseThreat();
     }
   }
 }
@@ -2353,13 +2526,13 @@ function updateMissiles(dt) {
     let hit = false;
     for (let j = G.enemies.length - 1; j >= 0; j--) {
       if (m.mesh.position.distanceTo(G.enemies[j].mesh.position) < 10) {
-        destroyEnemy(G.enemies[j], j);
+        hurtEnemy(G.enemies[j], j, m.dmg || 1);
         hit = true;
         break;
       }
     }
     if (!hit && G.boss && m.mesh.position.distanceTo(G.boss.mesh.position) < 20) {
-      damageBoss(3);
+      damageBoss(m.dmg || 1);
       hit = true;
     }
     if (hit || m.life <= 0) {
@@ -2473,7 +2646,11 @@ function updateWaves(dt) {
     G.spawnAcc += dt * 1000;
     if (G.spawnAcc >= def.interval) {
       G.spawnAcc = 0;
-      spawnEnemy({ speed: def.speed });
+      spawnEnemy({
+        speed: def.speed,
+        hp: def.hp,
+        reinforced: def.id >= 2,
+      });
       G.waveSpawned++;
     }
   }
@@ -2499,6 +2676,7 @@ function frame(ts) {
     updateParticles(dt);
     updateClouds(dt);
     updateOcean(G.t);
+    updateRain(dt);
     updateCamera(dt);
     updateLockHUD();
     updateThreatPointers();
@@ -2509,6 +2687,7 @@ function frame(ts) {
     updateParticles(dt);
     updateOcean(G.t);
     updateClouds(dt);
+    updateRain(dt);
     $("threats").innerHTML = "";
     if (!G.running && !player.dead) {
       camera.position.set(
