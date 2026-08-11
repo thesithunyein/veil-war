@@ -628,6 +628,110 @@
       display: none;
     }
     .pause.show { display: grid; place-items: center; }
+
+    /* —— Settings gear + glass panel —— */
+    .settings-btn {
+      position: absolute; z-index: 12;
+      left: calc(0.65rem + env(safe-area-inset-left, 0px));
+      bottom: calc(0.65rem + var(--safe-b));
+      width: 42px; height: 42px;
+      border: 1px solid rgba(61, 255, 168, 0.35);
+      border-radius: 10px;
+      background: rgba(6, 16, 28, 0.55);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: var(--teal);
+      cursor: pointer; pointer-events: auto;
+      display: grid; place-items: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), inset 0 0 12px rgba(61, 255, 168, 0.08);
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .settings-btn:hover { border-color: rgba(92, 225, 255, 0.65); box-shadow: 0 0 18px rgba(61, 255, 168, 0.25); }
+    .settings-btn:active { transform: scale(0.94); }
+    .settings-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+
+    .settings-backdrop {
+      position: absolute; inset: 0; z-index: 18;
+      background: rgba(4, 10, 18, 0.45);
+      backdrop-filter: blur(4px);
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity 0.32s ease, visibility 0.32s ease;
+    }
+    .settings-backdrop.open { opacity: 1; visibility: visible; pointer-events: auto; }
+
+    .settings-panel {
+      position: absolute; z-index: 19;
+      left: calc(0.65rem + env(safe-area-inset-left, 0px));
+      bottom: calc(3.6rem + var(--safe-b));
+      width: min(88vw, 300px);
+      padding: 1rem 1.1rem 0.85rem;
+      border: 1px solid rgba(61, 255, 168, 0.45);
+      border-radius: 14px;
+      background: rgba(8, 20, 32, 0.82);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 32px rgba(61, 255, 168, 0.12);
+      transform: translateY(16px) scale(0.96);
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease, visibility 0.28s ease;
+    }
+    .settings-panel.open {
+      transform: translateY(0) scale(1);
+      opacity: 1; visibility: visible; pointer-events: auto;
+    }
+    .settings-panel h2 {
+      margin: 0 0 0.85rem;
+      font-family: var(--display); font-size: 0.72rem;
+      letter-spacing: 0.14em; color: var(--teal);
+      text-transform: uppercase;
+    }
+    .settings-row {
+      margin-bottom: 0.85rem;
+    }
+    .settings-row label {
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: var(--mono); font-size: 0.62rem;
+      color: var(--muted); margin-bottom: 0.35rem;
+    }
+    .settings-row label b { color: var(--cyan); font-weight: 600; }
+    .settings-row input[type="range"] {
+      width: 100%; accent-color: var(--teal);
+      height: 4px; cursor: pointer;
+    }
+    .toggle-pair {
+      display: flex; gap: 0.35rem;
+    }
+    .toggle-pair button {
+      flex: 1; padding: 0.45rem 0.3rem;
+      border: 1px solid rgba(92, 225, 255, 0.25);
+      background: rgba(4, 12, 22, 0.6);
+      color: var(--muted); font-family: var(--mono);
+      font-size: 0.58rem; letter-spacing: 0.06em;
+      cursor: pointer; border-radius: 6px;
+      transition: 0.15s ease;
+    }
+    .toggle-pair button.on {
+      border-color: rgba(61, 255, 168, 0.7);
+      background: rgba(61, 255, 168, 0.15);
+      color: var(--teal);
+      box-shadow: 0 0 12px rgba(61, 255, 168, 0.2);
+    }
+    .settings-check {
+      display: flex; align-items: center; justify-content: space-between;
+      font-family: var(--mono); font-size: 0.62rem; color: var(--muted);
+      padding: 0.35rem 0;
+    }
+    .settings-check input { accent-color: var(--teal); width: 16px; height: 16px; cursor: pointer; }
+    .settings-close {
+      width: 100%; margin-top: 0.5rem;
+      padding: 0.55rem; border: 1px solid rgba(61, 255, 168, 0.5);
+      background: rgba(61, 255, 168, 0.12);
+      color: var(--teal); font-family: var(--display);
+      font-size: 0.68rem; letter-spacing: 0.12em;
+      cursor: pointer; border-radius: 8px;
+      transition: 0.15s ease;
+    }
+    .settings-close:hover { background: rgba(61, 255, 168, 0.22); }
   </style>
 </head>
 <body>
@@ -696,6 +800,40 @@
     </div>
     <button class="track-btn" id="trackBtn" type="button">TRACK</button>
     <button class="fire-btn" id="fireBtn" type="button">FIRE</button>
+
+    <button class="settings-btn" id="btnSettings" type="button" aria-label="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
+    </button>
+    <div class="settings-backdrop" id="settingsBackdrop"></div>
+    <aside class="settings-panel" id="settingsPanel" aria-hidden="true">
+      <h2>Combat Settings</h2>
+      <div class="settings-row">
+        <label><span>Master Volume</span><b id="volLabel">70%</b></label>
+        <input type="range" id="setVolume" min="0" max="100" value="70" />
+      </div>
+      <div class="settings-row">
+        <label><span>Flight Sensitivity</span></label>
+        <div class="toggle-pair" id="flightToggle">
+          <button type="button" data-mode="arcade" class="on">LOOSE ARCADE</button>
+          <button type="button" data-mode="precision">TIGHT PRECISION</button>
+        </div>
+      </div>
+      <div class="settings-row">
+        <label><span>Graphics Quality</span></label>
+        <div class="settings-check">
+          <span>Rain lines</span>
+          <input type="checkbox" id="setRain" checked />
+        </div>
+        <div class="settings-check">
+          <span>Screen shake</span>
+          <input type="checkbox" id="setShake" checked />
+        </div>
+      </div>
+      <button class="settings-close" id="btnSettingsClose" type="button">CLOSE</button>
+    </aside>
 
     <div class="brief" id="brief">
       <div class="card">
@@ -776,7 +914,7 @@ const BOSS_HP = 180;
 const MG_DMG = 2; // Twin MGs clear a scout in ~1s sustained fire
 const STORM_BG = 0x0a1628;
 const STORM_FOG = 0x0c1a30;
-const STORM_FOG_DENSITY = 0.00105;
+const STORM_FOG_DENSITY = 0.00072;
 const VICTORY_FOG = 0x4a90e2;
 const VICTORY_BG = 0x6eb5f0;
 const SEA_DEEP = 0x0f2b5c;
@@ -813,6 +951,52 @@ scene.background = new THREE.Color(STORM_BG);
 
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.5, 8000);
 const camShake = { t: 0 };
+
+function addCamShake(amount) {
+  if (Settings.screenShake) camShake.t = Math.max(camShake.t, amount);
+}
+
+/* —— Persistent user settings —— */
+const Settings = {
+  masterVolume: 0.7,
+  flightMode: "arcade",
+  rainEnabled: true,
+  screenShake: true,
+  load() {
+    try {
+      const raw = localStorage.getItem("veilWarSettings");
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (s.masterVolume != null) this.masterVolume = s.masterVolume;
+      if (s.flightMode === "precision" || s.flightMode === "arcade") this.flightMode = s.flightMode;
+      if (s.rainEnabled != null) this.rainEnabled = !!s.rainEnabled;
+      if (s.screenShake != null) this.screenShake = !!s.screenShake;
+    } catch (_) { /* ignore corrupt storage */ }
+  },
+  save() {
+    try {
+      localStorage.setItem("veilWarSettings", JSON.stringify({
+        masterVolume: this.masterVolume,
+        flightMode: this.flightMode,
+        rainEnabled: this.rainEnabled,
+        screenShake: this.screenShake,
+      }));
+    } catch (_) { /* private mode */ }
+  },
+  applyUI() {
+    const vol = $("setVolume");
+    const volLabel = $("volLabel");
+    if (vol) vol.value = String(Math.round(this.masterVolume * 100));
+    if (volLabel) volLabel.textContent = Math.round(this.masterVolume * 100) + "%";
+    $("setRain").checked = this.rainEnabled;
+    $("setShake").checked = this.screenShake;
+    $("flightToggle").querySelectorAll("button").forEach((btn) => {
+      btn.classList.toggle("on", btn.dataset.mode === this.flightMode);
+    });
+    SFX.setMasterVolume(this.masterVolume);
+  },
+};
+Settings.load();
 
 /* —— Overcast WWII battlefield lighting —— */
 const ambientLight = new THREE.AmbientLight(0xb0b4b8, 0.55);
@@ -881,71 +1065,7 @@ let skyUniforms = null;
   scene.add(new THREE.Mesh(new THREE.SphereGeometry(6000, 32, 20), skyMat));
 })();
 
-/* Soft volumetric cloud sprites — fly through mist, not solid discs */
-function makeCloudTexture() {
-  const c = document.createElement("canvas");
-  c.width = 256; c.height = 256;
-  const g = c.getContext("2d");
-  g.clearRect(0, 0, 256, 256);
-  // Soft multi-blob puff for fluffy edges
-  for (let i = 0; i < 7; i++) {
-    const x = 90 + Math.random() * 76;
-    const y = 100 + Math.random() * 56;
-    const r = 48 + Math.random() * 55;
-    const grd = g.createRadialGradient(x, y, 2, x, y, r);
-    grd.addColorStop(0, "rgba(255,255,255,0.55)");
-    grd.addColorStop(0.35, "rgba(240,246,255,0.22)");
-    grd.addColorStop(1, "rgba(220,230,245,0)");
-    g.fillStyle = grd;
-    g.beginPath();
-    g.arc(x, y, r, 0, Math.PI * 2);
-    g.fill();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-const cloudTex = makeCloudTexture();
-const clouds = [];
-(function buildClouds() {
-  for (let i = 0; i < 140; i++) {
-    const cluster = new THREE.Group();
-    const n = 9 + (i % 7);
-    for (let j = 0; j < n; j++) {
-      const mat = new THREE.SpriteMaterial({
-        map: cloudTex,
-        color: 0xe8f2ff,
-        transparent: true,
-        opacity: 0.15 + Math.random() * 0.1,
-        depthWrite: false,
-        depthTest: false,
-        fog: true,
-        blending: THREE.NormalBlending,
-      });
-      const spr = new THREE.Sprite(mat);
-      const s = 90 + Math.random() * 200;
-      spr.scale.set(s, s * (0.55 + Math.random() * 0.25), 1);
-      spr.renderOrder = -80;
-      spr.userData._op = mat.opacity;
-      spr.position.set(
-        (Math.random() - 0.5) * 180,
-        (Math.random() - 0.5) * 50,
-        (Math.random() - 0.5) * 140
-      );
-      cluster.add(spr);
-    }
-    cluster.position.set(
-      (Math.random() - 0.5) * 3200,
-      50 + Math.random() * 210,
-      (Math.random() - 0.5) * 3200
-    );
-    cluster.renderOrder = -80;
-    scene.add(cluster);
-    clouds.push({ mesh: cluster, speed: 35 + Math.random() * 70 });
-  }
-})();
-
-/* Endless deep-blue sea — solid volume with heavy swell (no grid overlay) */
+/* Cloud meshes removed — clean storm sky for crisp horizon visibility */
 const oceanUniforms = {
   uTime: { value: 0 },
   uDeep: { value: new THREE.Color(SEA_DEEP) },
@@ -1033,6 +1153,10 @@ const rainLines = new THREE.LineSegments(rainGeo, rainMat);
 scene.add(rainLines);
 
 function updateRain(dt) {
+  if (!Settings.rainEnabled) {
+    rainLines.visible = false;
+    return;
+  }
   const density = G.rainDensity == null ? 1 : G.rainDensity;
   rainLines.visible = density > 0.02;
   rainMat.opacity = 0.28 * density;
@@ -1129,16 +1253,6 @@ function tintStormSurfaces(white) {
     oceanUniforms.uDeep.value.setHex(0xffffff);
     oceanUniforms.uShallow.value.setHex(0xf2f7ff);
     if (skyUniforms) skyUniforms.flash.value = 1.0;
-    for (const c of clouds) {
-      c.mesh.traverse((obj) => {
-        if (obj.isSprite && obj.material) {
-          if (obj.userData._op == null) obj.userData._op = obj.material.opacity;
-          // Brilliant glowing white rim on volumetric mist
-          obj.material.color.setHex(0xffffff);
-          obj.material.opacity = Math.min(0.85, obj.userData._op * 3.2 + 0.35);
-        }
-      });
-    }
   } else {
     ambientLight.intensity = 0.55;
     hemiLight.intensity = 0.55;
@@ -1149,23 +1263,14 @@ function tintStormSurfaces(white) {
     oceanUniforms.uDeep.value.setHex(SEA_DEEP);
     oceanUniforms.uShallow.value.setHex(0x163d72);
     if (skyUniforms) skyUniforms.flash.value = 0.0;
-    for (const c of clouds) {
-      c.mesh.traverse((obj) => {
-        if (obj.isSprite && obj.material) {
-          obj.material.color.setHex(0xe8f2ff);
-          if (obj.userData._op != null) obj.material.opacity = obj.userData._op;
-        }
-      });
-    }
     clearLightningBolts();
   }
 }
 
 function triggerLightning() {
-  // 2-frame stark white shockwave across ocean + clouds
   G.lightningFrames = 2;
   tintStormSurfaces(true);
-  camShake.t = Math.max(camShake.t, 0.55);
+  addCamShake(0.55);
   clearLightningBolts();
   spawnLightningBolt();
   if (Math.random() < 0.65) spawnLightningBolt();
@@ -1209,8 +1314,8 @@ function resetStormEnvironment() {
   scene.fog.density = STORM_FOG_DENSITY;
   scene.background.setHex(STORM_BG);
   renderer.setClearColor(STORM_BG, 1);
-  rainMat.opacity = 0.28;
-  rainLines.visible = true;
+  rainMat.opacity = Settings.rainEnabled ? 0.28 : 0;
+  rainLines.visible = Settings.rainEnabled;
   if (skyUniforms) {
     skyUniforms.zenith.value.setHex(0x061018);
     skyUniforms.mid.value.setHex(0x0c1a30);
@@ -1223,14 +1328,6 @@ function resetStormEnvironment() {
   sun.intensity = 1.15;
   oceanUniforms.uDeep.value.setHex(SEA_DEEP);
   oceanUniforms.uShallow.value.setHex(0x163d72);
-  for (const c of clouds) {
-    c.mesh.traverse((obj) => {
-      if (obj.isSprite && obj.material) {
-        obj.material.color.setHex(0xe8f2ff);
-        if (obj.userData._op != null) obj.material.opacity = obj.userData._op;
-      }
-    });
-  }
 }
 
 function updateVictoryEnvironment(dt) {
@@ -1260,19 +1357,6 @@ function updateVictoryEnvironment(dt) {
   sun.intensity = THREE.MathUtils.lerp(1.15, 2.1, ease);
   oceanUniforms.uDeep.value.setHex(SEA_DEEP).lerp(new THREE.Color(0x2a6cb8), ease);
   oceanUniforms.uShallow.value.setHex(0x163d72).lerp(new THREE.Color(0x5aadf0), ease);
-
-  for (const c of clouds) {
-    c.mesh.traverse((obj) => {
-      if (obj.isSprite && obj.material) {
-        obj.material.color.setHex(0xe8f2ff).lerp(new THREE.Color(0xffffff), ease);
-        if (obj.userData._op != null) {
-          obj.material.opacity = THREE.MathUtils.lerp(
-            obj.userData._op, Math.min(0.38, obj.userData._op * 2.1), ease
-          );
-        }
-      }
-    });
-  }
 }
 
 (function buildIslands() {
@@ -1917,31 +2001,32 @@ function freeVapor(m) {
 function emitVapor(jet, intensity) {
   const tips = jet.userData.wingTips;
   if (!tips || !tips.length) return;
-  const dens = Math.max(0.55, intensity);
+  const dens = Math.max(0.25, intensity);
   const fwd = new THREE.Vector3(1, 0, 0).applyQuaternion(jet.quaternion);
+  const loops = dens > 0.7 ? 3 : 2;
   for (const tip of tips) {
-    // Longer, brighter ribbons so distant interceptors stay readable
-    for (let L = 0; L < 5; L++) {
-      if (Math.random() > dens * 0.98) continue;
+    for (let L = 0; L < loops; L++) {
+      if (Math.random() > dens * 0.72) continue;
       const wp = new THREE.Vector3();
       tip.getWorldPosition(wp);
-      wp.x += (Math.random() - 0.5) * 0.35;
-      wp.y += (Math.random() - 0.5) * 0.3 + L * 0.12;
-      wp.z += (Math.random() - 0.5) * 0.35;
+      wp.x += (Math.random() - 0.5) * 0.25;
+      wp.y += (Math.random() - 0.5) * 0.2 + L * 0.08;
+      wp.z += (Math.random() - 0.5) * 0.25;
       const m = allocVapor();
       m.position.copy(wp);
-      const stretch = 2.2 + L * 1.1 + dens * 2.4;
-      m.scale.set(0.7 + dens * 0.55, 0.7 + dens * 0.55, stretch);
-      m.material.opacity = 0.55 + dens * 0.3 - L * 0.04;
+      const stretch = 1.2 + L * 0.6 + dens * 1.2;
+      m.scale.set(0.45 + dens * 0.25, 0.45 + dens * 0.25, stretch);
+      m.material.opacity = 0.22 + dens * 0.18 - L * 0.03;
+      m.material.color.setHex(0xc8d4e0);
       scene.add(m);
-      const back = fwd.clone().multiplyScalar(-(8 + dens * 16 + L * 5));
-      back.x += (Math.random() - 0.5) * 1.2;
-      back.y += 0.4 + (Math.random() - 0.5) * 1.0;
+      const back = fwd.clone().multiplyScalar(-(5 + dens * 10 + L * 3));
+      back.x += (Math.random() - 0.5) * 0.8;
+      back.y += 0.2 + (Math.random() - 0.5) * 0.5;
       G.particles.push({
         mesh: m,
         vel: back,
         life: 1,
-        decay: 0.006 + Math.random() * 0.006,
+        decay: 0.012 + Math.random() * 0.008,
         smoke: true,
         vapor: true,
       });
@@ -1963,10 +2048,11 @@ function pulsePlumes(jet, throttle, dt) {
   }
 }
 
-/* —— Premium cinematic Web Audio (Merlin roar + autocannon + lock) —— */
+/* —— Gameplay Web Audio only (engine + combat SFX, no BGM/ambient loop) —— */
 const SFX = {
   ctx: null,
   master: null,
+  _baseMaster: 0.42,
   engOsc: null,
   engGain: null,
   engFilter: null,
@@ -1986,7 +2072,7 @@ const SFX = {
     if (!AC) return;
     this.ctx = new AC();
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.42;
+    this.master.gain.value = this._baseMaster;
     this.master.connect(this.ctx.destination);
 
     // —— Rolls-Royce Merlin roar: 45Hz saw + harmonic + filtered noise rumble ——
@@ -2052,6 +2138,10 @@ const SFX = {
   resume() {
     this.ensure();
     if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
+  },
+  setMasterVolume(norm) {
+    this._baseMaster = THREE.MathUtils.clamp(norm, 0, 1) * 0.65;
+    if (this.master) this.master.gain.value = this._baseMaster;
   },
   setEngine(speed, flying) {
     if (!this.engGain || !this.ctx) return;
@@ -2575,13 +2665,13 @@ function spawnBoss() {
   showLevelAlert(BOSS_LEVEL_BLURB, true);
   showPop("CRITICAL: HEAVY BOMBER DETECTED");
   flashScreen(true);
-  camShake.t = 0.6;
+  addCamShake(0.6);
   $("hudWave").textContent = "LEVEL 3 — BOSS DUEL";
   updateHUD();
 }
 
 function explode(pos, power, gold) {
-  camShake.t = Math.max(camShake.t, 0.3 + power * 0.15);
+  addCamShake(0.3 + power * 0.15);
   const n = 28 + power * 22;
   for (let i = 0; i < n; i++) {
     const col = gold
@@ -2750,7 +2840,7 @@ function flashEnemyHit(e) {
       });
     }
   }
-  camShake.t = Math.max(camShake.t, 0.28);
+  addCamShake(0.28);
 }
 
 function updateHitFlashes() {
@@ -2999,7 +3089,7 @@ function hurtPlayer(amount) {
   flashScreen(true);
   flashDamageFrame();
   SFX.integrityAlarm();
-  camShake.t = Math.max(camShake.t, 0.52);
+  addCamShake(0.52);
   updateHUD();
   if (player.health <= 0) missionFailed();
 }
@@ -3122,6 +3212,7 @@ function redeploy() {
   $("brief").classList.add("hidden");
   clearEntities();
   resetStormEnvironment();
+  Settings.applyUI();
   player.health = 100;
   player.dead = false;
   player.mesh.visible = true;
@@ -3440,6 +3531,14 @@ function drawRadar() {
 /* —— Simulation —— */
 function updateFlight(dt) {
   if (player.dead) return;
+  const prec = Settings.flightMode === "precision";
+  const pitchRate = prec ? 1.35 : 2.15;
+  const rollDamp = prec ? 14 : 10;
+  const autoLevel = prec ? 0.75 : 0.55;
+  const rollMax = prec ? 0.65 : 0.9;
+  const turnBase = prec ? 0.82 : 1.15;
+  const turnBrake = prec ? 1.05 : 1.45;
+
   let pitchIn = 0, rollIn = 0;
   // Pitch climb/dive: ↑↓ and W/S (beginner-friendly 3D height control)
   if (G.keys.arrowup || G.keys.w) pitchIn -= 1;
@@ -3452,15 +3551,13 @@ function updateFlight(dt) {
   rollIn = THREE.MathUtils.clamp(rollIn, -1, 1);
 
   if (Math.abs(pitchIn) > 0.04) {
-    // Strong pitch response so climb/dive visibly moves camera + altitude
-    player.pitch = THREE.MathUtils.clamp(player.pitch + pitchIn * 2.15 * dt, -1.05, 1.05);
+    player.pitch = THREE.MathUtils.clamp(player.pitch + pitchIn * pitchRate * dt, -1.05, 1.05);
   } else {
-    // Soft auto-level only — still holds attitude while climbing
-    player.pitch = THREE.MathUtils.damp(player.pitch, 0, 0.55, dt);
+    player.pitch = THREE.MathUtils.damp(player.pitch, 0, autoLevel, dt);
   }
-  const rollTarget = rollIn * 0.9;
-  player.roll = THREE.MathUtils.damp(player.roll, rollTarget, 10, dt);
-  const turnMul = player.speed < BASE_SPEED * 0.92 ? 1.45 : 1.15;
+  const rollTarget = rollIn * rollMax;
+  player.roll = THREE.MathUtils.damp(player.roll, rollTarget, rollDamp, dt);
+  const turnMul = player.speed < BASE_SPEED * 0.92 ? turnBrake : turnBase;
   player.yaw += -player.roll * turnMul * dt;
 
   syncPlayerMesh();
@@ -3482,7 +3579,7 @@ function updateFlight(dt) {
 
   const throttle = THREE.MathUtils.clamp((player.speed - BRAKE_SPEED) / (BOOST_SPEED - BRAKE_SPEED), 0, 1);
   pulsePlumes(player.mesh, 0.55 + throttle * 0.9, dt);
-  emitVapor(player.mesh, 0.75 + throttle * 0.55 + Math.abs(player.roll) * 0.4);
+  emitVapor(player.mesh, 0.45 + throttle * 0.35 + Math.abs(player.roll) * 0.2);
   SFX.setEngine(player.speed, true);
 
   if ((G.keys[" "] || G.keys.space || G.firingTouch) && !G.overheated) fireMissile();
@@ -3681,8 +3778,8 @@ function updateEnemies(dt) {
   for (let i = G.enemies.length - 1; i >= 0; i--) {
     const e = G.enemies[i];
     const dist = steerDogfight(e, dt, false);
-    // Bright long vapor ribbons — especially readable at horizon range
-    const vaporStrength = e.mode === "breakaway" ? 1.55 : dist > 280 ? 1.45 : 1.15;
+    // Subtle contrails — keep horizon readable
+    const vaporStrength = e.mode === "breakaway" ? 0.55 : dist > 280 ? 0.42 : 0.32;
     pulsePlumes(e.mesh, e.mode === "strafe" ? 1.0 : 0.8, dt);
     emitVapor(e.mesh, vaporStrength);
 
@@ -3709,7 +3806,7 @@ function updateEnemies(dt) {
     const b = G.boss;
     const dist = steerDogfight(b, dt, true);
     pulsePlumes(b.mesh, 0.95, dt);
-    emitVapor(b.mesh, 1.35);
+    emitVapor(b.mesh, 0.38);
     b.revealed = true;
     b.mesh.visible = true;
     const toBoss = b.mesh.position.clone().sub(player.mesh.position).normalize();
@@ -3897,18 +3994,6 @@ function updateParticles(dt) {
   }
 }
 
-function updateClouds(dt) {
-  for (const c of clouds) {
-    c.mesh.position.x += c.speed * dt;
-    c.mesh.position.z += c.speed * 0.22 * dt;
-    if (c.mesh.position.x > player.mesh.position.x + 1400) {
-      c.mesh.position.x = player.mesh.position.x - 1400;
-      c.mesh.position.z = player.mesh.position.z + (Math.random() - 0.5) * 2000;
-      c.mesh.position.y = 55 + Math.random() * 200;
-    }
-  }
-}
-
 function frame(ts) {
   requestAnimationFrame(frame);
   if (!G.last) G.last = ts;
@@ -3928,7 +4013,6 @@ function frame(ts) {
     updateRelics(dt);
     updateParticles(dt);
     updateHitFlashes();
-    updateClouds(dt);
     updateFleet(dt);
     updateOcean(G.t);
     updateRain(dt);
@@ -3945,7 +4029,6 @@ function frame(ts) {
     updateHitFlashes();
     updateVictoryEnvironment(dt);
     updateOcean(G.t);
-    updateClouds(dt);
     updateFleet(dt);
     updateRain(dt);
     updateThunder(dt);
@@ -4093,6 +4176,57 @@ $("btnPause").addEventListener("click", () => {
   G.paused = !G.paused;
   $("btnPause").textContent = G.paused ? "▶" : "❚❚";
 });
+
+(function bindSettings() {
+  const panel = $("settingsPanel");
+  const backdrop = $("settingsBackdrop");
+  const open = () => {
+    panel.classList.add("open");
+    backdrop.classList.add("open");
+    panel.setAttribute("aria-hidden", "false");
+  };
+  const close = () => {
+    panel.classList.remove("open");
+    backdrop.classList.remove("open");
+    panel.setAttribute("aria-hidden", "true");
+  };
+  $("btnSettings").addEventListener("click", (e) => {
+    e.stopPropagation();
+    panel.classList.contains("open") ? close() : open();
+  });
+  $("btnSettingsClose").addEventListener("click", close);
+  backdrop.addEventListener("click", close);
+
+  $("setVolume").addEventListener("input", (e) => {
+    Settings.masterVolume = Number(e.target.value) / 100;
+    $("volLabel").textContent = e.target.value + "%";
+    SFX.setMasterVolume(Settings.masterVolume);
+    Settings.save();
+  });
+
+  $("flightToggle").querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      Settings.flightMode = btn.dataset.mode;
+      $("flightToggle").querySelectorAll("button").forEach((b) => {
+        b.classList.toggle("on", b.dataset.mode === Settings.flightMode);
+      });
+      Settings.save();
+    });
+  });
+
+  $("setRain").addEventListener("change", (e) => {
+    Settings.rainEnabled = e.target.checked;
+    Settings.save();
+  });
+
+  $("setShake").addEventListener("change", (e) => {
+    Settings.screenShake = e.target.checked;
+    if (!Settings.screenShake) camShake.t = 0;
+    Settings.save();
+  });
+
+  Settings.applyUI();
+})();
 
 updateHUD();
 requestAnimationFrame(frame);
