@@ -2130,8 +2130,9 @@ function applyEnvironmentProfile(t) {
       }
     });
   }
-  if (!activeEnv.rain) rainMat.opacity = 0;
-  else rainMat.opacity = activeEnv.rainOpacity;
+  if (!activeEnv.rain) {
+    if (rainCanvas) rainCanvas.classList.remove("on");
+  }
   if (!activeEnv.lightning) {
     G.lightningFrames = 0;
     clearLightningBolts();
@@ -2994,16 +2995,18 @@ function updateEnvTerrainFollow() {
 
 /* —— Screen-space rain overlay (zero 3D particle cost) —— */
 const rainCanvas = $("rainOverlay");
-const rainCtx = rainCanvas.getContext("2d");
+const rainCtx = rainCanvas ? rainCanvas.getContext("2d") : null;
 let rainPhase = 0;
 
 function resizeRainCanvas() {
+  if (!rainCanvas) return;
   rainCanvas.width = innerWidth;
   rainCanvas.height = innerHeight;
 }
 resizeRainCanvas();
 
 function updateRainOverlay(dt) {
+  if (!rainCanvas || !rainCtx) return;
   if (!Settings.rainEnabled || !activeEnv.rain) {
     rainCanvas.classList.remove("on");
     return;
@@ -3182,7 +3185,6 @@ function updateVictoryEnvironment(dt) {
   }
 
   G.rainDensity = 1 - ease;
-  rainMat.opacity = 0.28 * G.rainDensity;
 
   ambientLight.intensity = THREE.MathUtils.lerp(0.55, 1.25, ease);
   hemiLight.intensity = THREE.MathUtils.lerp(0.55, 0.95, ease);
