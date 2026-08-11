@@ -802,6 +802,39 @@
       padding: 1rem;
       font-size: 0.95rem;
     }
+    .btn-how-works {
+      display: block;
+      width: 100%;
+      margin-top: 0.55rem;
+      padding: 0.65rem 0.5rem;
+      font-family: var(--display);
+      letter-spacing: 0.12em;
+      font-size: 0.72rem;
+      border: 1px solid rgba(92, 225, 255, 0.35);
+      background: transparent;
+      color: var(--cyan);
+      cursor: pointer;
+    }
+    .btn-how-works:hover {
+      border-color: rgba(0, 255, 178, 0.55);
+      color: var(--teal);
+    }
+    .how-it-works.home-how {
+      margin-top: 0.65rem;
+      width: 100%;
+    }
+    .megapot-live[hidden],
+    .how-it-works[hidden],
+    .btn-how-works[hidden] {
+      display: none !important;
+    }
+    .profile-dossier.is-empty .dossier-label,
+    .profile-dossier.is-empty #walletBriefStats,
+    .profile-dossier.is-empty #profileRank,
+    .profile-dossier.is-empty #profileInventory,
+    .profile-dossier.is-empty #profilePurchases {
+      display: none;
+    }
 
     .lobby-powered-footer {
       position: fixed;
@@ -1851,8 +1884,8 @@
 
       <div class="card card-home card-home-minimal">
         <h1 class="home-logo">VEIL WAR</h1>
-        <p class="sub home-sub">Combat earns Megapot credits → house mints real Base Sepolia tickets</p>
-        <div class="megapot-live" id="megapotLive" aria-live="polite">
+        <p class="sub home-sub" id="homeSub">Gritty WWII dogfight · Sign in with Google to play</p>
+        <div class="megapot-live" id="megapotLive" aria-live="polite" hidden>
           <div class="mpl-title">Megapot · Base Sepolia</div>
           <div id="megapotLiveBody">Loading jackpot…</div>
         </div>
@@ -1860,6 +1893,14 @@
           <span class="engage-chevrons" aria-hidden="true">&lt;&lt; ENGAGE MISSION &gt;&gt;</span>
           <span class="engage-label">ENGAGE</span>
         </button>
+        <button class="btn-how-works" id="btnHowItWorksHome" type="button">HOW IT WORKS</button>
+        <div class="how-it-works home-how" id="howItWorksHome" hidden>
+          <strong>How it works</strong>
+          1. Sign in with Google (no MetaMask needed to fly)<br />
+          2. Combat earns Megapot credits on your Google account<br />
+          3. Claim real Base Sepolia Megapot tickets from the end screen<br />
+          4. Link MetaMask only to buy armory / theaters with testnet ETH
+        </div>
       </div>
 
       <div class="lobby-drawer-backdrop" id="drawerBackdrop"></div>
@@ -1889,13 +1930,6 @@
           <div class="terminal-wallet" id="homeWalletBox">
             <div id="walletDisconnected">
               <button class="btn-wallet-inline" id="btnWalletConnect" type="button">SIGN IN WITH GOOGLE</button>
-              <div class="how-it-works" id="howItWorks">
-                <strong>How it works</strong>
-                1. Sign in with Google (no MetaMask needed to fly)<br />
-                2. Combat earns Megapot credits on your Google account<br />
-                3. Claim real Base Sepolia Megapot tickets from the end screen<br />
-                4. Link MetaMask only to buy armory / theaters with testnet ETH
-              </div>
             </div>
             <div id="walletConnected" style="display:none">
               <div class="mm-linked" id="mmLinkedLabel">MetaMask: not linked</div>
@@ -2478,13 +2512,19 @@ const Wallet = {
     } else {
       if (disc) disc.style.display = "block";
       if (conn) conn.style.display = "none";
-      if (handle) handle.textContent = "SIGN IN WITH GOOGLE TO INITIALIZE DOSSIER";
+      if (handle) handle.textContent = "SIGN IN WITH GOOGLE";
       if (lamp) lamp.classList.remove("online");
-      if (statusText) statusText.textContent = "OFFLINE — AWAITING LINK";
-      if (stats) stats.innerHTML = "Sign in with Google to save Megapot credits, unlocks & score per account.";
+      if (statusText) statusText.textContent = "OFFLINE — AWAITING GOOGLE SIGN-IN";
+      if (stats) stats.innerHTML = "";
       if (rankEl) rankEl.textContent = "";
-      if (invEl) invEl.textContent = "No armory items equipped.";
-      if (purchasesEl) purchasesEl.textContent = "No purchases recorded.";
+      if (invEl) invEl.textContent = "";
+      if (purchasesEl) purchasesEl.textContent = "";
+      const dossierOff = $("profileDossier");
+      if (dossierOff) dossierOff.classList.add("is-empty");
+    }
+    if (this.address) {
+      const dossierOn = $("profileDossier");
+      if (dossierOn) dossierOn.classList.remove("is-empty");
     }
     updateEngageGate();
     Shop.updateUI();
@@ -2530,27 +2570,16 @@ const Wallet = {
     if (wasPlaying && typeof goHome === "function") goHome();
   },
   async tryReconnect() {
-    if (!window.ethereum) return;
-    try {
-      const accounts = await window.ethereum.request({ method: "eth_accounts" });
-      if (accounts && accounts.length) {
-        this.address = accounts[0];
-        this.loadProfile();
-        this.updateUI();
-      }
-    } catch (_) { /* silent */ }
+    // Google is the play identity — do not auto-fill dossier from MetaMask alone
+    return;
   },
   bindEvents() {
     if (window.ethereum) {
-      window.ethereum.on("accountsChanged", (accounts) => {
-        if (accounts && accounts.length) {
-          this.address = accounts[0];
-          this.loadProfile();
-        } else {
-          this.disconnect();
-          return;
+      window.ethereum.on("accountsChanged", () => {
+        // MetaMask account changes only matter after Google link — refresh label
+        if (VeilAuth.signedIn() && VeilAuth.linkedMetamask) {
+          this.updateUI();
         }
-        this.updateUI();
       });
     }
     const connectBtn = $("btnWalletConnect");
@@ -4478,6 +4507,8 @@ function bootLobby() {
   Wallet.bindEvents();
   Shop.bindEvents();
   LobbyDrawers.bindEvents();
+  Wallet.updateUI();
+  updateEngageGate();
   if (isTouch) SFX.initHtmlAudio();
   SFX.loadSamples();
   TheaterSelect.render();
@@ -4827,18 +4858,29 @@ function updateEngageGate() {
   const chev = btn.querySelector(".engage-chevrons");
   const label = btn.querySelector(".engage-label");
   const ready = VeilAuth.signedIn();
+  const howBtn = $("btnHowItWorksHome");
+  const howPanel = $("howItWorksHome");
+  const megapot = $("megapotLive");
+  const homeSub = $("homeSub");
   if (ready) {
     btn.classList.remove("wallet-locked");
     if (chev) chev.textContent = "<< ENGAGE MISSION >>";
     if (label) label.textContent = "ENGAGE";
+    if (howBtn) howBtn.hidden = true;
+    if (howPanel) howPanel.hidden = true;
+    if (megapot) megapot.hidden = false;
+    if (homeSub) {
+      homeSub.textContent = "Combat earns Megapot credits → house mints real Base Sepolia tickets";
+    }
+    Wallet.address = VeilAuth.playAddress;
+    refreshMegapotLivePanel();
   } else {
     btn.classList.add("wallet-locked");
     if (chev) chev.textContent = "<< SIGN IN WITH GOOGLE TO PLAY >>";
     if (label) label.textContent = "SIGN IN";
-  }
-  // Mirror play identity into Wallet so existing HUD/profile still works
-  if (ready) {
-    Wallet.address = VeilAuth.playAddress;
+    if (howBtn) howBtn.hidden = false;
+    if (megapot) megapot.hidden = true;
+    if (homeSub) homeSub.textContent = "Gritty WWII dogfight · Sign in with Google to play";
   }
 }
 
@@ -4921,8 +4963,16 @@ function friendlyClaimError(raw) {
 }
 
 async function refreshMegapotLivePanel() {
+  const wrap = $("megapotLive");
   const body = $("megapotLiveBody");
   if (!body) return;
+  // Keep welcome clean — pool stats only after Google sign-in
+  if (!VeilAuth.signedIn()) {
+    if (wrap) wrap.hidden = true;
+    body.textContent = "";
+    return;
+  }
+  if (wrap) wrap.hidden = false;
   try {
     const res = await fetch("/api/megapot/claim");
     const data = await res.json();
@@ -4930,12 +4980,9 @@ async function refreshMegapotLivePanel() {
       body.textContent = data.error || "Megapot pool offline";
       return;
     }
-    const credits = VeilAuth.signedIn()
-      ? ` · Your credits ${VeilAuth.megapotCredits | 0}`
-      : " · Sign in to earn & claim";
     body.innerHTML =
       `Drawing #${data.drawingId} · Pool $${Number(data.prizePoolUsdc || 0).toFixed(2)} USDC<br/>` +
-      `Ticket $${data.ticketPriceUsdc} · Combat → credits → claim on-chain${credits}`;
+      `Ticket $${data.ticketPriceUsdc} · Your credits ${VeilAuth.megapotCredits | 0}`;
   } catch {
     body.textContent = "Could not reach Megapot API";
   }
@@ -6738,6 +6785,15 @@ $("btnEngage").addEventListener("click", async () => {
   await unlockGameAudio();
   await beginCombatMission();
 });
+const howBtnHome = $("btnHowItWorksHome");
+const howPanelHome = $("howItWorksHome");
+if (howBtnHome && howPanelHome) {
+  howBtnHome.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (typeof SFX !== "undefined") SFX.resume();
+    howPanelHome.hidden = !howPanelHome.hidden;
+  });
+}
 
 $("btnRedeployFail").addEventListener("click", async () => { await SFX.resume(); await redeploy(); });
 $("btnRedeployWin").addEventListener("click", async () => { await SFX.resume(); await redeploy(); });
