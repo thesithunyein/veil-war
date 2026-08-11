@@ -93,10 +93,24 @@ HomeScreenView (jackpot hero + Quick Duel)
 5. Scene objects: `GridBoard`, `MatchController`, `BotOpponent`, `CellSelector`, `BoardCameraController`, `MegapotRewardGate`, UI canvas, `VeilWarBootstrap`.
 6. Wire references; press Play → Quick Duel.
 
-## Megapot
+## Megapot (judge path — live)
 
-Onchain buy stays on Base Sepolia via the web companion (`veil.sithunyein.com` / Next shell).  
-Unity unlocks credit and deep-links — keeps Megapot in the **main loop** without shipping wallet SDK on Day 1.
+**Live:** https://veil.sithunyein.com/
+
+Flow:
+1. **SIGN IN WITH GOOGLE** (no MetaMask for play)
+2. Silent play wallet created in-browser
+3. **ENGAGE** → dogfight → earn Megapot credits
+4. End screen → **CLAIM MEGAPOT TICKET** → house calls Megapot `buyTickets` on **Base Sepolia**
+5. Open **BaseScan** link shown after claim
+
+Lobby shows live drawing / ticket price from Megapot. Claim returns an explorer URL for proof.
+
+**House wallet (funds claims):** `0xa399Ad139F2393bdFc88CfdafDfd3d5dEDA004D5`  
+Needs Base Sepolia **ETH** (gas) + **USDC** (`0x036CbD53842c5426634e7929541eC2318f3dCF7e`).  
+Faucets: [Circle USDC](https://faucet.circle.com/) · [Base faucets](https://docs.base.org/base-chain/network-information/network-faucets)
+
+Onchain buy stays on Base Sepolia via the Next.js APIs (`/api/megapot/claim`, `/api/progress`).
 
 ## Not in this pass
 

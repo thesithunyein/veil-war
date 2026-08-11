@@ -108,7 +108,7 @@ export async function POST(req: Request) {
     const raw = err instanceof Error ? err.message : "Megapot claim failed.";
     const error =
       raw === "JACKPOT_USDC_REFILL" || /USDC|usdc/i.test(raw)
-        ? "Jackpot desk is refilling — credits saved. Try claim again soon."
+        ? "House USDC empty — refill Base Sepolia USDC on the house wallet, then retry."
         : raw;
     return NextResponse.json(
       { error, code: raw === "JACKPOT_USDC_REFILL" ? "usdc_refill" : "claim_failed" },

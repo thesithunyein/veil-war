@@ -665,11 +665,46 @@
       text-shadow: 0 0 32px rgba(0, 255, 178, 0.55), 0 0 64px rgba(0, 255, 178, 0.2);
     }
     .card-home-minimal .home-sub {
-      margin: 0 0 auto;
+      margin: 0 0 0.35rem;
       font-size: 0.82rem;
       color: rgba(234, 246, 255, 0.55);
       letter-spacing: 0.04em;
     }
+    .megapot-live {
+      width: min(100%, 22rem);
+      margin: 0.15rem auto 0;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid rgba(0, 255, 178, 0.22);
+      background: rgba(0, 20, 28, 0.55);
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.06em;
+      color: rgba(234, 246, 255, 0.72);
+      line-height: 1.45;
+      text-align: left;
+    }
+    .megapot-live .mpl-title {
+      color: var(--teal);
+      font-size: 0.58rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin-bottom: 0.2rem;
+    }
+    .megapot-live a {
+      color: var(--cyan);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .claim-status-line {
+      display: block;
+      margin-top: 0.35rem;
+      font-size: 0.72rem;
+      line-height: 1.4;
+      color: var(--teal);
+      word-break: break-word;
+    }
+    .claim-status-line.error { color: #ff8f8f; }
+    .claim-status-line a { color: var(--cyan); }
     .card-home-minimal .btn-engage-launch {
       width: 100%;
       margin-top: 1.5rem;
@@ -1725,7 +1760,11 @@
 
       <div class="card card-home card-home-minimal">
         <h1 class="home-logo">VEIL WAR</h1>
-        <p class="sub home-sub">Gritty WWII dogfight · Megapot combat drops</p>
+        <p class="sub home-sub">Combat earns Megapot credits → house mints real Base Sepolia tickets</p>
+        <div class="megapot-live" id="megapotLive" aria-live="polite">
+          <div class="mpl-title">Megapot · Base Sepolia</div>
+          <div id="megapotLiveBody">Loading jackpot…</div>
+        </div>
         <button class="btn-engage btn-engage-launch" id="btnEngage" type="button">
           <span class="engage-chevrons" aria-hidden="true">&lt;&lt; ENGAGE MISSION &gt;&gt;</span>
           <span class="engage-label">ENGAGE</span>
@@ -1810,7 +1849,7 @@
           Score <span id="failScore">0</span><br />
           Megapot credits this run <span id="failTickets">0</span><br />
           Base chips <span id="failChips">0</span> · Level <span id="failWave">1</span><br />
-          <span id="failClaimStatus" style="color:var(--teal)"></span>
+          <span class="claim-status-line" id="failClaimStatus"></span>
         </div>
         <div class="end-actions">
           <button class="btn-home" id="btnHomeFail" type="button">HOME</button>
@@ -1828,7 +1867,7 @@
           Final score <span id="winScore">0</span><br />
           Megapot credits this run <span id="winTickets">0</span><br />
           Live odds <span id="winOdds">0.000%</span><br />
-          <span id="winClaimStatus" style="color:var(--teal)"></span>
+          <span class="claim-status-line" id="winClaimStatus"></span>
         </div>
         <div class="end-actions">
           <button class="btn-home" id="btnHomeWin" type="button">HOME</button>
@@ -4293,6 +4332,7 @@ function bootLobby() {
       }
     }
     updateEngageGate();
+    refreshMegapotLivePanel();
   });
   window.__veilOnAuthChange = () => {
     if (VeilAuth.signedIn()) {
@@ -4305,9 +4345,11 @@ function bootLobby() {
       Wallet.updateUI();
     }
     updateEngageGate();
+    refreshMegapotLivePanel();
   };
   updateEngageGate();
   updateHUD();
+  refreshMegapotLivePanel();
 }
 
 const G = {
@@ -4658,24 +4700,83 @@ async function syncRunCreditsToCloud() {
   }
 }
 
+function friendlyClaimError(raw) {
+  const msg = String(raw || "Claim failed");
+  if (/JACKPOT_USDC_REFILL/i.test(msg) || /insufficient|USDC/i.test(msg)) {
+    return "House USDC empty — refill Base Sepolia USDC on the house wallet, then retry.";
+  }
+  if (/Sign in|Unauthorized|401/i.test(msg)) {
+    return "Sign in with Google to claim.";
+  }
+  if (/No Megapot credits|402/i.test(msg)) {
+    return "No Megapot credits yet — finish a mission with ticket drops first.";
+  }
+  if (/HOUSE|private key|not configured/i.test(msg)) {
+    return "House wallet not configured on server.";
+  }
+  return msg;
+}
+
+async function refreshMegapotLivePanel() {
+  const body = $("megapotLiveBody");
+  if (!body) return;
+  try {
+    const res = await fetch("/api/megapot/claim");
+    const data = await res.json();
+    if (!data.ok) {
+      body.textContent = data.error || "Megapot pool offline";
+      return;
+    }
+    const credits = VeilAuth.signedIn()
+      ? ` · Your credits ${VeilAuth.megapotCredits | 0}`
+      : " · Sign in to earn & claim";
+    body.innerHTML =
+      `Drawing #${data.drawingId} · Pool $${Number(data.prizePoolUsdc || 0).toFixed(2)} USDC<br/>` +
+      `Ticket $${data.ticketPriceUsdc} · Combat → credits → claim on-chain${credits}`;
+  } catch {
+    body.textContent = "Could not reach Megapot API";
+  }
+}
+
 async function claimMegapotFromEndcard(statusElId) {
   const el = $(statusElId);
+  const btn =
+    statusElId === "failClaimStatus"
+      ? $("btnClaimMegapotFail")
+      : $("btnClaimMegapotWin");
   if (!VeilAuth.signedIn()) {
+    if (el) {
+      el.classList.add("error");
+      el.textContent = "Sign in with Google to claim.";
+    }
     showPop("SIGN IN WITH GOOGLE TO CLAIM");
     return;
   }
-  if (el) el.textContent = "Claiming on Base Sepolia…";
+  if (btn) btn.disabled = true;
+  if (el) {
+    el.classList.remove("error");
+    el.textContent = "Minting Megapot ticket on Base Sepolia…";
+  }
   try {
     const data = await VeilAuth.claimMegapotTicket();
     if (el) {
+      el.classList.remove("error");
       el.innerHTML =
-        `Ticket bought · <a href="${data.explorerUrl}" target="_blank" rel="noopener" style="color:var(--cyan)">BaseScan</a>`;
+        `Ticket minted on-chain · <a href="${data.explorerUrl}" target="_blank" rel="noopener">Open BaseScan ↗</a>` +
+        (data.txHash ? `<br/><span style="opacity:.7">${data.txHash.slice(0, 10)}…${data.txHash.slice(-8)}</span>` : "");
     }
     showPop("MEGAPOT TICKET MINTED ON BASE");
     updateEngageGate();
+    refreshMegapotLivePanel();
   } catch (e) {
-    if (el) el.textContent = e.message || "Claim failed";
-    showPop(e.message || "CLAIM FAILED");
+    const friendly = friendlyClaimError(e.message || e);
+    if (el) {
+      el.classList.add("error");
+      el.textContent = friendly;
+    }
+    showPop(friendly);
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
