@@ -578,11 +578,139 @@
     }
     .brief.hidden, .endcard.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
     .card {
-      width: min(100%, 420px); padding: 1.35rem 1.4rem;
+      width: min(100%, 520px); padding: 1.35rem 1.4rem;
       background: rgba(8, 18, 32, 0.92);
       border: 1px solid rgba(92, 225, 255, 0.35);
       box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 40px rgba(61, 255, 168, 0.1);
       clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+      position: relative;
+    }
+    .home-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 0.75rem; margin-bottom: 0.35rem;
+    }
+    .home-header h1 { margin: 0; flex: 1; }
+    .home-wallet-box {
+      min-width: 148px; max-width: 200px;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid rgba(61, 255, 168, 0.4);
+      border-radius: 8px;
+      background: rgba(6, 16, 28, 0.65);
+      font-family: var(--mono); font-size: 0.52rem;
+      color: var(--muted); line-height: 1.45;
+    }
+    .home-wallet-box .addr {
+      color: var(--teal); word-break: break-all;
+      font-size: 0.5rem; margin: 0.2rem 0;
+    }
+    .home-wallet-box .btn-wallet-inline {
+      width: 100%; margin-top: 0.35rem; padding: 0.35rem;
+      font-family: var(--display); font-size: 0.55rem;
+      letter-spacing: 0.08em; cursor: pointer;
+      border-radius: 5px; border: 1px solid rgba(92, 225, 255, 0.4);
+      background: rgba(92, 225, 255, 0.08); color: var(--cyan);
+    }
+    .home-wallet-box .btn-wallet-inline.connected {
+      border-color: rgba(61, 255, 168, 0.55); color: var(--teal);
+    }
+    .home-wallet-box .btn-disconnect {
+      width: 100%; margin-top: 0.25rem; padding: 0.28rem;
+      font-family: var(--mono); font-size: 0.5rem;
+      letter-spacing: 0.06em; cursor: pointer;
+      border: 1px solid rgba(255, 77, 109, 0.45);
+      background: rgba(255, 77, 109, 0.08); color: #ff8a9a;
+      border-radius: 5px;
+    }
+    .home-toolbar {
+      display: flex; gap: 0.5rem; margin: 0.65rem 0 0.85rem;
+    }
+    .shop-btn {
+      padding: 0.45rem 0.85rem;
+      font-family: var(--display); font-size: 0.62rem;
+      letter-spacing: 0.12em; color: var(--amber);
+      background: rgba(255, 200, 87, 0.1);
+      border: 1px solid rgba(255, 200, 87, 0.45);
+      border-radius: 8px; cursor: pointer;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 14px rgba(255, 200, 87, 0.12);
+    }
+    .shop-btn:hover { background: rgba(255, 200, 87, 0.18); }
+    .theaters-section h3 {
+      margin: 0 0 0.55rem;
+      font-family: var(--display); font-size: 0.62rem;
+      letter-spacing: 0.14em; color: var(--cyan);
+    }
+    .theater-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 0.4rem; margin-bottom: 0.85rem;
+    }
+    .theater-card {
+      padding: 0.45rem 0.5rem;
+      border: 1px solid rgba(92, 225, 255, 0.25);
+      border-radius: 6px;
+      background: rgba(4, 12, 22, 0.55);
+      cursor: pointer; text-align: left;
+      font-family: var(--mono); font-size: 0.52rem;
+      color: var(--muted); transition: 0.15s ease;
+    }
+    .theater-card:hover { border-color: rgba(92, 225, 255, 0.55); }
+    .theater-card.selected {
+      border-color: rgba(61, 255, 168, 0.7);
+      background: rgba(61, 255, 168, 0.1);
+      color: var(--teal);
+      box-shadow: 0 0 12px rgba(61, 255, 168, 0.15);
+    }
+    .theater-card.locked { opacity: 0.55; cursor: not-allowed; }
+    .theater-card b { display: block; color: var(--ink); font-size: 0.55rem; margin-bottom: 0.15rem; }
+    .theater-card.selected b { color: var(--teal); }
+    .shop-panel {
+      position: absolute; z-index: 31;
+      left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0.96);
+      width: min(92vw, 380px);
+      padding: 1.1rem 1.2rem;
+      border: 1px solid rgba(255, 200, 87, 0.45);
+      border-radius: 14px;
+      background: rgba(8, 18, 32, 0.92);
+      backdrop-filter: blur(18px);
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow: 0 16px 50px rgba(0,0,0,0.55), 0 0 30px rgba(255, 200, 87, 0.1);
+    }
+    .shop-panel.open {
+      opacity: 1; visibility: visible; pointer-events: auto;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    .shop-panel h2 {
+      margin: 0 0 0.35rem; font-family: var(--display);
+      font-size: 0.75rem; letter-spacing: 0.12em; color: var(--amber);
+    }
+    .shop-credits {
+      font-family: var(--mono); font-size: 0.58rem;
+      color: var(--muted); margin-bottom: 0.75rem;
+    }
+    .shop-credits span { color: var(--teal); }
+    .shop-item {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 0.5rem; padding: 0.55rem 0;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .shop-item:first-of-type { border-top: none; }
+    .shop-item-info b { display: block; font-size: 0.62rem; color: var(--ink); }
+    .shop-item-info small { font-family: var(--mono); font-size: 0.5rem; color: var(--muted); }
+    .shop-buy {
+      padding: 0.35rem 0.55rem; font-family: var(--mono);
+      font-size: 0.52rem; letter-spacing: 0.06em;
+      border: 1px solid rgba(255, 200, 87, 0.5);
+      background: rgba(255, 200, 87, 0.12); color: var(--amber);
+      cursor: pointer; border-radius: 5px; white-space: nowrap;
+    }
+    .shop-buy.owned { border-color: rgba(61,255,168,0.5); color: var(--teal); background: rgba(61,255,168,0.1); cursor: default; }
+    .shop-close {
+      width: 100%; margin-top: 0.65rem; padding: 0.5rem;
+      font-family: var(--display); font-size: 0.65rem;
+      letter-spacing: 0.1em; color: var(--cyan);
+      border: 1px solid rgba(92, 225, 255, 0.45);
+      background: rgba(92, 225, 255, 0.08); cursor: pointer; border-radius: 8px;
     }
     .card.fail { border-color: rgba(255, 77, 109, 0.55); box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 40px rgba(255, 77, 109, 0.15); }
     .card.win { border-color: rgba(255, 200, 87, 0.65); box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 50px rgba(255, 200, 87, 0.2); }
@@ -653,28 +781,6 @@
     }
     .hud-home-btn.show { display: block; }
     .hud-home-btn:active { transform: scale(0.96); }
-
-    .wallet-chip {
-      position: absolute; z-index: 12;
-      top: calc(0.55rem + var(--safe-t));
-      right: calc(0.65rem + env(safe-area-inset-right, 0px));
-      display: none; align-items: center; gap: 0.35rem;
-      padding: 0.28rem 0.55rem;
-      font-family: var(--mono); font-size: 0.58rem;
-      color: var(--teal);
-      background: rgba(6, 16, 28, 0.62);
-      border: 1px solid rgba(61, 255, 168, 0.45);
-      border-radius: 999px;
-      backdrop-filter: blur(10px);
-      pointer-events: auto; cursor: default;
-      box-shadow: 0 0 14px rgba(61, 255, 168, 0.12);
-    }
-    .wallet-chip.show { display: flex; }
-    .wallet-chip .dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--teal);
-      box-shadow: 0 0 8px var(--teal);
-    }
 
     .btn-wallet {
       width: 100%; margin-bottom: 0.75rem;
@@ -868,10 +974,6 @@
 
     <button class="pause" id="btnPause" type="button" aria-label="Pause">❚❚</button>
     <button class="hud-home-btn" id="btnHudHome" type="button">HOME</button>
-    <div class="wallet-chip" id="walletChip" title="Connected wallet">
-      <span class="dot"></span>
-      <span id="walletChipAddr">0x0000…0000</span>
-    </div>
     <div class="hint">↑↓ / W·S pitch · A/D bank · SHIFT boost · CTRL brake · HOLD SPACE guns</div>
 
     <div class="fhe-ticker" id="fheTicker" aria-live="polite"></div>
@@ -918,20 +1020,42 @@
     </aside>
 
     <div class="brief" id="brief">
-      <div class="card">
-        <h1>VEIL WAR</h1>
+      <div class="card card-home">
+        <div class="home-header">
+          <h1>VEIL WAR</h1>
+          <div class="home-wallet-box" id="homeWalletBox">
+            <div id="walletDisconnected">
+              <button class="btn-wallet-inline" id="btnWalletConnect" type="button">LINK DUAL NET</button>
+            </div>
+            <div id="walletConnected" style="display:none">
+              <span style="color:var(--teal)">● CONNECTED</span>
+              <div class="addr" id="walletFullAddr"></div>
+              <button class="btn-disconnect" id="btnWalletDisconnect" type="button">DISCONNECT WALLET</button>
+            </div>
+          </div>
+        </div>
         <p class="sub">Gritty WWII dogfight · Megapot combat drops</p>
-        <ul>
-          <li><strong>Fly:</strong> ↑↓ or W/S pitch (climb/dive) · A/D bank · SHIFT boost · CTRL brake</li>
-          <li><strong>Guns:</strong> Hold SPACE — neon auto-aim snaps onto front-hemisphere targets</li>
-          <li><strong>Megapot:</strong> 3 green Base Chips → 1 Ticket · Flagship unlocks Jackpot Voucher</li>
-          <li><strong>Inco FHE:</strong> Enemies stay encrypted until inside your 150m reveal field</li>
-          <li><strong>Survive:</strong> Scout → Escort → Megapot Flagship Boss Duel</li>
-        </ul>
-        <button class="btn-wallet" id="btnWalletBrief" type="button">LINK DUAL NET · METAMASK</button>
         <div class="wallet-stats" id="walletBriefStats"></div>
+        <div class="home-toolbar">
+          <button class="shop-btn" id="btnShop" type="button">⬡ SHOP</button>
+        </div>
+        <div class="theaters-section">
+          <h3>THEATERS OF WAR</h3>
+          <div class="theater-grid" id="theaterGrid"></div>
+        </div>
+        <ul>
+          <li><strong>Fly:</strong> ↑↓ or W/S pitch · A/D bank · SHIFT boost · CTRL brake</li>
+          <li><strong>Guns:</strong> Hold SPACE — neon auto-aim snaps onto front-hemisphere targets</li>
+          <li><strong>Megapot:</strong> 3 Base Chips → 1 Ticket · Flagship unlocks Jackpot Voucher</li>
+        </ul>
         <button class="btn-engage" id="btnEngage" type="button">ENGAGE</button>
       </div>
+      <aside class="shop-panel" id="shopPanel">
+        <h2>ARMORY MARKETPLACE</h2>
+        <div class="shop-credits">Score tokens: <span id="shopCreditsLabel">0</span></div>
+        <div id="shopItems"></div>
+        <button class="shop-close" id="btnShopClose" type="button">CLOSE</button>
+      </aside>
     </div>
 
     <div class="endcard hidden" id="endFail">
@@ -1088,11 +1212,104 @@ const Settings = {
 };
 Settings.load();
 
-/* —— MetaMask wallet profile + localStorage persistence —— */
+/* —— MetaMask profile + localStorage + shop + theaters —— */
+const THEATERS = [
+  {
+    id: "arctic", name: "Dark Arctic Storm", free: true, cost: 0, chipUnlock: false,
+    bg: 0x0a1628, fog: 0x0c1a30, fogDensity: 0.00072,
+    seaDeep: 0x0f2b5c, seaShallow: 0x163d72,
+    sky: { zenith: 0x061018, mid: 0x0c1a30, horizon: 0x1a3a5c, glow: 0x4a7090 },
+    ambient: 0xb0b4b8, hemiSky: 0x4a6080, hemiGround: 0x1a2228, sunCol: 0xe8e4d8, sunInt: 1.15,
+  },
+  {
+    id: "sunset", name: "High-Altitude Sunset", free: true, cost: 0, chipUnlock: false,
+    bg: 0x1a1028, fog: 0x2a1838, fogDensity: 0.00065,
+    seaDeep: 0x1a2848, seaShallow: 0x3a3868,
+    sky: { zenith: 0x180818, mid: 0x4a2048, horizon: 0xc85838, glow: 0xffaa66 },
+    ambient: 0xc8a898, hemiSky: 0x886080, hemiGround: 0x281818, sunCol: 0xffcc88, sunInt: 1.35,
+  },
+  {
+    id: "pacific", name: "Deep Pacific Noon", free: true, cost: 0, chipUnlock: false,
+    bg: 0x0c2848, fog: 0x1a4878, fogDensity: 0.00058,
+    seaDeep: 0x083868, seaShallow: 0x1a68a8,
+    sky: { zenith: 0x082848, mid: 0x1a5898, horizon: 0x4aa8d8, glow: 0x88ddff },
+    ambient: 0xa8cce8, hemiSky: 0x5aa8d8, hemiGround: 0x0a2848, sunCol: 0xfff0d0, sunInt: 1.45,
+  },
+  {
+    id: "crimson", name: "Crimson Nebula Shroud", free: false, cost: 2000, chipUnlock: false,
+    bg: 0x180818, fog: 0x280828, fogDensity: 0.00078,
+    seaDeep: 0x280818, seaShallow: 0x481828,
+    sky: { zenith: 0x100010, mid: 0x380818, horizon: 0x681828, glow: 0xff4466 },
+    ambient: 0xb898a8, hemiSky: 0x804060, hemiGround: 0x180810, sunCol: 0xff6688, sunInt: 1.05,
+  },
+  {
+    id: "neon", name: "Midnight Neon Abyss", free: false, cost: 5000, chipUnlock: true,
+    bg: 0x040818, fog: 0x081028, fogDensity: 0.00082,
+    seaDeep: 0x061828, seaShallow: 0x0a2858,
+    sky: { zenith: 0x020410, mid: 0x081838, horizon: 0x103868, glow: 0x3dffa8 },
+    ambient: 0x8898b8, hemiSky: 0x3dffa8, hemiGround: 0x040810, sunCol: 0x5ce1ff, sunInt: 0.95,
+  },
+];
+
+const SHOP_ITEMS = [
+  { id: "hull", name: "Heavy Armored Hull", cost: 800, desc: "Max integrity 100% → 150%" },
+  { id: "muzzle", name: "Muzzle-Velocity Boost", cost: 1200, desc: "+30% tracer fire velocity" },
+  { id: "radiator", name: "Overheat Radiator Mod", cost: 900, desc: "Longer sustained MG bursts" },
+];
+
+let activeTheaterId = "arctic";
+
+function applyTheater(id) {
+  const t = THEATERS.find((x) => x.id === id) || THEATERS[0];
+  activeTheaterId = t.id;
+  scene.background.setHex(t.bg);
+  renderer.setClearColor(t.bg, 1);
+  scene.fog.color.setHex(t.fog);
+  scene.fog.density = t.fogDensity;
+  if (skyUniforms) {
+    skyUniforms.zenith.value.setHex(t.sky.zenith);
+    skyUniforms.mid.value.setHex(t.sky.mid);
+    skyUniforms.horizon.value.setHex(t.sky.horizon);
+    skyUniforms.glow.value.setHex(t.sky.glow);
+  }
+  ambientLight.color.setHex(t.ambient);
+  ambientLight.intensity = 0.55;
+  hemiLight.color.setHex(t.hemiSky);
+  hemiLight.groundColor.setHex(t.hemiGround);
+  hemiLight.intensity = 0.55;
+  sun.color.setHex(t.sunCol);
+  sun.intensity = t.sunInt;
+  oceanUniforms.uDeep.value.setHex(t.seaDeep);
+  oceanUniforms.uShallow.value.setHex(t.seaShallow);
+  _stormFogCol.setHex(t.fog);
+  _stormBgCol.setHex(t.bg);
+}
+
+function getPlayerMaxHealth() {
+  return Shop.owned("hull") ? 150 : 100;
+}
+
+function getRoundSpeedBase() {
+  return Shop.owned("muzzle") ? 980 * 1.3 : 980;
+}
+
+function getHeatPerShot() {
+  return Shop.owned("radiator") ? GUN_HEAT_PER_SHOT * 0.62 : GUN_HEAT_PER_SHOT;
+}
+
+function getCoolRate() {
+  return Shop.owned("radiator") ? GUN_COOL_RATE * 1.35 : GUN_COOL_RATE;
+}
+
 const Wallet = {
   address: null,
   highScore: 0,
   allTimeTickets: 0,
+  shopCredits: 0,
+  totalChips: 0,
+  ownedShop: {},
+  unlockedTheaters: ["arctic", "sunset", "pacific"],
+  selectedTheater: "arctic",
   shortAddr(addr) {
     if (!addr || addr.length < 10) return "0x0000…0000";
     return addr.slice(0, 6) + "…" + addr.slice(-4);
@@ -1104,41 +1321,63 @@ const Wallet = {
     if (!this.address) return;
     const hs = localStorage.getItem(this.storageKey("highscore"));
     const tix = localStorage.getItem(this.storageKey("tickets"));
+    const cred = localStorage.getItem(this.storageKey("credits"));
+    const chips = localStorage.getItem(this.storageKey("totalchips"));
+    const shop = localStorage.getItem(this.storageKey("shop"));
+    const th = localStorage.getItem(this.storageKey("theaters"));
+    const sel = localStorage.getItem(this.storageKey("theater"));
     this.highScore = hs ? parseInt(hs, 10) || 0 : 0;
     this.allTimeTickets = tix ? parseInt(tix, 10) || 0 : 0;
+    this.shopCredits = cred ? parseInt(cred, 10) || 0 : 0;
+    this.totalChips = chips ? parseInt(chips, 10) || 0 : 0;
+    this.ownedShop = shop ? JSON.parse(shop) : {};
+    this.unlockedTheaters = th ? JSON.parse(th) : ["arctic", "sunset", "pacific"];
+    this.selectedTheater = sel || "arctic";
+    if (!this.unlockedTheaters.includes(this.selectedTheater)) {
+      this.selectedTheater = "arctic";
+    }
+    Shop.syncFromWallet();
+    TheaterSelect.syncFromWallet();
+  },
+  saveProfile() {
+    if (!this.address) return;
+    localStorage.setItem(this.storageKey("highscore"), String(this.highScore));
+    localStorage.setItem(this.storageKey("tickets"), String(this.allTimeTickets));
+    localStorage.setItem(this.storageKey("credits"), String(this.shopCredits));
+    localStorage.setItem(this.storageKey("totalchips"), String(this.totalChips));
+    localStorage.setItem(this.storageKey("shop"), JSON.stringify(this.ownedShop));
+    localStorage.setItem(this.storageKey("theaters"), JSON.stringify(this.unlockedTheaters));
+    localStorage.setItem(this.storageKey("theater"), this.selectedTheater);
   },
   saveRunStats(score, sessionTickets) {
     if (!this.address) return;
     this.highScore = Math.max(this.highScore, score);
     this.allTimeTickets += sessionTickets;
-    localStorage.setItem(this.storageKey("highscore"), String(this.highScore));
-    localStorage.setItem(this.storageKey("tickets"), String(this.allTimeTickets));
+    this.shopCredits += Math.floor(score / 5);
+    this.saveProfile();
     this.updateUI();
+    Shop.updateUI();
   },
   updateUI() {
-    const chip = $("walletChip");
-    const chipAddr = $("walletChipAddr");
-    const briefBtn = $("btnWalletBrief");
-    const briefStats = $("walletBriefStats");
+    const disc = $("walletDisconnected");
+    const conn = $("walletConnected");
+    const full = $("walletFullAddr");
+    const stats = $("walletBriefStats");
     if (this.address) {
-      chip.classList.add("show");
-      chipAddr.textContent = this.shortAddr(this.address);
-      if (briefBtn) {
-        briefBtn.textContent = this.shortAddr(this.address);
-        briefBtn.classList.add("connected");
-      }
-      if (briefStats) {
-        briefStats.innerHTML =
-          `All-time high score <span>${this.highScore}</span> · Megapot tickets <span>${this.allTimeTickets}</span>`;
+      if (disc) disc.style.display = "none";
+      if (conn) conn.style.display = "block";
+      if (full) full.textContent = this.address;
+      if (stats) {
+        stats.innerHTML =
+          `All-time high <span>${this.highScore}</span> · Tickets <span>${this.allTimeTickets}</span> · Tokens <span>${this.shopCredits}</span>`;
       }
     } else {
-      chip.classList.remove("show");
-      if (briefBtn) {
-        briefBtn.textContent = "LINK DUAL NET · METAMASK";
-        briefBtn.classList.remove("connected");
-      }
-      if (briefStats) briefStats.innerHTML = "";
+      if (disc) disc.style.display = "block";
+      if (conn) conn.style.display = "none";
+      if (stats) stats.innerHTML = "Connect wallet to save scores & shop tokens locally.";
     }
+    Shop.updateUI();
+    TheaterSelect.render();
   },
   async connect() {
     if (!window.ethereum) {
@@ -1153,10 +1392,24 @@ const Wallet = {
       this.updateUI();
       showPop("WALLET LINKED — " + this.shortAddr(this.address));
       return true;
-    } catch (err) {
+    } catch (_) {
       showPop("WALLET CONNECTION DENIED");
       return false;
     }
+  },
+  disconnect() {
+    this.address = null;
+    this.highScore = 0;
+    this.allTimeTickets = 0;
+    this.shopCredits = 0;
+    this.totalChips = 0;
+    this.ownedShop = {};
+    this.unlockedTheaters = ["arctic", "sunset", "pacific"];
+    this.selectedTheater = "arctic";
+    Shop.syncFromWallet();
+    TheaterSelect.syncFromWallet();
+    this.updateUI();
+    showPop("WALLET DISCONNECTED");
   },
   async tryReconnect() {
     if (!window.ethereum) return;
@@ -1176,21 +1429,132 @@ const Wallet = {
           this.address = accounts[0];
           this.loadProfile();
         } else {
-          this.address = null;
-          this.highScore = 0;
-          this.allTimeTickets = 0;
+          this.disconnect();
         }
         this.updateUI();
       });
     }
-    $("btnWalletBrief").addEventListener("click", () => {
-      if (this.address) return;
-      SFX.resume();
-      this.connect();
+    $("btnWalletConnect").addEventListener("click", () => { SFX.resume(); this.connect(); });
+    $("btnWalletDisconnect").addEventListener("click", () => this.disconnect());
+  },
+};
+
+const Shop = {
+  owned(id) {
+    return !!(Wallet.ownedShop && Wallet.ownedShop[id]);
+  },
+  syncFromWallet() {
+    /* ownedShop lives on Wallet */
+  },
+  buy(id) {
+    const item = SHOP_ITEMS.find((x) => x.id === id);
+    if (!item || this.owned(id)) return;
+    if (!Wallet.address) { showPop("CONNECT WALLET FIRST"); return; }
+    if (Wallet.shopCredits < item.cost) { showPop("INSUFFICIENT SCORE TOKENS"); return; }
+    Wallet.shopCredits -= item.cost;
+    Wallet.ownedShop[id] = true;
+    Wallet.saveProfile();
+    this.updateUI();
+    Wallet.updateUI();
+    showPop("PURCHASED — " + item.name.toUpperCase());
+  },
+  updateUI() {
+    const label = $("shopCreditsLabel");
+    if (label) label.textContent = String(Wallet.shopCredits);
+    const wrap = $("shopItems");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    for (const item of SHOP_ITEMS) {
+      const owned = this.owned(item.id);
+      const row = document.createElement("div");
+      row.className = "shop-item";
+      row.innerHTML = `<div class="shop-item-info"><b>${item.name}</b><small>${item.desc}</small></div>`;
+      const btn = document.createElement("button");
+      btn.className = "shop-buy" + (owned ? " owned" : "");
+      btn.type = "button";
+      btn.textContent = owned ? "OWNED" : item.cost + " TOKENS";
+      if (!owned) btn.addEventListener("click", () => this.buy(item.id));
+      row.appendChild(btn);
+      wrap.appendChild(row);
+    }
+  },
+  bindEvents() {
+    $("btnShop").addEventListener("click", () => {
+      this.updateUI();
+      $("shopPanel").classList.add("open");
+    });
+    $("btnShopClose").addEventListener("click", () => {
+      $("shopPanel").classList.remove("open");
     });
   },
 };
+
+const TheaterSelect = {
+  syncFromWallet() {
+    /* uses Wallet.unlockedTheaters */
+  },
+  isUnlocked(t) {
+    if (t.free) return true;
+    return Wallet.unlockedTheaters.includes(t.id);
+  },
+  tryUnlock(t) {
+    if (this.isUnlocked(t)) return true;
+    if (t.chipUnlock && (Wallet.totalChips >= 1 || G.chips >= 1)) {
+      if (G.chips >= 1) G.chips--;
+      else Wallet.totalChips--;
+      Wallet.unlockedTheaters.push(t.id);
+      Wallet.saveProfile();
+      showPop("UNLOCKED VIA BASE CHIP — " + t.name.toUpperCase());
+      this.render();
+      return true;
+    }
+    if (Wallet.shopCredits >= t.cost) {
+      Wallet.shopCredits -= t.cost;
+      Wallet.unlockedTheaters.push(t.id);
+      Wallet.saveProfile();
+      Wallet.updateUI();
+      Shop.updateUI();
+      showPop("THEATER UNLOCKED — " + t.name.toUpperCase());
+      this.render();
+      return true;
+    }
+    showPop("REQUIRES " + t.cost + " TOKENS" + (t.chipUnlock ? " OR BASE CHIP" : ""));
+    return false;
+  },
+  select(id) {
+    const t = THEATERS.find((x) => x.id === id);
+    if (!t) return;
+    if (!this.isUnlocked(t)) {
+      this.tryUnlock(t);
+      return;
+    }
+    Wallet.selectedTheater = id;
+    if (Wallet.address) Wallet.saveProfile();
+    this.render();
+  },
+  render() {
+    const grid = $("theaterGrid");
+    if (!grid) return;
+    grid.innerHTML = "";
+    for (const t of THEATERS) {
+      const el = document.createElement("button");
+      el.type = "button";
+      const unlocked = this.isUnlocked(t);
+      el.className = "theater-card"
+        + (Wallet.selectedTheater === t.id ? " selected" : "")
+        + (!unlocked ? " locked" : "");
+      const lockTxt = unlocked ? "UNLOCKED" : (t.chipUnlock ? t.cost + " TOKENS / CHIP" : t.cost + " TOKENS");
+      el.innerHTML = `<b>${t.name}</b>${lockTxt}`;
+      el.addEventListener("click", () => this.select(t.id));
+      grid.appendChild(el);
+    }
+  },
+  bindEvents() {},
+};
+
 Wallet.bindEvents();
+Shop.bindEvents();
+TheaterSelect.render();
 Wallet.tryReconnect();
 
 /* —— Overcast WWII battlefield lighting —— */
@@ -1297,7 +1661,7 @@ const stratClouds = [];
       const mat = new THREE.MeshBasicMaterial({
         map: cirrusTex,
         transparent: true,
-        opacity: 0.05 + Math.random() * 0.07,
+        opacity: 0.04 + Math.random() * 0.06,
         depthWrite: false,
         depthTest: false,
         fog: false,
@@ -1319,7 +1683,7 @@ const stratClouds = [];
     }
     layer.position.set(
       (Math.random() - 0.5) * 4500,
-      420 + Math.random() * 220,
+      400 + Math.random() * 100,
       (Math.random() - 0.5) * 4500
     );
     layer.renderOrder = -300;
@@ -1591,24 +1955,10 @@ function resetStormEnvironment() {
   G.rainDensity = 1;
   G.thunderT = 6;
   G.lightningFrames = 0;
-  scene.fog.color.setHex(STORM_FOG);
-  scene.fog.density = STORM_FOG_DENSITY;
-  scene.background.setHex(STORM_BG);
-  renderer.setClearColor(STORM_BG, 1);
+  applyTheater(Wallet.selectedTheater || "arctic");
   rainMat.opacity = Settings.rainEnabled ? 0.28 : 0;
   rainLines.visible = Settings.rainEnabled;
-  if (skyUniforms) {
-    skyUniforms.zenith.value.setHex(0x061018);
-    skyUniforms.mid.value.setHex(0x0c1a30);
-    skyUniforms.horizon.value.setHex(0x1a3a5c);
-    skyUniforms.glow.value.setHex(0x4a7090);
-    skyUniforms.flash.value = 0;
-  }
-  ambientLight.intensity = 0.55;
-  hemiLight.intensity = 0.55;
-  sun.intensity = 1.15;
-  oceanUniforms.uDeep.value.setHex(SEA_DEEP);
-  oceanUniforms.uShallow.value.setHex(0x163d72);
+  if (skyUniforms) skyUniforms.flash.value = 0;
 }
 
 function updateVictoryEnvironment(dt) {
@@ -1699,6 +2049,7 @@ function makeBattleship(carrier) {
   const gunMat = new THREE.MeshStandardMaterial({
     color: 0x2e343c, metalness: 0.7, roughness: 0.35, emissive: 0xffaa22, emissiveIntensity: 0.4,
   });
+  g.userData.turrets = [];
   [[-len * 0.28, 22, 0], [len * 0.18, 22, 0], [len * 0.32, 20, 0]].forEach(([x, y, z], i) => {
     if (!carrier && i > 1) return;
     const tur = new THREE.Group();
@@ -1712,6 +2063,7 @@ function makeBattleship(carrier) {
     });
     tur.position.set(x, y, z);
     g.add(tur);
+    g.userData.turrets.push(tur);
   });
 
   // Bow wake glow
@@ -1728,47 +2080,51 @@ function makeBattleship(carrier) {
 }
 
 const fleet = [];
+const FLEET_LAYOUT = [
+  { carrier: true, x: 120, z: 280, lane: 0 },
+  { carrier: true, x: -200, z: 420, lane: 1 },
+  { carrier: false, x: 320, z: 180, lane: 0 },
+  { carrier: false, x: -140, z: -120, lane: 1 },
+  { carrier: false, x: 80, z: -280, lane: 2 },
+  { carrier: false, x: -360, z: 60, lane: 2 },
+];
+
+function spawnFleetShip(s) {
+  const mesh = makeBattleship(s.carrier);
+  mesh.position.set(s.x, 0, s.z);
+  scene.add(mesh);
+  fleet.push({
+    mesh,
+    speed: 22 + Math.random() * 16,
+    lane: s.lane || 0,
+    carrier: s.carrier,
+    alive: true,
+    turretPhase: Math.random() * Math.PI * 2,
+  });
+}
+
 (function buildNavalFleet() {
-  const ships = [
-    { carrier: true, x: 180, z: -320, heading: 0.2 },
-    { carrier: false, x: -260, z: 140, heading: -0.4 },
-    { carrier: false, x: 420, z: 380, heading: 1.1 },
-  ];
-  for (const s of ships) {
-    const mesh = makeBattleship(s.carrier);
-    mesh.position.set(s.x, 0, s.z);
-    mesh.rotation.y = s.heading;
-    scene.add(mesh);
-    fleet.push({
-      mesh,
-      speed: 18 + Math.random() * 10,
-      heading: s.heading,
-      carrier: s.carrier,
-      alive: true,
-    });
-  }
+  for (const s of FLEET_LAYOUT) spawnFleetShip(s);
 })();
 
 function updateFleet(dt) {
   const px = player.mesh.position.x;
   const pz = player.mesh.position.z;
+  const fwd = getPlayerForward(new THREE.Vector3());
   for (const ship of fleet) {
     if (!ship.alive) continue;
-    ship.mesh.position.x += Math.sin(ship.heading) * ship.speed * dt;
-    ship.mesh.position.z += Math.cos(ship.heading) * ship.speed * dt;
-    ship.mesh.rotation.y = ship.heading;
-    // Soft bob on the swell
-    ship.mesh.position.y = Math.sin(G.t * 1.4 + ship.heading * 3) * 1.2;
-    // Keep fleet near the combat theater
+    // Sail backward beneath flight vector for speed illusion
+    ship.mesh.position.addScaledVector(fwd, -ship.speed * dt * 2.8);
+    ship.mesh.position.x += Math.sin(G.t * 0.3 + ship.lane) * dt * 4;
+    ship.mesh.position.y = Math.sin(G.t * 1.4 + ship.lane * 2) * 1.4;
+    ship.turretPhase += dt * (ship.carrier ? 0.4 : 0.65);
+    const turrets = ship.mesh.userData.turrets || [];
+    for (const t of turrets) t.rotation.y = Math.sin(ship.turretPhase) * 0.35;
     const dx = ship.mesh.position.x - px;
     const dz = ship.mesh.position.z - pz;
-    if (dx * dx + dz * dz > 2200 * 2200) {
-      ship.mesh.position.x = px + (Math.random() - 0.5) * 900;
-      ship.mesh.position.z = pz + 400 + Math.random() * 700;
-      ship.heading = Math.atan2(
-        Math.sin(player.yaw + Math.PI) + (Math.random() - 0.5) * 0.4,
-        Math.cos(player.yaw + Math.PI) + (Math.random() - 0.5) * 0.4
-      );
+    if (dz > 900 || dx * dx + dz * dz > 2400 * 2400) {
+      ship.mesh.position.x = px + (Math.random() - 0.5) * 700;
+      ship.mesh.position.z = pz + 350 + Math.random() * 450;
     }
   }
 }
@@ -1789,24 +2145,7 @@ function respawnNavalFleet() {
     if (ship.mesh.parent) scene.remove(ship.mesh);
   }
   fleet.length = 0;
-  const ships = [
-    { carrier: true, x: 180, z: -320, heading: 0.2 },
-    { carrier: false, x: -260, z: 140, heading: -0.4 },
-    { carrier: false, x: 420, z: 380, heading: 1.1 },
-  ];
-  for (const s of ships) {
-    const mesh = makeBattleship(s.carrier);
-    mesh.position.set(s.x, 0, s.z);
-    mesh.rotation.y = s.heading;
-    scene.add(mesh);
-    fleet.push({
-      mesh,
-      speed: 18 + Math.random() * 10,
-      heading: s.heading,
-      carrier: s.carrier,
-      alive: true,
-    });
-  }
+  for (const s of FLEET_LAYOUT) spawnFleetShip(s);
 }
 
 function makeJet(scheme) {
@@ -2830,8 +3169,9 @@ function spawnFloat(sx, sy, pts, tickets) {
 
 function updateHUD() {
   const h = Math.max(0, Math.round(player.health));
+  const maxH = getPlayerMaxHealth();
   $("hudShield").textContent = h + "%";
-  $("shieldFill").style.width = h + "%";
+  $("shieldFill").style.width = Math.round((h / maxH) * 100) + "%";
   $("shieldBar").classList.toggle("danger", h < 40);
   // WWII airspeed — knots (cruise ~240)
   const knots = Math.round(
@@ -3035,6 +3375,10 @@ function dropRelic(pos) {
 
 function collectChip(worldPos) {
   G.chips++;
+  if (Wallet.address) {
+    Wallet.totalChips++;
+    Wallet.saveProfile();
+  }
   updateHUD();
   spawnHitFloat(worldPos, "+1 CHIP");
   pushTicker("Base Chip secured — Inco fog packet stamped…", true);
@@ -3266,7 +3610,7 @@ function fireMissile() {
   if (G.overheated) return;
 
   G.fireCD = 0.08;
-  G.heat = Math.min(1, G.heat + GUN_HEAT_PER_SHOT);
+  G.heat = Math.min(1, G.heat + getHeatPerShot());
   if (G.heat >= 1) {
     G.overheated = true;
     showPop("GUNS OVERHEATED");
@@ -3309,7 +3653,7 @@ function fireMissile() {
   }
 
   G.gunAlt = (G.gunAlt || 0) ^ 1;
-  const ROUND_SPEED = 980;
+  const ROUND_SPEED = getRoundSpeedBase();
   origins.forEach((origin, idx) => {
     const mint = ((G.gunAlt + idx) % 2) === 0;
     fireHeavyTracer(origin, fireDir, 130, mint);
@@ -3493,7 +3837,7 @@ function resetGameState() {
   clearEntities();
   resetStormEnvironment();
   Settings.applyUI();
-  player.health = 100;
+  player.health = getPlayerMaxHealth();
   player.dead = false;
   player.mesh.visible = true;
   player.mesh.position.set(0, 95, 0);
@@ -3530,12 +3874,14 @@ function resetGameState() {
 function goHome() {
   $("endFail").classList.add("hidden");
   $("endWin").classList.add("hidden");
+  $("shopPanel").classList.remove("open");
   resetGameState();
   destroyNavalFleet();
   $("btnPause").classList.remove("show");
   $("btnHudHome").classList.remove("show");
   $("brief").classList.remove("hidden");
   Wallet.updateUI();
+  TheaterSelect.render();
   updateHUD();
 }
 
@@ -3544,6 +3890,8 @@ function redeploy() {
   $("endWin").classList.add("hidden");
   $("brief").classList.add("hidden");
   resetGameState();
+  applyTheater(Wallet.selectedTheater || "arctic");
+  player.health = getPlayerMaxHealth();
   respawnNavalFleet();
   G.running = true;
   G.paused = false;
@@ -3896,7 +4244,7 @@ function updateFlight(dt) {
 
   if ((G.keys[" "] || G.keys.space || G.firingTouch) && !G.overheated) fireMissile();
   else {
-    const cool = G.overheated ? GUN_OVERHEAT_COOL : GUN_COOL_RATE;
+    const cool = G.overheated ? GUN_OVERHEAT_COOL : getCoolRate();
     G.heat = Math.max(0, G.heat - cool * dt);
     if (G.overheated && G.heat <= 0.28) G.overheated = false;
   }
@@ -4468,6 +4816,9 @@ addEventListener("orientationchange", () => setTimeout(onResize, 100));
 
 $("btnEngage").addEventListener("click", () => {
   SFX.resume();
+  $("shopPanel").classList.remove("open");
+  applyTheater(Wallet.selectedTheater || "arctic");
+  player.health = getPlayerMaxHealth();
   $("brief").classList.add("hidden");
   $("btnPause").classList.add("show");
   $("btnHudHome").classList.add("show");
