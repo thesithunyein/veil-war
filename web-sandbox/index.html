@@ -1810,7 +1810,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.32;
 renderer.sortObjects = true;
 renderer.setClearColor(STORM_BG, 1);
 
@@ -2495,12 +2495,12 @@ const TheaterSelect = {
 /* —— Overcast WWII battlefield lighting —— */
 const ambientLight = new THREE.AmbientLight(0xb0b4b8, 0.55);
 scene.add(ambientLight);
-const sun = new THREE.DirectionalLight(0xe8e4d8, 1.15);
-sun.position.set(120, 280, 80);
+const sun = new THREE.DirectionalLight(0xfff4e8, 1.45);
+sun.position.set(220, 340, -120);
 sun.castShadow = false;
 scene.add(sun);
-const sunFill = new THREE.DirectionalLight(0x8a9098, 0.4);
-sunFill.position.set(-180, 120, -100);
+const sunFill = new THREE.DirectionalLight(0xa8cce8, 0.55);
+sunFill.position.set(-140, 160, 80);
 scene.add(sunFill);
 const hemiLight = new THREE.HemisphereLight(0x4a6080, 0x1a2228, 0.55);
 scene.add(hemiLight);
@@ -2509,14 +2509,14 @@ scene.add(hemiLight);
 (function buildSunDisc() {
   const sunMesh = new THREE.Mesh(
     new THREE.SphereGeometry(38, 16, 16),
-    new THREE.MeshBasicMaterial({ color: 0xf0eee6, fog: false })
+    new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false })
   );
   sunMesh.position.copy(sun.position).normalize().multiplyScalar(2600);
   sunMesh.position.y = Math.max(400, sunMesh.position.y);
   scene.add(sunMesh);
   const glow = new THREE.Mesh(
-    new THREE.SphereGeometry(90, 16, 16),
-    new THREE.MeshBasicMaterial({ color: 0xd8d4cc, transparent: true, opacity: 0.18, depthWrite: false, fog: false })
+    new THREE.SphereGeometry(120, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xffeed8, transparent: true, opacity: 0.28, depthWrite: false, fog: false })
   );
   glow.position.copy(sunMesh.position);
   scene.add(glow);
@@ -2646,6 +2646,53 @@ function updateStratosphereClouds(dt) {
   }
 }
 
+const seaMist = [];
+(function buildSeaMist() {
+  for (let i = 0; i < 22; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.16 + Math.random() * 0.2,
+      depthWrite: false,
+      fog: true,
+      side: THREE.DoubleSide,
+    });
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(900 + Math.random() * 1400, 100 + Math.random() * 160),
+      mat
+    );
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.set(
+      (Math.random() - 0.5) * 4500,
+      6 + Math.random() * 42,
+      (Math.random() - 0.5) * 4500
+    );
+    plane.renderOrder = -200;
+    scene.add(plane);
+    seaMist.push({ mesh: plane, driftX: 4 + Math.random() * 10, driftZ: (Math.random() - 0.5) * 3 });
+  }
+})();
+
+function updateSeaMist(dt) {
+  if (!activeEnv.showOcean) {
+    for (const m of seaMist) m.mesh.visible = false;
+    return;
+  }
+  const px = player.mesh.position.x;
+  const pz = player.mesh.position.z;
+  for (const m of seaMist) {
+    m.mesh.visible = true;
+    m.mesh.position.x += m.driftX * dt;
+    m.mesh.position.z += m.driftZ * dt;
+    if (m.mesh.position.x > px + 2200) {
+      m.mesh.position.x = px - 2200;
+      m.mesh.position.z = pz + (Math.random() - 0.5) * 1800;
+    } else if (m.mesh.position.x < px - 2200) {
+      m.mesh.position.x = px + 2200;
+    }
+  }
+}
+
 const oceanUniforms = {
   uTime: { value: 0 },
   uDeep: { value: new THREE.Color(SEA_DEEP) },
@@ -2694,9 +2741,11 @@ const oceanMat = new THREE.ShaderMaterial({
       float fres = pow(1.0 - max(0.0, dot(N, V)), 3.0);
       float swell = clamp(vWave * 0.045 + 0.5, 0.0, 1.0);
       vec3 col = mix(uDeep, uShallow, swell * 0.35 + fres * 0.18);
-      float spec = pow(max(0.0, dot(N, normalize(uSun))), 64.0);
-      col += uSpec * spec * 0.28;
-      col += uShallow * fres * 0.12;
+      float spec = pow(max(0.0, dot(N, normalize(uSun))), 48.0);
+      col += uSpec * spec * 0.42;
+      col += uShallow * fres * 0.22;
+      float foam = smoothstep(0.48, 0.92, swell) * smoothstep(0.15, 0.75, vWave * 0.07 + 0.45);
+      col = mix(col, vec3(0.94, 0.98, 1.0), foam * 0.55);
       gl_FragColor = vec4(col, 1.0);
     }`,
 });
@@ -3332,6 +3381,29 @@ function makeJet(scheme) {
     g.userData.wingTips.push(midTip);
   });
 
+  const exhaustMat = new THREE.MeshBasicMaterial({
+    color: 0x66ccff, transparent: true, opacity: 0.75,
+    side: THREE.DoubleSide, depthWrite: false, fog: false,
+  });
+  [-1, 1].forEach((side) => {
+    const exhaust = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.32), exhaustMat.clone());
+    exhaust.position.set(-4.15, 0.02, side * 0.38);
+    exhaust.rotation.y = Math.PI / 2;
+    g.add(exhaust);
+    g.userData.exhausts.push(exhaust);
+    const exhaustGlow = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.9, 0.5),
+      new THREE.MeshBasicMaterial({
+        color: 0xa8e8ff, transparent: true, opacity: 0.35,
+        side: THREE.DoubleSide, depthWrite: false, fog: false,
+      })
+    );
+    exhaustGlow.position.set(-4.35, 0.02, side * 0.38);
+    exhaustGlow.rotation.y = Math.PI / 2;
+    g.add(exhaustGlow);
+    g.userData.exhausts.push(exhaustGlow);
+  });
+
   g.scale.setScalar(scheme.scale || 1);
   return g;
 }
@@ -3709,24 +3781,30 @@ function pulsePlumes(jet, throttle, dt) {
   }
 }
 
-/* —— Gameplay Web Audio only (engine + combat SFX, no BGM/ambient loop) —— */
+/* —— Sample-based combat audio from example.MOV reference —— */
 const SFX = {
   ctx: null,
   master: null,
   _baseMaster: 0.42,
-  engOsc: null,
-  engGain: null,
-  engFilter: null,
-  engNoise: null,
-  engNoiseGain: null,
-  engNoiseFilter: null,
+  buffers: {},
+  _loaded: false,
+  _loadPromise: null,
+  engineSrc: null,
+  engineGain: null,
+  _engineRunning: false,
   lockOsc: null,
   lockGain: null,
   lockLfo: null,
   lockLfoGain: null,
   locked: false,
   seeking: false,
-  _eng2: null,
+  _sampleUrls: {
+    engine: "assets/sfx/engine-loop.mp3",
+    gun1: "assets/sfx/gunfire-1.mp3",
+    gun2: "assets/sfx/gunfire-2.mp3",
+    gun3: "assets/sfx/gunfire-3.mp3",
+    explode: "assets/sfx/explosion.mp3",
+  },
   ensure() {
     if (this.ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -3735,50 +3813,6 @@ const SFX = {
     this.master = this.ctx.createGain();
     this.master.gain.value = this._baseMaster;
     this.master.connect(this.ctx.destination);
-
-    // —— Rolls-Royce Merlin roar: 45Hz saw + harmonic + filtered noise rumble ——
-    this.engOsc = this.ctx.createOscillator();
-    this.engOsc.type = "sawtooth";
-    this.engOsc.frequency.value = 45;
-    this.engFilter = this.ctx.createBiquadFilter();
-    this.engFilter.type = "lowpass";
-    this.engFilter.frequency.value = 320;
-    this.engFilter.Q.value = 0.7;
-    this.engGain = this.ctx.createGain();
-    this.engGain.gain.value = 0;
-    this.engOsc.connect(this.engFilter);
-    this.engFilter.connect(this.engGain);
-    this.engGain.connect(this.master);
-    this.engOsc.start();
-
-    this._eng2 = this.ctx.createOscillator();
-    this._eng2.type = "triangle";
-    this._eng2.frequency.value = 90;
-    const eng2g = this.ctx.createGain();
-    eng2g.gain.value = 0.22;
-    this._eng2.connect(eng2g);
-    eng2g.connect(this.engGain);
-    this._eng2.start();
-
-    // White-noise propeller rumble through low-pass
-    const nLen = this.ctx.sampleRate * 2;
-    const nBuf = this.ctx.createBuffer(1, nLen, this.ctx.sampleRate);
-    const nData = nBuf.getChannelData(0);
-    for (let i = 0; i < nLen; i++) nData[i] = Math.random() * 2 - 1;
-    this.engNoise = this.ctx.createBufferSource();
-    this.engNoise.buffer = nBuf;
-    this.engNoise.loop = true;
-    this.engNoiseFilter = this.ctx.createBiquadFilter();
-    this.engNoiseFilter.type = "lowpass";
-    this.engNoiseFilter.frequency.value = 180;
-    this.engNoiseGain = this.ctx.createGain();
-    this.engNoiseGain.gain.value = 0;
-    this.engNoise.connect(this.engNoiseFilter);
-    this.engNoiseFilter.connect(this.engNoiseGain);
-    this.engNoiseGain.connect(this.master);
-    this.engNoise.start();
-
-    // Lock synth: seeking hum → solid lock beep
     this.lockOsc = this.ctx.createOscillator();
     this.lockOsc.type = "sine";
     this.lockOsc.frequency.value = 740;
@@ -3796,29 +3830,77 @@ const SFX = {
     this.lockOsc.start();
     this.lockLfo.start();
   },
+  async loadSamples() {
+    if (this._loaded) return;
+    if (this._loadPromise) return this._loadPromise;
+    this._loadPromise = (async () => {
+      this.ensure();
+      if (!this.ctx) return;
+      for (const [key, url] of Object.entries(this._sampleUrls)) {
+        try {
+          const res = await fetch(url);
+          const ab = await res.arrayBuffer();
+          this.buffers[key] = await this.ctx.decodeAudioData(ab);
+        } catch (e) {
+          console.warn("SFX load failed:", key, e);
+        }
+      }
+      this._loaded = true;
+    })();
+    return this._loadPromise;
+  },
   resume() {
     this.ensure();
     if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
+    this.loadSamples();
   },
   setMasterVolume(norm) {
     this._baseMaster = THREE.MathUtils.clamp(norm, 0, 1) * 0.65;
     if (this.master) this.master.gain.value = this._baseMaster;
   },
+  _startEngineLoop() {
+    if (!this.ctx || !this.buffers.engine) return;
+    if (this.engineSrc) {
+      try { this.engineSrc.stop(); } catch (_) { /* already stopped */ }
+      this.engineSrc.disconnect();
+    }
+    this.engineSrc = this.ctx.createBufferSource();
+    this.engineSrc.buffer = this.buffers.engine;
+    this.engineSrc.loop = true;
+    this.engineGain = this.ctx.createGain();
+    this.engineGain.gain.value = 0;
+    this.engineSrc.connect(this.engineGain);
+    this.engineGain.connect(this.master);
+    this.engineSrc.start(0);
+    this._engineRunning = true;
+  },
   setEngine(speed, flying) {
-    if (!this.engGain || !this.ctx) return;
+    if (!this.ctx) return;
+    if (flying && this.buffers.engine && !this._engineRunning) this._startEngineLoop();
+    if (!this.engineGain || !this.ctx) return;
     const now = this.ctx.currentTime;
     const boost = THREE.MathUtils.clamp((speed - BRAKE_SPEED) / (BOOST_SPEED - BRAKE_SPEED), 0, 1);
-    const target = flying ? 0.14 + boost * 0.18 : 0;
-    this.engGain.gain.linearRampToValueAtTime(target, now + 0.1);
-    // Pitch climbs smoothly under boost
-    const baseHz = 45 + boost * 38 + (speed - BASE_SPEED) * 0.08;
-    this.engOsc.frequency.linearRampToValueAtTime(Math.max(40, baseHz), now + 0.12);
-    if (this._eng2) this._eng2.frequency.linearRampToValueAtTime(Math.max(80, baseHz * 2), now + 0.12);
-    this.engFilter.frequency.linearRampToValueAtTime(280 + boost * 420, now + 0.12);
-    if (this.engNoiseGain) {
-      this.engNoiseGain.gain.linearRampToValueAtTime(flying ? 0.045 + boost * 0.06 : 0, now + 0.1);
-      this.engNoiseFilter.frequency.linearRampToValueAtTime(140 + boost * 220, now + 0.12);
+    const target = flying ? 0.32 + boost * 0.38 : 0;
+    this.engineGain.gain.cancelScheduledValues(now);
+    this.engineGain.gain.linearRampToValueAtTime(target, now + 0.12);
+    if (this.engineSrc) {
+      const rate = flying ? 0.88 + boost * 0.42 : 1;
+      this.engineSrc.playbackRate.cancelScheduledValues(now);
+      this.engineSrc.playbackRate.linearRampToValueAtTime(rate, now + 0.14);
     }
+  },
+  playOneShot(key, vol, rate) {
+    if (!this.ctx) this.ensure();
+    const buf = this.buffers[key];
+    if (!buf || !this.ctx) return;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = rate == null ? 1 : rate;
+    const g = this.ctx.createGain();
+    g.gain.value = vol == null ? 0.65 : vol;
+    src.connect(g);
+    g.connect(this.master);
+    src.start();
   },
   setLock(on) {
     if (!this.lockGain || !this.ctx) return;
@@ -3830,11 +3912,9 @@ const SFX = {
     this.lockLfoGain.gain.cancelScheduledValues(t);
     if (!on) {
       this.lockGain.gain.setValueAtTime(0.0001, t);
-      this.lockGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
       this.lockLfoGain.gain.setValueAtTime(0, t);
       return;
     }
-    // Solid sharp continuous cockpit lock beep
     this.lockOsc.frequency.setValueAtTime(1180, t);
     this.lockLfoGain.gain.setValueAtTime(0, t);
     this.lockGain.gain.setValueAtTime(0.0001, t);
@@ -3853,144 +3933,27 @@ const SFX = {
       this.lockLfoGain.gain.setValueAtTime(0, t);
       return;
     }
-    // High-tech warning hum (tremolo) before hard lock
     this.lockOsc.frequency.setValueAtTime(620, t);
     this.lockLfo.frequency.setValueAtTime(5.5, t);
     this.lockLfoGain.gain.setValueAtTime(0.035, t);
     this.lockGain.gain.setValueAtTime(0.04, t);
   },
-  /** Heavy autocannon thump — rhythmic white-noise blast */
   cannon() {
-    if (!this.ctx) this.ensure();
-    if (!this.ctx) return;
-    const t = this.ctx.currentTime;
-    const len = Math.floor(this.ctx.sampleRate * 0.085);
-    const buffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < len; i++) {
-      const env = Math.pow(1 - i / len, 2.4);
-      data[i] = (Math.random() * 2 - 1) * env;
-    }
-    const src = this.ctx.createBufferSource();
-    src.buffer = buffer;
-    const lp = this.ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.setValueAtTime(900, t);
-    lp.frequency.exponentialRampToValueAtTime(120, t + 0.07);
-    const bp = this.ctx.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.frequency.value = 180;
-    bp.Q.value = 0.8;
-    const g = this.ctx.createGain();
-    g.gain.setValueAtTime(0.55, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-    src.connect(lp);
-    lp.connect(bp);
-    bp.connect(g);
-    g.connect(this.master);
-    src.start();
-    // Low body thump
-    const o = this.ctx.createOscillator();
-    o.type = "sine";
-    o.frequency.setValueAtTime(70, t);
-    o.frequency.exponentialRampToValueAtTime(32, t + 0.06);
-    const og = this.ctx.createGain();
-    og.gain.setValueAtTime(0.28, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
-    o.connect(og);
-    og.connect(this.master);
-    o.start();
-    o.stop(t + 0.08);
+    this.resume();
+    const keys = ["gun1", "gun2", "gun3"];
+    const key = keys[Math.floor(Math.random() * keys.length)];
+    this.playOneShot(key, 0.72, 0.94 + Math.random() * 0.12);
   },
   missile() {
     this.cannon();
   },
   explode() {
-    if (!this.ctx) this.ensure();
-    if (!this.ctx) return;
-    const t = this.ctx.currentTime;
-    const len = this.ctx.sampleRate * 0.6;
-    const buffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < len; i++) {
-      const env = Math.pow(1 - i / len, 1.6);
-      data[i] = (Math.random() * 2 - 1) * env;
-    }
-    const src = this.ctx.createBufferSource();
-    src.buffer = buffer;
-    const lp = this.ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.setValueAtTime(1100, t);
-    lp.frequency.exponentialRampToValueAtTime(70, t + 0.55);
-    const g = this.ctx.createGain();
-    g.gain.setValueAtTime(0.6, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-    src.connect(lp); lp.connect(g); g.connect(this.master);
-    src.start();
-    const o = this.ctx.createOscillator();
-    o.type = "triangle";
-    o.frequency.setValueAtTime(95, t);
-    o.frequency.exponentialRampToValueAtTime(28, t + 0.45);
-    const og = this.ctx.createGain();
-    og.gain.setValueAtTime(0.32, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
-    o.connect(og); og.connect(this.master);
-    o.start(); o.stop(t + 0.48);
+    this.resume();
+    this.playOneShot("explode", 0.82, 0.98 + Math.random() * 0.08);
   },
-  /** Metallic thwip/crunch when tracers connect */
   hitCrunch() {
-    if (!this.ctx) this.ensure();
-    if (!this.ctx) return;
-    const t = this.ctx.currentTime;
-    const len = Math.floor(this.ctx.sampleRate * 0.042);
-    const buffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < len; i++) {
-      const env = Math.pow(1 - i / len, 3.2);
-      data[i] = (Math.random() * 2 - 1) * env;
-    }
-    const src = this.ctx.createBufferSource();
-    src.buffer = buffer;
-    const bp = this.ctx.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.frequency.setValueAtTime(2400, t);
-    bp.frequency.exponentialRampToValueAtTime(600, t + 0.035);
-    bp.Q.value = 1.4;
-    const hp = this.ctx.createBiquadFilter();
-    hp.type = "highpass";
-    hp.frequency.value = 900;
-    const g = this.ctx.createGain();
-    g.gain.setValueAtTime(0.38, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
-    src.connect(bp);
-    bp.connect(hp);
-    hp.connect(g);
-    g.connect(this.master);
-    src.start();
-    const ping = this.ctx.createOscillator();
-    ping.type = "triangle";
-    ping.frequency.setValueAtTime(1800, t);
-    ping.frequency.exponentialRampToValueAtTime(420, t + 0.028);
-    const pg = this.ctx.createGain();
-    pg.gain.setValueAtTime(0.22, t);
-    pg.gain.exponentialRampToValueAtTime(0.001, t + 0.032);
-    ping.connect(pg);
-    pg.connect(this.master);
-    ping.start();
-    ping.stop(t + 0.035);
-    const crunch = this.ctx.createOscillator();
-    crunch.type = "square";
-    crunch.frequency.setValueAtTime(140, t);
-    crunch.frequency.exponentialRampToValueAtTime(55, t + 0.025);
-    const cg = this.ctx.createGain();
-    cg.gain.setValueAtTime(0.12, t);
-    cg.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
-    crunch.connect(cg);
-    cg.connect(this.master);
-    crunch.start();
-    crunch.stop(t + 0.032);
+    this.cannon();
   },
-  /** Low-pass integrity alarm when player takes fire */
   integrityAlarm() {
     if (!this.ctx) this.ensure();
     if (!this.ctx) return;
@@ -4003,26 +3966,15 @@ const SFX = {
     lp.type = "lowpass";
     lp.frequency.setValueAtTime(420, t);
     lp.frequency.exponentialRampToValueAtTime(180, t + 0.38);
-    lp.Q.value = 0.9;
     const g = this.ctx.createGain();
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(0.22, t + 0.04);
-    g.gain.setValueAtTime(0.22, t + 0.18);
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
     o.connect(lp);
     lp.connect(g);
     g.connect(this.master);
     o.start();
     o.stop(t + 0.44);
-    const pulse = this.ctx.createOscillator();
-    pulse.type = "sine";
-    pulse.frequency.value = 3.5;
-    const lfoG = this.ctx.createGain();
-    lfoG.gain.value = 0.08;
-    pulse.connect(lfoG);
-    lfoG.connect(g.gain);
-    pulse.start();
-    pulse.stop(t + 0.44);
   },
 };
 
@@ -4051,6 +4003,7 @@ function bootLobby() {
   Wallet.bindEvents();
   Shop.bindEvents();
   LobbyDrawers.bindEvents();
+  SFX.loadSamples();
   TheaterSelect.render();
   Wallet.tryReconnect();
   updateHUD();
@@ -4151,21 +4104,27 @@ function pulseThreat() {
 
 function fireTracer(origin, dir) {
   const d = dir.clone().normalize();
-  const end = origin.clone().addScaledVector(d, 160);
+  const len = 240;
+  const end = origin.clone().addScaledVector(d, len);
   const geo = new THREE.BufferGeometry().setFromPoints([origin.clone(), end]);
   const mat = new THREE.LineBasicMaterial({
-    color: 0x3dffa8,
+    color: 0xffffff,
     transparent: true,
-    opacity: 1,
+    opacity: 0.95,
     depthWrite: false,
+    fog: false,
   });
   const line = new THREE.Line(geo, mat);
+  line.renderOrder = 130;
   scene.add(line);
   const geo2 = new THREE.BufferGeometry().setFromPoints([origin.clone(), end]);
-  const mat2 = new THREE.LineBasicMaterial({ color: 0xb8fff0, transparent: true, opacity: 0.7, depthWrite: false });
+  const mat2 = new THREE.LineBasicMaterial({
+    color: 0xd8eeff, transparent: true, opacity: 0.55, depthWrite: false, fog: false,
+  });
   const line2 = new THREE.Line(geo2, mat2);
+  line2.renderOrder = 129;
   scene.add(line2);
-  G.tracers.push({ line, line2, life: 0.14 });
+  G.tracers.push({ line, line2, life: 0.2 });
 }
 
 /* —— UI helpers —— */
@@ -5008,6 +4967,7 @@ function isLobbyVisible() {
 
 function updateLobbyViewport(dt) {
   updateStratosphereClouds(dt);
+  updateSeaMist(dt);
   updateEnvTerrainFollow();
   updateFleet(dt);
   updateOcean(G.t);
@@ -5380,6 +5340,14 @@ function updateFlight(dt) {
   pulsePlumes(player.mesh, 0.55 + throttle * 0.9, dt);
   emitVapor(player.mesh, 0.45 + throttle * 0.35 + Math.abs(player.roll) * 0.2);
   SFX.setEngine(player.speed, true);
+
+  const glows = player.mesh.userData.exhausts || [];
+  const boostN = THREE.MathUtils.clamp((player.speed - BRAKE_SPEED) / (BOOST_SPEED - BRAKE_SPEED), 0, 1);
+  for (const ex of glows) {
+    if (!ex.material) continue;
+    const isHalo = ex.material.color && ex.material.color.getHex() === 0xa8e8ff;
+    ex.material.opacity = isHalo ? 0.18 + boostN * 0.28 : 0.4 + boostN * 0.5;
+  }
 
   if ((G.keys[" "] || G.keys.space || G.firingTouch) && !G.overheated) fireMissile();
   else {
@@ -5814,6 +5782,7 @@ function frame(ts) {
     updateParticles(dt);
     updateHitFlashes();
     updateStratosphereClouds(dt);
+    updateSeaMist(dt);
     updateEnvTerrainFollow();
     updateFleet(dt);
     updateOcean(G.t);
@@ -5834,6 +5803,7 @@ function frame(ts) {
       updateLobbyViewport(dt);
     } else {
       updateStratosphereClouds(dt);
+      updateSeaMist(dt);
       updateEnvTerrainFollow();
       updateOcean(G.t);
       updateFleet(dt);
