@@ -1081,6 +1081,56 @@
       margin: 0.5rem 0 0.65rem;
     }
     .drawer-profile .wallet-stats span { color: var(--teal); }
+    .profile-dossier {
+      margin-top: 0.35rem;
+    }
+    .dossier-label {
+      font-family: var(--mono);
+      font-size: 0.5rem;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      margin-bottom: 0.3rem;
+    }
+    .dossier-handle {
+      font-family: var(--mono);
+      font-size: 0.52rem;
+      color: var(--teal);
+      word-break: break-all;
+      padding: 0.55rem 0.6rem;
+      border: 1px solid rgba(0, 255, 178, 0.22);
+      border-radius: 8px;
+      background: rgba(4, 12, 22, 0.55);
+      margin-bottom: 0.75rem;
+      line-height: 1.45;
+    }
+    .dossier-rank {
+      font-family: var(--mono);
+      font-size: 0.58rem;
+      color: var(--amber);
+      margin-bottom: 0.55rem;
+      line-height: 1.55;
+    }
+    .dossier-inventory {
+      font-family: var(--mono);
+      font-size: 0.52rem;
+      color: var(--muted);
+      line-height: 1.55;
+      padding: 0.5rem 0.55rem;
+      border: 1px solid rgba(255, 200, 87, 0.18);
+      border-radius: 8px;
+      background: rgba(8, 10, 18, 0.4);
+      margin-bottom: 0.75rem;
+      min-height: 2.4rem;
+    }
+    .dossier-inventory .inv-owned { color: var(--teal); }
+    .dossier-purchases {
+      font-family: var(--mono);
+      font-size: 0.48rem;
+      color: var(--muted);
+      line-height: 1.45;
+      margin-bottom: 0.85rem;
+      opacity: 0.88;
+    }
     .drawer-profile .terminal-wallet {
       font-family: var(--mono);
       font-size: 0.52rem;
@@ -1563,19 +1613,27 @@
           </svg>
         </button>
         <div class="drawer-inner">
-          <h2 class="drawer-head">PILOT PROFILE</h2>
+          <h2 class="drawer-head">PILOT DOSSIER</h2>
           <div class="link-status">
             <span class="status-lamp" id="walletStatusLamp"></span>
             <span id="walletStatusText">OFFLINE — AWAITING LINK</span>
           </div>
-          <div class="wallet-stats" id="walletBriefStats"></div>
+          <div class="profile-dossier" id="profileDossier">
+            <div class="dossier-label">SECURE ACCOUNT HANDLE</div>
+            <div class="dossier-handle" id="profileHandle">LINK METAMASK TO INITIALIZE DOSSIER</div>
+            <div class="wallet-stats" id="walletBriefStats"></div>
+            <div class="dossier-rank" id="profileRank"></div>
+            <div class="dossier-label">COMBAT INVENTORY</div>
+            <div class="dossier-inventory" id="profileInventory">No armory items equipped.</div>
+            <div class="dossier-label">PURCHASE HISTORY</div>
+            <div class="dossier-purchases" id="profilePurchases">No theater unlocks recorded.</div>
+          </div>
           <div class="terminal-wallet" id="homeWalletBox">
             <div id="walletDisconnected">
               <button class="btn-wallet-inline" id="btnWalletConnect" type="button">LINK METAMASK WALLET</button>
             </div>
             <div id="walletConnected" style="display:none">
-              <div class="addr" id="walletFullAddr"></div>
-              <button class="btn-disconnect" id="btnWalletDisconnect" type="button">DISCONNECT WALLET</button>
+              <button class="btn-disconnect" id="btnWalletDisconnect" type="button">DISCONNECT SESSION</button>
             </div>
           </div>
         </div>
@@ -1766,45 +1824,61 @@ Settings.load();
 const THEATERS = [
   {
     id: "arctic", name: "Dark Arctic Storm", free: true, cost: 0, chipUnlock: false,
-    theme: "theme-arctic", glyph: "❄", tag: "WEATHER: BLIZZARD · COMPATIBLE: ALL SQUADRONS",
-    bg: 0x0a1628, fog: 0x0c1a30, fogDensity: 0.00072,
-    seaDeep: 0x0f2b5c, seaShallow: 0x163d72,
-    sky: { zenith: 0x061018, mid: 0x0c1a30, horizon: 0x1a3a5c, glow: 0x4a7090 },
-    ambient: 0xb0b4b8, hemiSky: 0x4a6080, hemiGround: 0x1a2228, sunCol: 0xe8e4d8, sunInt: 1.15,
+    theme: "theme-arctic", glyph: "❄", tag: "WEATHER: BLIZZARD · HEAVY RAIN · STROBE LIGHTNING",
+    env: { type: "ocean", rain: true, lightning: true, showOcean: true, showFleet: true, cloudOpacity: 0.05, rainMult: 1.25 },
+    bg: 0x1a2030, fog: 0x333b4d, fogDensity: 0.00082,
+    seaDeep: 0x1a2535, seaShallow: 0x3a4555,
+    sky: { zenith: 0x222830, mid: 0x333b4d, horizon: 0x4a5568, glow: 0x8899aa },
+    ambient: 0x9098a8, hemiSky: 0x556070, hemiGround: 0x1a2228, sunCol: 0xc8ccd4, sunInt: 0.85,
   },
   {
-    id: "sunset", name: "High-Altitude Sunset", free: true, cost: 0, chipUnlock: false,
-    theme: "theme-sunset", glyph: "☀", tag: "WEATHER: CLEAR SKY · ALTITUDE: CRITICAL",
-    bg: 0x1a1028, fog: 0x2a1838, fogDensity: 0.00065,
-    seaDeep: 0x1a2848, seaShallow: 0x3a3868,
-    sky: { zenith: 0x180818, mid: 0x4a2048, horizon: 0xc85838, glow: 0xffaa66 },
-    ambient: 0xc8a898, hemiSky: 0x886080, hemiGround: 0x281818, sunCol: 0xffcc88, sunInt: 1.35,
+    id: "sunset", name: "Pristine Sunny Sky", free: true, cost: 0, chipUnlock: false,
+    theme: "theme-sunset", glyph: "☀", tag: "WEATHER: CLEAR · CRISP HIGH-ALTITUDE BLUE",
+    env: { type: "ocean", rain: false, lightning: false, showOcean: true, showFleet: true, cloudOpacity: 0.24, cloudBright: true },
+    bg: 0x6eb5f0, fog: 0x4a90e2, fogDensity: 0.00032,
+    seaDeep: 0x1a5898, seaShallow: 0x4aa8e8,
+    sky: { zenith: 0x2878d8, mid: 0x4a90e2, horizon: 0x87ceeb, glow: 0xfff8e8 },
+    ambient: 0xd8ecff, hemiSky: 0x88ccff, hemiGround: 0x3a6898, sunCol: 0xfff4d0, sunInt: 1.55,
   },
   {
-    id: "pacific", name: "Deep Pacific Noon", free: true, cost: 0, chipUnlock: false,
-    theme: "theme-pacific", glyph: "≋", tag: "WEATHER: TROPICAL WELLS · OCEAN FLEETS ACTIVE",
-    bg: 0x0c2848, fog: 0x1a4878, fogDensity: 0.00058,
-    seaDeep: 0x083868, seaShallow: 0x1a68a8,
-    sky: { zenith: 0x082848, mid: 0x1a5898, horizon: 0x4aa8d8, glow: 0x88ddff },
-    ambient: 0xa8cce8, hemiSky: 0x5aa8d8, hemiGround: 0x0a2848, sunCol: 0xfff0d0, sunInt: 1.45,
+    id: "pacific", name: "Silent Green Forest", free: true, cost: 0, chipUnlock: false,
+    theme: "theme-pacific", glyph: "🌲", tag: "WEATHER: MORNING MIST · CANOPY FLOOR · NO RAIN",
+    env: { type: "forest", rain: false, lightning: false, showOcean: false, showFleet: false, cloudOpacity: 0.07 },
+    bg: 0x3a6848, fog: 0x2d5a27, fogDensity: 0.00048,
+    seaDeep: 0x1a3a22, seaShallow: 0x2d5a27,
+    sky: { zenith: 0x4a7858, mid: 0x6a9878, horizon: 0xa8c8a8, glow: 0xd8ecd8 },
+    ambient: 0xb8d8b8, hemiSky: 0x6a9878, hemiGround: 0x1a3a22, sunCol: 0xfff0d8, sunInt: 1.25,
   },
   {
-    id: "crimson", name: "Crimson Nebula Shroud", free: false, cost: 2000, chipUnlock: false,
-    theme: "theme-locked", glyph: "✦", tag: "WEATHER: NEBULA ION STORM · CLEARANCE: RESTRICTED",
-    bg: 0x180818, fog: 0x280828, fogDensity: 0.00078,
-    seaDeep: 0x280818, seaShallow: 0x481828,
-    sky: { zenith: 0x100010, mid: 0x380818, horizon: 0x681828, glow: 0xff4466 },
-    ambient: 0xb898a8, hemiSky: 0x804060, hemiGround: 0x180810, sunCol: 0xff6688, sunInt: 1.05,
+    id: "crimson", name: "Overgrown Deep Forest Storm", free: false, cost: 2000, chipUnlock: false,
+    theme: "theme-locked", glyph: "🌧", tag: "WEATHER: TROPICAL DOWNPOUR · DENSE JUNGLE CANOPY",
+    env: { type: "jungle", rain: true, lightning: false, showOcean: false, showFleet: false, cloudOpacity: 0.04, rainMult: 1.65, rainOpacity: 0.42 },
+    bg: 0x0a1810, fog: 0x12331f, fogDensity: 0.00095,
+    seaDeep: 0x0a2018, seaShallow: 0x12331f,
+    sky: { zenith: 0x081810, mid: 0x12331f, horizon: 0x1a4828, glow: 0x3a6848 },
+    ambient: 0x688878, hemiSky: 0x2a4838, hemiGround: 0x081810, sunCol: 0x88aa88, sunInt: 0.65,
   },
   {
-    id: "neon", name: "Midnight Neon Abyss", free: false, cost: 5000, chipUnlock: true,
-    theme: "theme-locked", glyph: "◈", tag: "WEATHER: ABYSSAL STATIC · CLEARANCE: ELITE ONLY",
-    bg: 0x040818, fog: 0x081028, fogDensity: 0.00082,
-    seaDeep: 0x061828, seaShallow: 0x0a2858,
-    sky: { zenith: 0x020410, mid: 0x081838, horizon: 0x103868, glow: 0x3dffa8 },
-    ambient: 0x8898b8, hemiSky: 0x3dffa8, hemiGround: 0x040810, sunCol: 0x5ce1ff, sunInt: 0.95,
+    id: "neon", name: "Majestic Sunset Mountain Ridge", free: false, cost: 5000, chipUnlock: false,
+    theme: "theme-locked", glyph: "⛰", tag: "WEATHER: GOLDEN HOUR · JAGGED RIDGE · WISPY CLOUDS",
+    env: { type: "mountains", rain: false, lightning: false, showOcean: false, showFleet: false, cloudOpacity: 0.14, cloudBright: true },
+    bg: 0xc85820, fog: 0xe67e22, fogDensity: 0.00042,
+    seaDeep: 0x8a4018, seaShallow: 0xc85820,
+    sky: { zenith: 0x4a1838, mid: 0xc85820, horizon: 0xe67e22, glow: 0xffcc66 },
+    ambient: 0xffd8a8, hemiSky: 0xe67e22, hemiGround: 0x5a2818, sunCol: 0xffaa44, sunInt: 1.65,
   },
 ];
+
+const activeEnv = {
+  rain: true,
+  lightning: true,
+  showOcean: true,
+  showFleet: true,
+  rainMult: 1,
+  rainOpacity: 0.28,
+};
+let envMeshes = { forest: null, jungle: null, mountains: null };
+let _theaterLighting = { ambient: 0.55, hemi: 0.55, sun: 1.15, bg: STORM_BG, fog: STORM_FOG };
 
 const SHOP_ITEMS = [
   { id: "hull", name: "Heavy Armored Hull", cost: 800, desc: "Reinforced airframe plating for extended sorties",
@@ -1829,6 +1903,7 @@ function applyTheater(id) {
     skyUniforms.mid.value.setHex(t.sky.mid);
     skyUniforms.horizon.value.setHex(t.sky.horizon);
     skyUniforms.glow.value.setHex(t.sky.glow);
+    skyUniforms.flash.value = 0;
   }
   ambientLight.color.setHex(t.ambient);
   ambientLight.intensity = 0.55;
@@ -1841,6 +1916,44 @@ function applyTheater(id) {
   oceanUniforms.uShallow.value.setHex(t.seaShallow);
   _stormFogCol.setHex(t.fog);
   _stormBgCol.setHex(t.bg);
+  _theaterLighting = { ambient: 0.55, hemi: 0.55, sun: t.sunInt, bg: t.bg, fog: t.fog };
+  applyEnvironmentProfile(t);
+}
+
+function applyEnvironmentProfile(t) {
+  const e = t.env || {};
+  activeEnv.rain = !!e.rain;
+  activeEnv.lightning = !!e.lightning;
+  activeEnv.showOcean = e.showOcean !== false;
+  activeEnv.showFleet = e.showFleet !== false;
+  activeEnv.rainMult = e.rainMult || 1;
+  activeEnv.rainOpacity = e.rainOpacity || 0.28;
+  if (ocean) ocean.visible = activeEnv.showOcean;
+  if (envMeshes.forest) envMeshes.forest.visible = e.type === "forest";
+  if (envMeshes.jungle) envMeshes.jungle.visible = e.type === "jungle";
+  if (envMeshes.mountains) envMeshes.mountains.visible = e.type === "mountains";
+  for (const ship of fleet) {
+    if (ship.mesh) ship.mesh.visible = activeEnv.showFleet && ship.alive;
+  }
+  const cloudOp = e.cloudOpacity != null ? e.cloudOpacity : 0.06;
+  const bright = !!e.cloudBright;
+  for (const c of stratClouds) {
+    c.mesh.visible = e.clouds !== false;
+    if (c.baseY == null) c.baseY = c.mesh.position.y;
+    c.mesh.position.y = bright ? c.baseY + 150 : c.baseY;
+    c.mesh.traverse((o) => {
+      if (o.isMesh && o.material) {
+        o.material.opacity = bright ? cloudOp + 0.12 : cloudOp;
+        o.material.color.setHex(bright ? 0xffffff : 0xf0f8ff);
+      }
+    });
+  }
+  if (!activeEnv.rain) rainMat.opacity = 0;
+  else rainMat.opacity = activeEnv.rainOpacity;
+  if (!activeEnv.lightning) {
+    G.lightningFrames = 0;
+    clearLightningBolts();
+  }
 }
 
 function getPlayerMaxHealth() {
@@ -1868,12 +1981,67 @@ const Wallet = {
   ownedShop: {},
   unlockedTheaters: ["arctic", "sunset", "pacific"],
   selectedTheater: "arctic",
+  rank: 1,
+  rankMultiplier: 1.0,
+  lifetimeTokens: 0,
+  inventory: {},
+  purchaseHistory: [],
   shortAddr(addr) {
     if (!addr || addr.length < 10) return "0x0000…0000";
     return addr.slice(0, 6) + "…" + addr.slice(-4);
   },
   storageKey(suffix) {
     return this.address.toLowerCase() + "_" + suffix;
+  },
+  computeRank() {
+    this.rank = Math.max(1, Math.floor(this.highScore / 5000) + 1);
+    this.rankMultiplier = +(1 + (this.rank - 1) * 0.05).toFixed(2);
+  },
+  syncInventoryFromShop() {
+    this.inventory = { ...this.ownedShop };
+  },
+  loadRankProfile() {
+    if (!this.address) return;
+    const raw = localStorage.getItem(this.storageKey("rank"));
+    if (!raw) {
+      this.rank = 1;
+      this.rankMultiplier = 1.0;
+      this.lifetimeTokens = 0;
+      this.inventory = {};
+      this.purchaseHistory = [];
+      this.computeRank();
+      return;
+    }
+    try {
+      const d = JSON.parse(raw);
+      this.rank = d.rank || 1;
+      this.rankMultiplier = d.rankMultiplier || 1.0;
+      this.lifetimeTokens = d.lifetimeTokens || 0;
+      this.inventory = d.inventory || {};
+      this.purchaseHistory = Array.isArray(d.purchaseHistory) ? d.purchaseHistory : [];
+    } catch (e) {
+      this.rank = 1;
+      this.rankMultiplier = 1.0;
+      this.lifetimeTokens = 0;
+      this.inventory = {};
+      this.purchaseHistory = [];
+    }
+    this.computeRank();
+  },
+  saveRankProfile() {
+    if (!this.address) return;
+    localStorage.setItem(this.storageKey("rank"), JSON.stringify({
+      rank: this.rank,
+      rankMultiplier: this.rankMultiplier,
+      lifetimeTokens: this.lifetimeTokens,
+      inventory: this.inventory,
+      purchaseHistory: this.purchaseHistory,
+    }));
+  },
+  recordPurchase(entry) {
+    if (!this.address) return;
+    this.purchaseHistory.push(entry);
+    this.saveRankProfile();
   },
   loadProfile() {
     if (!this.address) return;
@@ -1894,6 +2062,8 @@ const Wallet = {
     if (!this.unlockedTheaters.includes(this.selectedTheater)) {
       this.selectedTheater = "arctic";
     }
+    this.loadRankProfile();
+    this.syncInventoryFromShop();
     Shop.syncFromWallet();
     TheaterSelect.syncFromWallet();
   },
@@ -1906,6 +2076,7 @@ const Wallet = {
     localStorage.setItem(this.storageKey("shop"), JSON.stringify(this.ownedShop));
     localStorage.setItem(this.storageKey("theaters"), JSON.stringify(this.unlockedTheaters));
     localStorage.setItem(this.storageKey("theater"), this.selectedTheater);
+    this.saveRankProfile();
   },
   persistTicketMint(count) {
     if (!this.address || count <= 0) return;
@@ -1915,7 +2086,11 @@ const Wallet = {
   saveRunStats(score) {
     if (!this.address) return;
     this.highScore = Math.max(this.highScore, score);
-    this.shopCredits += Math.floor(score / 5);
+    const earned = Math.floor(score / 5);
+    this.shopCredits += earned;
+    this.lifetimeTokens += earned;
+    this.computeRank();
+    this.syncInventoryFromShop();
     this.saveProfile();
     this.updateUI();
     Shop.updateUI();
@@ -1923,27 +2098,54 @@ const Wallet = {
   updateUI() {
     const disc = $("walletDisconnected");
     const conn = $("walletConnected");
-    const full = $("walletFullAddr");
+    const handle = $("profileHandle");
     const stats = $("walletBriefStats");
+    const rankEl = $("profileRank");
+    const invEl = $("profileInventory");
+    const purchasesEl = $("profilePurchases");
     const lamp = $("walletStatusLamp");
     const statusText = $("walletStatusText");
     if (this.address) {
       if (disc) disc.style.display = "none";
       if (conn) conn.style.display = "block";
-      if (full) full.textContent = this.address;
+      if (handle) handle.textContent = this.address;
       if (lamp) lamp.classList.add("online");
-      if (statusText) statusText.textContent = "ONLINE / LINKED — SECURED SECURE FIELD";
+      if (statusText) statusText.textContent = "ONLINE / LINKED — SECURE FIELD ACTIVE";
       if (stats) {
         stats.innerHTML =
           `All-time high <span>${this.highScore}</span><br>` +
-          `Tickets <span>${this.allTimeTickets}</span> · Tokens <span>${this.shopCredits}</span>`;
+          `Tickets <span>${this.allTimeTickets}</span> · Tokens <span>${this.shopCredits}</span><br>` +
+          `Lifetime tokens <span>${this.lifetimeTokens}</span>`;
+      }
+      if (rankEl) {
+        rankEl.innerHTML =
+          `Pilot rank <span style="color:var(--teal)">${this.rank}</span> · ` +
+          `Level multiplier <span style="color:var(--teal)">${this.rankMultiplier.toFixed(2)}×</span>`;
+      }
+      if (invEl) {
+        const owned = SHOP_ITEMS.filter((it) => this.ownedShop[it.id]);
+        invEl.innerHTML = owned.length
+          ? owned.map((it) => `<span class="inv-owned">▸ ${it.name}</span>`).join("<br>")
+          : "No armory items equipped.";
+      }
+      if (purchasesEl) {
+        const theaterBuys = this.purchaseHistory.filter((p) => p.type === "theater_unlock");
+        purchasesEl.innerHTML = theaterBuys.length
+          ? theaterBuys.slice(-5).reverse().map((p) =>
+              `${p.name} — ${p.cost} tokens · ${new Date(p.at).toLocaleDateString()}`
+            ).join("<br>")
+          : "No theater unlocks recorded.";
       }
     } else {
       if (disc) disc.style.display = "block";
       if (conn) conn.style.display = "none";
+      if (handle) handle.textContent = "LINK METAMASK TO INITIALIZE DOSSIER";
       if (lamp) lamp.classList.remove("online");
       if (statusText) statusText.textContent = "OFFLINE — AWAITING LINK";
-      if (stats) stats.innerHTML = "Connect wallet to save scores & shop tokens locally.";
+      if (stats) stats.innerHTML = "Connect wallet to save scores, tokens & theater unlocks locally.";
+      if (rankEl) rankEl.textContent = "";
+      if (invEl) invEl.textContent = "No armory items equipped.";
+      if (purchasesEl) purchasesEl.textContent = "No theater unlocks recorded.";
     }
     Shop.updateUI();
     TheaterSelect.render();
@@ -1975,6 +2177,11 @@ const Wallet = {
     this.ownedShop = {};
     this.unlockedTheaters = ["arctic", "sunset", "pacific"];
     this.selectedTheater = "arctic";
+    this.rank = 1;
+    this.rankMultiplier = 1.0;
+    this.lifetimeTokens = 0;
+    this.inventory = {};
+    this.purchaseHistory = [];
     Shop.syncFromWallet();
     TheaterSelect.syncFromWallet();
     this.updateUI();
@@ -2027,6 +2234,7 @@ const Shop = {
     }
     Wallet.shopCredits -= item.cost;
     Wallet.ownedShop[id] = true;
+    Wallet.syncInventoryFromShop();
     Wallet.saveProfile();
     player.health = getPlayerMaxHealth();
     this.updateUI();
@@ -2154,6 +2362,13 @@ const TheaterSelect = {
       Wallet.shopCredits -= t.cost;
       Wallet.unlockedTheaters.push(t.id);
       Wallet.selectedTheater = t.id;
+      Wallet.recordPurchase({
+        type: "theater_unlock",
+        theaterId: t.id,
+        name: t.name,
+        cost: t.cost,
+        at: Date.now(),
+      });
       applyTheater(t.id);
       Wallet.saveProfile();
       Wallet.updateUI();
@@ -2443,6 +2658,109 @@ ocean.rotation.x = -Math.PI / 2;
 ocean.position.y = 0;
 scene.add(ocean);
 
+function buildForestTerrain() {
+  const g = new THREE.Group();
+  g.name = "env-forest";
+  const darkGreen = new THREE.MeshStandardMaterial({ color: 0x1a3a22, roughness: 0.92, metalness: 0.02 });
+  const moss = new THREE.MeshStandardMaterial({ color: 0x2d5a27, roughness: 0.88, metalness: 0.01 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(9800, 9800, 72, 72), moss);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -4;
+  const pos = floor.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) pos.setZ(i, pos.getZ(i) + (Math.random() - 0.5) * 4.2);
+  pos.needsUpdate = true;
+  floor.geometry.computeVertexNormals();
+  g.add(floor);
+  for (let i = 0; i < 540; i++) {
+    const h = 20 + Math.random() * 44;
+    const tree = new THREE.Mesh(new THREE.ConeGeometry(7 + Math.random() * 14, h, 6), Math.random() < 0.45 ? darkGreen : moss);
+    tree.position.set((Math.random() - 0.5) * 8800, h * 0.45, (Math.random() - 0.5) * 8800);
+    g.add(tree);
+  }
+  for (let i = 0; i < 160; i++) {
+    const stump = new THREE.Mesh(new THREE.CylinderGeometry(3 + Math.random() * 5, 5 + Math.random() * 7, 10 + Math.random() * 14, 5), darkGreen);
+    stump.position.set((Math.random() - 0.5) * 8200, 5, (Math.random() - 0.5) * 8200);
+    g.add(stump);
+  }
+  g.visible = false;
+  scene.add(g);
+  return g;
+}
+
+function buildJungleTerrain() {
+  const g = new THREE.Group();
+  g.name = "env-jungle";
+  const canopy = new THREE.MeshStandardMaterial({ color: 0x0a2818, roughness: 0.95, metalness: 0.01 });
+  const vine = new THREE.MeshStandardMaterial({ color: 0x12331f, roughness: 0.9, metalness: 0.01 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(9800, 9800, 56, 56), vine);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -6;
+  g.add(floor);
+  for (let i = 0; i < 720; i++) {
+    const h = 38 + Math.random() * 58;
+    const tree = new THREE.Mesh(new THREE.ConeGeometry(11 + Math.random() * 20, h, 7), Math.random() < 0.55 ? canopy : vine);
+    tree.position.set((Math.random() - 0.5) * 9200, h * 0.42, (Math.random() - 0.5) * 9200);
+    g.add(tree);
+  }
+  for (let i = 0; i < 28; i++) {
+    const mist = new THREE.Mesh(
+      new THREE.PlaneGeometry(420 + Math.random() * 680, 90 + Math.random() * 140),
+      new THREE.MeshBasicMaterial({ color: 0x12331f, transparent: true, opacity: 0.24, depthWrite: false, side: THREE.DoubleSide, fog: true })
+    );
+    mist.position.set((Math.random() - 0.5) * 7200, 36 + Math.random() * 88, (Math.random() - 0.5) * 7200);
+    mist.rotation.x = -Math.PI / 2 + (Math.random() - 0.5) * 0.22;
+    g.add(mist);
+  }
+  g.visible = false;
+  scene.add(g);
+  return g;
+}
+
+function buildMountainTerrain() {
+  const g = new THREE.Group();
+  g.name = "env-mountains";
+  const rock = new THREE.MeshStandardMaterial({ color: 0x5a3828, roughness: 0.82, metalness: 0.08 });
+  const snow = new THREE.MeshStandardMaterial({ color: 0xffcc88, roughness: 0.62, metalness: 0.14, emissive: 0x662808, emissiveIntensity: 0.18 });
+  const peak = new THREE.MeshStandardMaterial({ color: 0x8a5020, roughness: 0.72, metalness: 0.12, emissive: 0x441808, emissiveIntensity: 0.12 });
+  for (let ix = -5; ix <= 5; ix++) {
+    for (let iz = -5; iz <= 5; iz++) {
+      const baseH = 90 + Math.random() * 210;
+      const w = 300 + Math.random() * 240;
+      const mat = Math.random() < 0.38 ? snow : (Math.random() < 0.5 ? peak : rock);
+      const mountain = new THREE.Mesh(new THREE.ConeGeometry(w * 0.58, baseH, 8), mat);
+      mountain.position.set(ix * 480 + (Math.random() - 0.5) * 160, baseH * 0.48 - 10, iz * 480 + (Math.random() - 0.5) * 160);
+      mountain.rotation.y = Math.random() * Math.PI;
+      g.add(mountain);
+      if (Math.random() < 0.72) {
+        const subH = baseH * (0.55 + Math.random() * 0.25);
+        const sub = new THREE.Mesh(new THREE.ConeGeometry(w * 0.38, subH, 6), rock);
+        sub.position.set(mountain.position.x + (Math.random() - 0.5) * 220, subH * 0.44, mountain.position.z + (Math.random() - 0.5) * 220);
+        g.add(sub);
+      }
+    }
+  }
+  const base = new THREE.Mesh(new THREE.PlaneGeometry(9800, 9800), rock);
+  base.rotation.x = -Math.PI / 2;
+  base.position.y = -14;
+  g.add(base);
+  g.visible = false;
+  scene.add(g);
+  return g;
+}
+
+envMeshes.forest = buildForestTerrain();
+envMeshes.jungle = buildJungleTerrain();
+envMeshes.mountains = buildMountainTerrain();
+
+function updateEnvTerrainFollow() {
+  const px = player.mesh.position.x;
+  const pz = player.mesh.position.z;
+  for (const key of ["forest", "jungle", "mountains"]) {
+    const mesh = envMeshes[key];
+    if (mesh && mesh.visible) mesh.position.set(px, 0, pz);
+  }
+}
+
 /* —— Realistic storm rain (≈35% of prior density) —— */
 const RAIN_COUNT = 4480;
 const rainPositions = new Float32Array(RAIN_COUNT * 6);
@@ -2471,13 +2789,14 @@ const rainLines = new THREE.LineSegments(rainGeo, rainMat);
 scene.add(rainLines);
 
 function updateRain(dt) {
-  if (!Settings.rainEnabled) {
+  if (!Settings.rainEnabled || !activeEnv.rain) {
     rainLines.visible = false;
     return;
   }
   const density = G.rainDensity == null ? 1 : G.rainDensity;
+  const rainScale = activeEnv.rainMult || 1;
   rainLines.visible = density > 0.02;
-  rainMat.opacity = 0.28 * density;
+  rainMat.opacity = (activeEnv.rainOpacity || 0.28) * density * Math.min(rainScale, 1.8);
   if (density <= 0.01) return;
   const pos = rainGeo.attributes.position.array;
   const origin = player.mesh.position;
@@ -2487,7 +2806,7 @@ function updateRain(dt) {
   fx /= fl; fz /= fl;
   for (let i = 0; i < RAIN_COUNT; i++) {
     const i6 = i * 6;
-    const fall = rainVel[i] * dt;
+    const fall = rainVel[i] * dt * rainScale;
     pos[i6 + 1] -= fall;
     pos[i6 + 4] -= fall;
     pos[i6] -= fwd.x * player.speed * 0.35 * dt;
@@ -2572,14 +2891,15 @@ function tintStormSurfaces(white) {
     oceanUniforms.uShallow.value.setHex(0xf2f7ff);
     if (skyUniforms) skyUniforms.flash.value = 1.0;
   } else {
-    ambientLight.intensity = 0.55;
-    hemiLight.intensity = 0.55;
-    sun.intensity = 1.15;
-    scene.background.setHex(STORM_BG);
-    scene.fog.color.setHex(STORM_FOG);
-    renderer.setClearColor(STORM_BG, 1);
-    oceanUniforms.uDeep.value.setHex(SEA_DEEP);
-    oceanUniforms.uShallow.value.setHex(0x163d72);
+    const t = THEATERS.find((x) => x.id === activeTheaterId) || THEATERS[0];
+    ambientLight.intensity = _theaterLighting.ambient;
+    hemiLight.intensity = _theaterLighting.hemi;
+    sun.intensity = _theaterLighting.sun;
+    scene.background.setHex(_theaterLighting.bg);
+    scene.fog.color.setHex(_theaterLighting.fog);
+    renderer.setClearColor(_theaterLighting.bg, 1);
+    oceanUniforms.uDeep.value.setHex(t.seaDeep);
+    oceanUniforms.uShallow.value.setHex(t.seaShallow);
     if (skyUniforms) skyUniforms.flash.value = 0.0;
     clearLightningBolts();
   }
@@ -2602,6 +2922,7 @@ function updateThunder(dt) {
     if (G.lightningFrames <= 0) tintStormSurfaces(false);
     else tintStormSurfaces(true);
   }
+  if (!activeEnv.lightning) return;
   if (!G.running || G.paused) return;
   G.thunderT -= dt;
   if (G.thunderT <= 0) {
@@ -2629,8 +2950,6 @@ function resetStormEnvironment() {
   G.thunderT = 6;
   G.lightningFrames = 0;
   applyTheater(Wallet.selectedTheater || "arctic");
-  rainMat.opacity = Settings.rainEnabled ? 0.28 : 0;
-  rainLines.visible = Settings.rainEnabled;
   if (skyUniforms) skyUniforms.flash.value = 0;
 }
 
@@ -4642,6 +4961,7 @@ function isLobbyVisible() {
 
 function updateLobbyViewport(dt) {
   updateStratosphereClouds(dt);
+  updateEnvTerrainFollow();
   updateFleet(dt);
   updateOcean(G.t);
   updateRain(dt);
@@ -5447,6 +5767,7 @@ function frame(ts) {
     updateParticles(dt);
     updateHitFlashes();
     updateStratosphereClouds(dt);
+    updateEnvTerrainFollow();
     updateFleet(dt);
     updateOcean(G.t);
     updateRain(dt);
@@ -5466,6 +5787,7 @@ function frame(ts) {
       updateLobbyViewport(dt);
     } else {
       updateStratosphereClouds(dt);
+      updateEnvTerrainFollow();
       updateOcean(G.t);
       updateFleet(dt);
       updateRain(dt);
