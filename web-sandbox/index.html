@@ -619,6 +619,83 @@
     }
     .btn-engage:active, .btn-redeploy:active { transform: scale(0.98); }
 
+    .end-actions {
+      display: flex; gap: 0.55rem; margin-top: 0.15rem;
+    }
+    .end-actions .btn-redeploy { flex: 1.4; }
+    .btn-home {
+      flex: 1; cursor: pointer;
+      padding: 0.85rem 0.5rem;
+      font-family: var(--display); font-weight: 700;
+      font-size: 0.78rem; letter-spacing: 0.14em;
+      color: var(--cyan);
+      background: transparent;
+      border: 1px solid rgba(92, 225, 255, 0.55);
+      box-shadow: inset 0 0 14px rgba(92, 225, 255, 0.08);
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .btn-home:hover { background: rgba(92, 225, 255, 0.1); border-color: rgba(92, 225, 255, 0.85); }
+    .btn-home:active { transform: scale(0.98); }
+
+    .hud-home-btn {
+      position: absolute; z-index: 11;
+      top: calc(0.55rem + var(--safe-t));
+      left: calc(0.65rem + env(safe-area-inset-left, 0px));
+      padding: 0.32rem 0.65rem;
+      font-family: var(--display); font-size: 0.58rem;
+      letter-spacing: 0.12em; color: var(--cyan);
+      background: rgba(6, 16, 28, 0.55);
+      border: 1px solid rgba(92, 225, 255, 0.4);
+      backdrop-filter: blur(8px);
+      cursor: pointer; pointer-events: auto;
+      display: none;
+    }
+    .hud-home-btn.show { display: block; }
+    .hud-home-btn:active { transform: scale(0.96); }
+
+    .wallet-chip {
+      position: absolute; z-index: 12;
+      top: calc(0.55rem + var(--safe-t));
+      right: calc(0.65rem + env(safe-area-inset-right, 0px));
+      display: none; align-items: center; gap: 0.35rem;
+      padding: 0.28rem 0.55rem;
+      font-family: var(--mono); font-size: 0.58rem;
+      color: var(--teal);
+      background: rgba(6, 16, 28, 0.62);
+      border: 1px solid rgba(61, 255, 168, 0.45);
+      border-radius: 999px;
+      backdrop-filter: blur(10px);
+      pointer-events: auto; cursor: default;
+      box-shadow: 0 0 14px rgba(61, 255, 168, 0.12);
+    }
+    .wallet-chip.show { display: flex; }
+    .wallet-chip .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 8px var(--teal);
+    }
+
+    .btn-wallet {
+      width: 100%; margin-bottom: 0.75rem;
+      padding: 0.62rem 0.85rem;
+      font-family: var(--display); font-weight: 700;
+      font-size: 0.72rem; letter-spacing: 0.12em;
+      color: var(--cyan);
+      background: rgba(92, 225, 255, 0.08);
+      border: 1px solid rgba(92, 225, 255, 0.45);
+      cursor: pointer;
+      clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+      transition: background 0.15s ease;
+    }
+    .btn-wallet:hover { background: rgba(92, 225, 255, 0.16); }
+    .btn-wallet.connected { color: var(--teal); border-color: rgba(61, 255, 168, 0.55); }
+    .wallet-stats {
+      font-family: var(--mono); font-size: 0.62rem;
+      color: var(--muted); margin: -0.35rem 0 0.85rem; line-height: 1.5;
+    }
+    .wallet-stats span { color: var(--teal); }
+
     .pause {
       position: absolute; z-index: 11; top: calc(0.55rem + var(--safe-t)); left: 50%;
       transform: translateX(-50%); width: 34px; height: 34px;
@@ -790,6 +867,11 @@
     </div>
 
     <button class="pause" id="btnPause" type="button" aria-label="Pause">❚❚</button>
+    <button class="hud-home-btn" id="btnHudHome" type="button">HOME</button>
+    <div class="wallet-chip" id="walletChip" title="Connected wallet">
+      <span class="dot"></span>
+      <span id="walletChipAddr">0x0000…0000</span>
+    </div>
     <div class="hint">↑↓ / W·S pitch · A/D bank · SHIFT boost · CTRL brake · HOLD SPACE guns</div>
 
     <div class="fhe-ticker" id="fheTicker" aria-live="polite"></div>
@@ -846,6 +928,8 @@
           <li><strong>Inco FHE:</strong> Enemies stay encrypted until inside your 150m reveal field</li>
           <li><strong>Survive:</strong> Scout → Escort → Megapot Flagship Boss Duel</li>
         </ul>
+        <button class="btn-wallet" id="btnWalletBrief" type="button">LINK DUAL NET · METAMASK</button>
+        <div class="wallet-stats" id="walletBriefStats"></div>
         <button class="btn-engage" id="btnEngage" type="button">ENGAGE</button>
       </div>
     </div>
@@ -859,7 +943,10 @@
           Megapot tickets earned <span id="failTickets">0</span><br />
           Base chips <span id="failChips">0</span> · Level <span id="failWave">1</span>
         </div>
-        <button class="btn-redeploy" id="btnRedeployFail" type="button">REDEPLOY COMBAT FLEET</button>
+        <div class="end-actions">
+          <button class="btn-home" id="btnHomeFail" type="button">HOME</button>
+          <button class="btn-redeploy" id="btnRedeployFail" type="button">REDEPLOY COMBAT FLEET</button>
+        </div>
       </div>
     </div>
 
@@ -872,7 +959,10 @@
           Megapot tickets earned <span id="winTickets">0</span><br />
           Live odds <span id="winOdds">0.000%</span>
         </div>
-        <button class="btn-redeploy" id="btnRedeployWin" type="button">REDEPLOY COMBAT FLEET</button>
+        <div class="end-actions">
+          <button class="btn-home" id="btnHomeWin" type="button">HOME</button>
+          <button class="btn-redeploy" id="btnRedeployWin" type="button">REDEPLOY COMBAT FLEET</button>
+        </div>
       </div>
     </div>
   </div>
@@ -998,6 +1088,111 @@ const Settings = {
 };
 Settings.load();
 
+/* —— MetaMask wallet profile + localStorage persistence —— */
+const Wallet = {
+  address: null,
+  highScore: 0,
+  allTimeTickets: 0,
+  shortAddr(addr) {
+    if (!addr || addr.length < 10) return "0x0000…0000";
+    return addr.slice(0, 6) + "…" + addr.slice(-4);
+  },
+  storageKey(suffix) {
+    return this.address.toLowerCase() + "_" + suffix;
+  },
+  loadProfile() {
+    if (!this.address) return;
+    const hs = localStorage.getItem(this.storageKey("highscore"));
+    const tix = localStorage.getItem(this.storageKey("tickets"));
+    this.highScore = hs ? parseInt(hs, 10) || 0 : 0;
+    this.allTimeTickets = tix ? parseInt(tix, 10) || 0 : 0;
+  },
+  saveRunStats(score, sessionTickets) {
+    if (!this.address) return;
+    this.highScore = Math.max(this.highScore, score);
+    this.allTimeTickets += sessionTickets;
+    localStorage.setItem(this.storageKey("highscore"), String(this.highScore));
+    localStorage.setItem(this.storageKey("tickets"), String(this.allTimeTickets));
+    this.updateUI();
+  },
+  updateUI() {
+    const chip = $("walletChip");
+    const chipAddr = $("walletChipAddr");
+    const briefBtn = $("btnWalletBrief");
+    const briefStats = $("walletBriefStats");
+    if (this.address) {
+      chip.classList.add("show");
+      chipAddr.textContent = this.shortAddr(this.address);
+      if (briefBtn) {
+        briefBtn.textContent = this.shortAddr(this.address);
+        briefBtn.classList.add("connected");
+      }
+      if (briefStats) {
+        briefStats.innerHTML =
+          `All-time high score <span>${this.highScore}</span> · Megapot tickets <span>${this.allTimeTickets}</span>`;
+      }
+    } else {
+      chip.classList.remove("show");
+      if (briefBtn) {
+        briefBtn.textContent = "LINK DUAL NET · METAMASK";
+        briefBtn.classList.remove("connected");
+      }
+      if (briefStats) briefStats.innerHTML = "";
+    }
+  },
+  async connect() {
+    if (!window.ethereum) {
+      showPop("METAMASK NOT DETECTED");
+      return false;
+    }
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      if (!accounts || !accounts.length) return false;
+      this.address = accounts[0];
+      this.loadProfile();
+      this.updateUI();
+      showPop("WALLET LINKED — " + this.shortAddr(this.address));
+      return true;
+    } catch (err) {
+      showPop("WALLET CONNECTION DENIED");
+      return false;
+    }
+  },
+  async tryReconnect() {
+    if (!window.ethereum) return;
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_accounts" });
+      if (accounts && accounts.length) {
+        this.address = accounts[0];
+        this.loadProfile();
+        this.updateUI();
+      }
+    } catch (_) { /* silent */ }
+  },
+  bindEvents() {
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", (accounts) => {
+        if (accounts && accounts.length) {
+          this.address = accounts[0];
+          this.loadProfile();
+        } else {
+          this.address = null;
+          this.highScore = 0;
+          this.allTimeTickets = 0;
+        }
+        this.updateUI();
+      });
+    }
+    $("btnWalletBrief").addEventListener("click", () => {
+      if (this.address) return;
+      SFX.resume();
+      this.connect();
+    });
+  },
+};
+Wallet.bindEvents();
+Wallet.tryReconnect();
+
 /* —— Overcast WWII battlefield lighting —— */
 const ambientLight = new THREE.AmbientLight(0xb0b4b8, 0.55);
 scene.add(ambientLight);
@@ -1065,7 +1260,93 @@ let skyUniforms = null;
   scene.add(new THREE.Mesh(new THREE.SphereGeometry(6000, 32, 20), skyMat));
 })();
 
-/* Cloud meshes removed — clean storm sky for crisp horizon visibility */
+/* Wispy high-altitude cirrus/stratus backdrop — far above combat lane */
+function makeCirrusTexture() {
+  const c = document.createElement("canvas");
+  c.width = 512; c.height = 128;
+  const g = c.getContext("2d");
+  g.clearRect(0, 0, 512, 128);
+  for (let i = 0; i < 12; i++) {
+    const x = Math.random() * 480;
+    const y = 40 + Math.random() * 48;
+    const w = 120 + Math.random() * 280;
+    const h = 8 + Math.random() * 22;
+    const grd = g.createLinearGradient(x, y, x + w, y);
+    grd.addColorStop(0, "rgba(255,255,255,0)");
+    grd.addColorStop(0.25, "rgba(240,248,255,0.35)");
+    grd.addColorStop(0.55, "rgba(255,255,255,0.55)");
+    grd.addColorStop(0.75, "rgba(230,240,255,0.28)");
+    grd.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = grd;
+    g.beginPath();
+    g.ellipse(x + w * 0.5, y, w * 0.5, h, 0, 0, Math.PI * 2);
+    g.fill();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+const cirrusTex = makeCirrusTexture();
+const stratClouds = [];
+(function buildStratosphereClouds() {
+  for (let i = 0; i < 28; i++) {
+    const layer = new THREE.Group();
+    const strips = 2 + (i % 3);
+    for (let j = 0; j < strips; j++) {
+      const mat = new THREE.MeshBasicMaterial({
+        map: cirrusTex,
+        transparent: true,
+        opacity: 0.05 + Math.random() * 0.07,
+        depthWrite: false,
+        depthTest: false,
+        fog: false,
+        side: THREE.DoubleSide,
+      });
+      const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(1400 + Math.random() * 900, 60 + Math.random() * 90),
+        mat
+      );
+      plane.rotation.x = -Math.PI / 2;
+      plane.rotation.z = (Math.random() - 0.5) * 0.35;
+      plane.position.set(
+        (Math.random() - 0.5) * 400,
+        j * 18,
+        (Math.random() - 0.5) * 300
+      );
+      plane.renderOrder = -300;
+      layer.add(plane);
+    }
+    layer.position.set(
+      (Math.random() - 0.5) * 4500,
+      420 + Math.random() * 220,
+      (Math.random() - 0.5) * 4500
+    );
+    layer.renderOrder = -300;
+    scene.add(layer);
+    stratClouds.push({
+      mesh: layer,
+      speed: 6 + Math.random() * 14,
+      driftZ: (Math.random() - 0.5) * 4,
+    });
+  }
+})();
+
+function updateStratosphereClouds(dt) {
+  const px = player.mesh.position.x;
+  const pz = player.mesh.position.z;
+  for (const c of stratClouds) {
+    c.mesh.position.x += c.speed * dt;
+    c.mesh.position.z += c.driftZ * dt;
+    if (c.mesh.position.x > px + 2600) {
+      c.mesh.position.x = px - 2600;
+      c.mesh.position.z = pz + (Math.random() - 0.5) * 2400;
+    } else if (c.mesh.position.x < px - 2600) {
+      c.mesh.position.x = px + 2600;
+    }
+  }
+}
+
 const oceanUniforms = {
   uTime: { value: 0 },
   uDeep: { value: new THREE.Color(SEA_DEEP) },
@@ -3107,6 +3388,7 @@ function missionFailed() {
   const fc = $("failChips");
   if (fc) fc.textContent = String(G.chips);
   $("failWave").textContent = String(G.waveIndex + 1);
+  Wallet.saveRunStats(G.score, G.tickets);
   setTimeout(() => $("endFail").classList.remove("hidden"), 600);
 }
 
@@ -3120,6 +3402,7 @@ function missionComplete() {
   $("winScore").textContent = String(G.score);
   $("winTickets").textContent = String(G.tickets);
   $("winOdds").textContent = odds.toFixed(3) + "%";
+  Wallet.saveRunStats(G.score, G.tickets);
   // Gold celebration burst
   for (let i = 0; i < 3; i++) {
     setTimeout(() => explode(
@@ -3206,10 +3489,7 @@ function updateWaves(dt) {
   }
 }
 
-function redeploy() {
-  $("endFail").classList.add("hidden");
-  $("endWin").classList.add("hidden");
-  $("brief").classList.add("hidden");
+function resetGameState() {
   clearEntities();
   resetStormEnvironment();
   Settings.applyUI();
@@ -3221,6 +3501,7 @@ function redeploy() {
   player.roll = 0;
   player.yaw = 0;
   player.speed = BASE_SPEED;
+  player.smokeAcc = 0;
   G.score = 0;
   G.tickets = 0;
   G.chips = 0;
@@ -3228,16 +3509,47 @@ function redeploy() {
   G.heat = 0;
   G.overheated = false;
   G.thunderT = 6;
+  G.lightningFrames = 0;
   G.tickerLines = [];
   G.tickerAcc = 0;
+  G.running = false;
+  G.paused = false;
+  G.victoryEnv = { active: false, t: 0, duration: 4.5 };
+  G.trackAssist = false;
+  G.trackLook = null;
+  camShake.t = 0;
   const ticker = $("fheTicker");
   if (ticker) ticker.innerHTML = "";
+  $("pop").classList.remove("show");
+  $("levelAlert").classList.remove("show");
+  $("overheatBanner").classList.remove("show");
+  SFX.setLock(false);
+  SFX.setEngine(0, false);
+}
+
+function goHome() {
+  $("endFail").classList.add("hidden");
+  $("endWin").classList.add("hidden");
+  resetGameState();
+  destroyNavalFleet();
+  $("btnPause").classList.remove("show");
+  $("btnHudHome").classList.remove("show");
+  $("brief").classList.remove("hidden");
+  Wallet.updateUI();
+  updateHUD();
+}
+
+function redeploy() {
+  $("endFail").classList.add("hidden");
+  $("endWin").classList.add("hidden");
+  $("brief").classList.add("hidden");
+  resetGameState();
+  respawnNavalFleet();
   G.running = true;
   G.paused = false;
-  respawnNavalFleet();
-  SFX.setLock(false);
   SFX.setEngine(90, true);
   $("btnPause").classList.add("show");
+  $("btnHudHome").classList.add("show");
   $("btnPause").textContent = "❚❚";
   startWave(0);
   updateHUD();
@@ -4013,6 +4325,7 @@ function frame(ts) {
     updateRelics(dt);
     updateParticles(dt);
     updateHitFlashes();
+    updateStratosphereClouds(dt);
     updateFleet(dt);
     updateOcean(G.t);
     updateRain(dt);
@@ -4028,6 +4341,7 @@ function frame(ts) {
     updateParticles(dt);
     updateHitFlashes();
     updateVictoryEnvironment(dt);
+    updateStratosphereClouds(dt);
     updateOcean(G.t);
     updateFleet(dt);
     updateRain(dt);
@@ -4156,12 +4470,14 @@ $("btnEngage").addEventListener("click", () => {
   SFX.resume();
   $("brief").classList.add("hidden");
   $("btnPause").classList.add("show");
+  $("btnHudHome").classList.add("show");
   G.running = true;
   G.paused = false;
   G.chips = 0;
   G.tickerLines = [];
   G.tickerAcc = 0;
   G.thunderT = 6;
+  respawnNavalFleet();
   startWave(0);
   updateHUD();
   SFX.setEngine(BASE_SPEED, true);
@@ -4170,6 +4486,9 @@ $("btnEngage").addEventListener("click", () => {
 
 $("btnRedeployFail").addEventListener("click", () => { SFX.resume(); redeploy(); });
 $("btnRedeployWin").addEventListener("click", () => { SFX.resume(); redeploy(); });
+$("btnHomeFail").addEventListener("click", () => { SFX.resume(); goHome(); });
+$("btnHomeWin").addEventListener("click", () => { SFX.resume(); goHome(); });
+$("btnHudHome").addEventListener("click", () => { SFX.resume(); goHome(); });
 
 $("btnPause").addEventListener("click", () => {
   if (player.dead) return;
