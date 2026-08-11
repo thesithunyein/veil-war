@@ -159,6 +159,7 @@
     .lockbox {
       position: absolute; width: 46px; height: 46px; margin: -23px 0 0 -23px;
       border: 2px solid #39ff8a; box-shadow: 0 0 10px rgba(57, 255, 138, 0.5);
+      transform-origin: center center;
       animation: boxflash 0.35s step-end infinite;
     }
     .lockbox .dist {
@@ -538,6 +539,7 @@
       border: 2px solid #ff2244;
       box-shadow: 0 0 16px rgba(255, 34, 68, 0.95), inset 0 0 12px rgba(255, 40, 70, 0.35);
       transform: rotate(45deg);
+      transform-origin: center center;
       pointer-events: none;
       animation: bracketPulse 0.45s ease-in-out infinite;
     }
@@ -735,7 +737,7 @@ import * as THREE from "three";
  * ============================================================================ */
 
 const CIRC = 4200;
-const DETECT_RANGE = 280;
+const DETECT_RANGE = 520;
 const FHE_REVEAL = 150; // Inco FHE local tracking field
 const LOCK_FOV = Math.PI * 0.55;
 const CHIPS_PER_TICKET = 3;
@@ -1731,17 +1733,17 @@ function makeFlagship() {
 
 /* —— Vapor trail ribbon pool —— */
 const vaporPool = [];
-const VAPOR_MAX = 420;
+const VAPOR_MAX = 720;
 function allocVapor() {
   let m = vaporPool.pop();
   if (!m) {
     m = new THREE.Mesh(
-      new THREE.SphereGeometry(0.28, 4, 4),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false })
+      new THREE.SphereGeometry(0.45, 5, 5),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false })
     );
   }
   m.visible = true;
-  m.material.opacity = 0.55;
+  m.material.opacity = 0.65;
   m.material.color.setHex(0xffffff);
   m.scale.set(1, 1, 1);
   return m;
@@ -1755,31 +1757,31 @@ function freeVapor(m) {
 function emitVapor(jet, intensity) {
   const tips = jet.userData.wingTips;
   if (!tips || !tips.length) return;
-  const dens = Math.max(0.35, intensity);
-  // Model nose is +X in local space
+  const dens = Math.max(0.55, intensity);
   const fwd = new THREE.Vector3(1, 0, 0).applyQuaternion(jet.quaternion);
   for (const tip of tips) {
-    for (let L = 0; L < 3; L++) {
-      if (Math.random() > dens * 0.95) continue;
+    // Longer, brighter ribbons so distant interceptors stay readable
+    for (let L = 0; L < 5; L++) {
+      if (Math.random() > dens * 0.98) continue;
       const wp = new THREE.Vector3();
       tip.getWorldPosition(wp);
-      wp.x += (Math.random() - 0.5) * 0.4;
-      wp.y += (Math.random() - 0.5) * 0.35 + L * 0.08;
-      wp.z += (Math.random() - 0.5) * 0.4;
+      wp.x += (Math.random() - 0.5) * 0.35;
+      wp.y += (Math.random() - 0.5) * 0.3 + L * 0.12;
+      wp.z += (Math.random() - 0.5) * 0.35;
       const m = allocVapor();
       m.position.copy(wp);
-      const stretch = 1.2 + L * 0.8 + dens * 1.5;
-      m.scale.set(0.35 + dens * 0.2, 0.35 + dens * 0.2, stretch);
-      m.material.opacity = 0.35 + dens * 0.25 - L * 0.06;
+      const stretch = 2.2 + L * 1.1 + dens * 2.4;
+      m.scale.set(0.7 + dens * 0.55, 0.7 + dens * 0.55, stretch);
+      m.material.opacity = 0.55 + dens * 0.3 - L * 0.04;
       scene.add(m);
-      const back = fwd.clone().multiplyScalar(-(4 + dens * 10 + L * 3));
-      back.x += (Math.random() - 0.5) * 1.5;
-      back.y += (Math.random() - 0.5) * 1.2;
+      const back = fwd.clone().multiplyScalar(-(8 + dens * 16 + L * 5));
+      back.x += (Math.random() - 0.5) * 1.2;
+      back.y += 0.4 + (Math.random() - 0.5) * 1.0;
       G.particles.push({
         mesh: m,
         vel: back,
         life: 1,
-        decay: 0.012 + Math.random() * 0.01,
+        decay: 0.006 + Math.random() * 0.006,
         smoke: true,
         vapor: true,
       });
@@ -2023,14 +2025,14 @@ function syncPlayerMesh() {
 function spawnAwayFromPlayer(minR, maxR, frontal) {
   const fwd = getPlayerForward(new THREE.Vector3());
   const base = Math.atan2(fwd.x, fwd.z);
-  // Strict 60° frontal cone ahead of the nose
-  const spread = frontal ? (Math.PI * 60) / 180 : (Math.PI * 60) / 180;
+  // Frontal cone on the far horizon
+  const spread = frontal ? (Math.PI * 50) / 180 : (Math.PI * 50) / 180;
   const ang = base + (Math.random() - 0.5) * spread;
-  const dist = (minR || 100) + Math.random() * ((maxR || 200) - (minR || 100));
+  const dist = (minR || 350) + Math.random() * ((maxR || 500) - (minR || 350));
   const py = player.mesh.position.y;
   return {
     x: player.mesh.position.x + Math.sin(ang) * dist,
-    y: THREE.MathUtils.clamp(py + (Math.random() - 0.5) * 12, Math.max(60, py - 14), Math.min(230, py + 14)),
+    y: THREE.MathUtils.clamp(py + (Math.random() - 0.5) * 16, Math.max(65, py - 18), Math.min(230, py + 18)),
     z: player.mesh.position.z + Math.cos(ang) * dist,
   };
 }
@@ -2187,8 +2189,8 @@ function awardKill(worldPos, pts, ticketAmt) {
 
 /* —— Combat entities —— */
 function spawnEnemy(opts) {
-  // Spawn just outside FHE veil so chase quickly reveals them in the sky
-  const p = spawnAwayFromPlayer(100, 200, true);
+  // Materialize on the far horizon ahead of the nose
+  const p = spawnAwayFromPlayer(350, 500, true);
   const reinforced = !!(opts && opts.reinforced);
   const mesh = makeEnemyCraft(reinforced);
   mesh.position.set(p.x, p.y, p.z);
@@ -2204,15 +2206,18 @@ function spawnEnemy(opts) {
     maxHp: hp,
     speed: (opts && opts.speed) || 225,
     bank: (Math.random() - 0.5) * 0.35,
-    fireCD: 0.4 + Math.random() * 0.8,
-    mode: "weave",
+    fireCD: 0.8 + Math.random() * 1.2,
+    mode: "approach",
     phaseT: 0,
     peelSide: side,
     orbitSide: side,
     passDir: null,
     formSlot: (Math.random() - 0.5) * 2,
-    formDist: 110 + Math.random() * 70,
+    formDist: 360 + Math.random() * 120,
     wavePhase: Math.random() * Math.PI * 2,
+    breakT: 0,
+    breakDir: null,
+    breakTarget: null,
     reinforced,
     revealed: true,
   });
@@ -2222,7 +2227,7 @@ function spawnEnemy(opts) {
 function spawnBoss() {
   G.bossPhase = true;
   const mesh = makeFlagship();
-  const p = spawnAwayFromPlayer(140, 200, true);
+  const p = spawnAwayFromPlayer(400, 500, true);
   mesh.position.set(p.x, p.y, p.z);
   const toP = player.mesh.position.clone().sub(mesh.position).normalize();
   mesh.lookAt(mesh.position.clone().add(toP));
@@ -2526,17 +2531,17 @@ function enemyFirePlasma(e, fromBehind) {
   const dir = player.mesh.position.clone().sub(origin).normalize();
   const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
   if (right.lengthSq() < 0.01) right.set(1, 0, 0);
-  // Twin bright-red retaliatory tracers
+  // Long-range twin red tracers
   for (const side of [-1, 1]) {
-    const o = origin.clone().addScaledVector(dir, 8).addScaledVector(right, side * 3.5);
-    fireRedTracer(o, dir, 85);
+    const o = origin.clone().addScaledVector(dir, 10).addScaledVector(right, side * 4.0);
+    fireRedTracer(o, dir, 140);
     const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.4, 5, 5),
+      new THREE.SphereGeometry(0.45, 5, 5),
       new THREE.MeshBasicMaterial({ color: 0xff2244 })
     );
     mesh.position.copy(o);
     scene.add(mesh);
-    G.plasma.push({ mesh, vel: dir.clone().multiplyScalar(220), life: 2.0 });
+    G.plasma.push({ mesh, vel: dir.clone().multiplyScalar(260), life: 2.6 });
   }
   if (fromBehind) pulseThreat();
 }
@@ -2816,7 +2821,7 @@ function updateLockHUD() {
   for (const e of candidates) {
     const to = e.mesh.position.clone().sub(player.mesh.position);
     const dist = to.length();
-    if (dist > 600) continue;
+    if (dist > 560) continue;
     e.revealed = true;
     e.mesh.visible = true;
     to.normalize();
@@ -2824,17 +2829,28 @@ function updateLockHUD() {
     const scr = projectToScreen(e.mesh.position);
     const onScreen =
       scr.z > -1 && scr.z < 1 &&
-      scr.x > -20 && scr.x < innerWidth + 20 &&
-      scr.y > -20 && scr.y < innerHeight + 20;
+      scr.x > -40 && scr.x < innerWidth + 40 &&
+      scr.y > -40 && scr.y < innerHeight + 40;
 
-    // Bold neon-red diamond on every front-FOV contact
-    if (onScreen && (dot > -0.15 || scr.z < 1)) {
+    // Distance-scaled brackets — tiny on the horizon, grow as they close
+    const hudScale = THREE.MathUtils.clamp(
+      THREE.MathUtils.mapLinear(dist, 70, 500, 1.45, 0.26),
+      0.26, 1.45
+    );
+    const tagSize = THREE.MathUtils.clamp(
+      THREE.MathUtils.mapLinear(dist, 70, 500, 0.62, 0.38),
+      0.38, 0.62
+    );
+
+    if (onScreen && dot > -0.05) {
       const br = document.createElement("div");
       br.className = "target-bracket" + (e === G.boss ? " boss" : "");
       br.style.left = scr.x + "px";
       br.style.top = scr.y + "px";
+      br.style.transform = `rotate(45deg) scale(${hudScale})`;
       const tag = document.createElement("div");
       tag.className = "tag";
+      tag.style.fontSize = tagSize + "rem";
       tag.textContent = Math.round(dist) + "m";
       br.appendChild(tag);
       layer.appendChild(br);
@@ -2850,8 +2866,10 @@ function updateLockHUD() {
     box.className = "lockbox";
     box.style.left = scr.x + "px";
     box.style.top = scr.y + "px";
+    box.style.transform = `scale(${hudScale})`;
     const d = document.createElement("div");
     d.className = "dist";
+    d.style.fontSize = tagSize + "rem";
     d.textContent = "AUTO-AIM";
     box.appendChild(d);
     layer.appendChild(box);
@@ -2859,17 +2877,23 @@ function updateLockHUD() {
 
   if (best) {
     const scr = projectToScreen(best.mesh.position);
+    const dist = best.mesh.position.distanceTo(player.mesh.position);
+    const aimScale = THREE.MathUtils.clamp(
+      THREE.MathUtils.mapLinear(dist, 70, 500, 1.2, 0.35),
+      0.35, 1.2
+    );
     const aim = document.createElement("div");
     aim.className = "aim-ring";
     aim.style.left = scr.x + "px";
     aim.style.top = scr.y + "px";
+    aim.style.transform = `scale(${aimScale})`;
     layer.appendChild(aim);
   }
 
   G.lockTarget = best;
   $("cross").classList.toggle("locked", !!best);
   $("cross").classList.toggle("aim", !!best);
-  $("cross").classList.toggle("tracking", isTrackHeld() && !!nearestThreat(400));
+  $("cross").classList.toggle("tracking", isTrackHeld() && !!nearestThreat(520));
   SFX.setLock(!!best && G.running && !player.dead);
 }
 
@@ -3067,7 +3091,7 @@ function updateCamera(dt) {
   camera.rotateZ(-player.roll * (threat ? 0.75 : 1.05));
 }
 
-/** Front-hemisphere weave — stay in a 60° cone 100–200m ahead and sashay across the crosshairs */
+/** Long-range intercept: approach from horizon → strafe → breakaway climb */
 function steerDogfight(e, dt, isBoss) {
   const playerPos = player.mesh.position;
   const playerFwd = getPlayerForward(new THREE.Vector3());
@@ -3078,60 +3102,116 @@ function steerDogfight(e, dt, isBoss) {
 
   e.phaseT = (e.phaseT || 0) + dt;
   if (e.formSlot == null) e.formSlot = (Math.random() - 0.5) * 2;
-  if (e.formDist == null) e.formDist = isBoss ? 160 : 110 + Math.random() * 70;
+  if (e.formDist == null) e.formDist = isBoss ? 420 : 360 + Math.random() * 120;
   if (e.wavePhase == null) e.wavePhase = Math.random() * Math.PI * 2;
-  e.wavePhase += dt * (isBoss ? 0.9 : 1.35 + Math.abs(e.formSlot) * 0.25);
-  e.mode = "weave";
+  if (e.orbitSide == null) e.orbitSide = e.peelSide || (Math.random() < 0.5 ? 1 : -1);
+  e.wavePhase += dt * (isBoss ? 0.55 : 0.75);
 
-  // Lateral weave inside ±30° of nose (60° total cone)
-  const halfCone = Math.PI / 6;
-  const weave = Math.sin(e.wavePhase) * (0.55 + Math.abs(e.formSlot) * 0.35);
-  const lat = THREE.MathUtils.clamp(weave, -1, 1) * halfCone;
-  const targetDir = playerFwd.clone()
-    .multiplyScalar(Math.cos(lat))
-    .addScaledVector(_right, Math.sin(lat))
-    .normalize();
-
-  const range = THREE.MathUtils.clamp(
-    e.formDist + Math.sin(e.wavePhase * 0.55) * 18,
-    isBoss ? 140 : 100,
-    isBoss ? 210 : 200
-  );
-  const altBob = Math.sin(e.wavePhase * 1.25 + e.formSlot) * (isBoss ? 10 : 7);
-  const target = playerPos.clone()
-    .addScaledVector(targetDir, range)
-    .add(new THREE.Vector3(0, altBob, 0));
-  target.y = playerPos.y + altBob;
-
-  const desired = target.sub(e.mesh.position);
-  let dist = desired.length();
-  if (dist > 0.001) desired.multiplyScalar(1 / dist);
-  else desired.copy(playerFwd);
-
-  const spd = Math.max(e.speed, player.speed * (isBoss ? 0.98 : 1.04));
-  e.mesh.position.addScaledVector(desired, spd * (dist > 35 ? 1.55 : 0.95) * dt);
-
-  // Hard clamp into frontal sector — never behind / extreme flanks / too close/far
-  const toE = e.mesh.position.clone().sub(playerPos);
-  const flat = Math.hypot(toE.x, toE.z);
-  const toEn = flat > 0.001 ? toE.clone().divideScalar(Math.max(flat, 0.001)) : playerFwd.clone();
-  // Use 3D direction for ahead test
-  const ahead = playerFwd.dot(toE.clone().normalize());
-  const minAhead = Math.cos(halfCone);
-  if (ahead < minAhead || flat < 95 || flat > 210) {
-    const snap = playerPos.clone()
-      .addScaledVector(playerFwd, THREE.MathUtils.clamp(e.formDist, 120, 170))
-      .addScaledVector(_right, Math.sin(e.wavePhase) * 48);
-    snap.y = playerPos.y + altBob;
-    e.mesh.position.lerp(snap, 1 - Math.exp(-5.5 * dt));
+  let dist = e.mesh.position.distanceTo(playerPos);
+  if (!e.mode || e.mode === "weave" || e.mode === "chase" || e.mode === "swarm" || e.mode === "pass") {
+    e.mode = "approach";
   }
-  e.mesh.position.y = THREE.MathUtils.damp(e.mesh.position.y, playerPos.y + altBob, 8, dt);
-  e.mesh.position.y = THREE.MathUtils.clamp(e.mesh.position.y, 55, 240);
 
-  // Face mostly toward player so red silhouette reads in the reticle
-  const face = playerPos.clone().sub(e.mesh.position).normalize();
-  e.mesh.lookAt(e.mesh.position.clone().add(face));
-  e.mesh.rotateY(Math.PI / 2);
+  // Inside 80m — steep banking breakaway into the clouds, then reset on the horizon
+  if (dist < 80 && e.mode !== "breakaway") {
+    e.mode = "breakaway";
+    e.breakT = 0;
+    e.breakDir = playerFwd.clone()
+      .multiplyScalar(-0.15)
+      .add(new THREE.Vector3(0, 1.35, 0))
+      .addScaledVector(_right, e.orbitSide * 1.05)
+      .normalize();
+    e.breakTarget = spawnAwayFromPlayer(380, 500, true);
+  }
+
+  const desired = new THREE.Vector3();
+
+  if (e.mode === "breakaway") {
+    e.breakT = (e.breakT || 0) + dt;
+    if (e.breakT < 1.35) {
+      desired.copy(e.breakDir || new THREE.Vector3(0, 1, 0));
+      e.mesh.position.addScaledVector(desired, Math.max(e.speed, player.speed) * 1.75 * dt);
+      e.mesh.position.y += 110 * dt;
+    } else {
+      const dest = new THREE.Vector3(
+        e.breakTarget.x,
+        Math.max(e.breakTarget.y, playerPos.y + 25),
+        e.breakTarget.z
+      );
+      desired.copy(dest).sub(e.mesh.position);
+      const dLen = desired.length();
+      if (dLen > 0.001) desired.multiplyScalar(1 / dLen);
+      e.mesh.position.addScaledVector(desired, Math.max(e.speed, player.speed) * 1.6 * dt);
+      if (dLen < 55 || e.breakT > 5) {
+        e.mesh.position.set(e.breakTarget.x, e.breakTarget.y, e.breakTarget.z);
+        e.mode = "approach";
+        e.formDist = 360 + Math.random() * 120;
+        e.breakT = 0;
+        e.orbitSide *= -1;
+      }
+    }
+  } else if (dist < 320) {
+    // Tactical strafe pocket — hold ~200–280m with wide curves
+    e.mode = "strafe";
+    const hold = THREE.MathUtils.clamp(220 + Math.sin(e.wavePhase * 0.6) * 35, 200, 300);
+    const lat = Math.sin(e.wavePhase) * (Math.PI / 5) * (0.55 + Math.abs(e.formSlot) * 0.25);
+    const targetDir = playerFwd.clone()
+      .multiplyScalar(Math.cos(lat))
+      .addScaledVector(_right, Math.sin(lat))
+      .normalize();
+    const target = playerPos.clone()
+      .addScaledVector(targetDir, hold)
+      .addScaledVector(_right, Math.sin(e.wavePhase * 1.1) * 55)
+      .add(new THREE.Vector3(0, Math.sin(e.wavePhase * 0.9) * 14, 0));
+    target.y = playerPos.y + Math.sin(e.wavePhase * 0.9) * 14;
+    desired.copy(target).sub(e.mesh.position);
+    const dLen = desired.length();
+    if (dLen > 0.001) desired.multiplyScalar(1 / dLen);
+    const spd = Math.max(e.speed, player.speed * 0.98);
+    e.mesh.position.addScaledVector(desired, spd * (dLen > 40 ? 1.25 : 0.9) * dt);
+  } else {
+    // Close from far horizon on a wide tactical curve
+    e.mode = "approach";
+    const hold = THREE.MathUtils.clamp(
+      e.formDist - e.phaseT * 18,
+      isBoss ? 240 : 220,
+      isBoss ? 480 : 500
+    );
+    const lat = Math.sin(e.wavePhase * 0.7 + e.formSlot) * (Math.PI / 6);
+    const targetDir = playerFwd.clone()
+      .multiplyScalar(Math.cos(lat))
+      .addScaledVector(_right, Math.sin(lat))
+      .normalize();
+    const target = playerPos.clone()
+      .addScaledVector(targetDir, hold)
+      .addScaledVector(_right, Math.sin(e.wavePhase * 0.5) * 70);
+    target.y = playerPos.y + Math.sin(e.wavePhase * 0.8) * 12;
+    desired.copy(target).sub(e.mesh.position);
+    const dLen = desired.length();
+    if (dLen > 0.001) desired.multiplyScalar(1 / dLen);
+    const spd = Math.max(e.speed, player.speed * 0.92);
+    e.mesh.position.addScaledVector(desired, spd * 1.15 * dt);
+  }
+
+  // Keep frontal — if they slip behind, kick them back to the horizon
+  dist = e.mesh.position.distanceTo(playerPos);
+  const toE = e.mesh.position.clone().sub(playerPos);
+  if (toE.lengthSq() > 0.001) {
+    const ahead = playerFwd.dot(toE.normalize());
+    if (ahead < 0.15 && e.mode !== "breakaway") {
+      const p = spawnAwayFromPlayer(380, 500, true);
+      e.mesh.position.set(p.x, p.y, p.z);
+      e.mode = "approach";
+      e.formDist = 380 + Math.random() * 100;
+    }
+  }
+
+  e.mesh.position.y = THREE.MathUtils.clamp(e.mesh.position.y, 50, 280);
+  const face = playerPos.clone().sub(e.mesh.position);
+  if (face.lengthSq() > 0.001) {
+    e.mesh.lookAt(e.mesh.position.clone().add(face.normalize()));
+    e.mesh.rotateY(Math.PI / 2);
+  }
 
   return e.mesh.position.distanceTo(playerPos);
 }
@@ -3143,28 +3223,27 @@ function updateEnemies(dt) {
   for (let i = G.enemies.length - 1; i >= 0; i--) {
     const e = G.enemies[i];
     const dist = steerDogfight(e, dt, false);
-    if (e.revealed) {
-      pulsePlumes(e.mesh, e.mode === "pass" ? 1.1 : 0.75, dt);
-      emitVapor(e.mesh, e.mode === "pass" ? 0.85 : 0.55);
-    }
+    // Bright long vapor ribbons — especially readable at horizon range
+    const vaporStrength = e.mode === "breakaway" ? 1.55 : dist > 280 ? 1.45 : 1.15;
+    pulsePlumes(e.mesh, e.mode === "strafe" ? 1.0 : 0.8, dt);
+    emitVapor(e.mesh, vaporStrength);
 
     const toEnemy = e.mesh.position.clone().sub(player.mesh.position).normalize();
     const ahead = playerFwd.dot(toEnemy);
     const behind = ahead < -0.25;
     e.fireCD -= dt;
 
-    // Always visible — spray red plasma inside 150m
-    if (e.fireCD <= 0 && dist <= 150 && dist > 24) {
-      e.fireCD = 0.45 + Math.random() * 0.35;
+    // Long-range red plasma from ~200m+ out during approach/strafe
+    if (e.fireCD <= 0 && dist <= 340 && dist >= 95 && e.mode !== "breakaway") {
+      e.fireCD = 0.7 + Math.random() * 0.55;
       enemyFirePlasma(e, behind);
     }
 
-    if (dist > 220 || ahead < 0.3) {
-      // Snap back into frontal weave sector
-      const p = spawnAwayFromPlayer(100, 180, true);
+    if (dist > 620 && e.mode !== "breakaway") {
+      const p = spawnAwayFromPlayer(350, 500, true);
       e.mesh.position.set(p.x, p.y, p.z);
-      e.revealed = true;
-      e.mesh.visible = true;
+      e.mode = "approach";
+      e.formDist = 360 + Math.random() * 120;
     }
   }
 
@@ -3172,7 +3251,7 @@ function updateEnemies(dt) {
     const b = G.boss;
     const dist = steerDogfight(b, dt, true);
     pulsePlumes(b.mesh, 0.95, dt);
-    emitVapor(b.mesh, 0.7);
+    emitVapor(b.mesh, 1.35);
     b.revealed = true;
     b.mesh.visible = true;
     const toBoss = b.mesh.position.clone().sub(player.mesh.position).normalize();
