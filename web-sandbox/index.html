@@ -1844,23 +1844,23 @@ const BOOST_SPEED = 336;
 const BRAKE_SPEED = 126;
 const KILL_PTS = 200;
 const BOSS_KILL_PTS = 2500;
-const GUN_HEAT_PER_SHOT = 0.085;
-const GUN_COOL_RATE = 0.32;
-const GUN_OVERHEAT_COOL = 0.48;
+const GUN_HEAT_PER_SHOT = 0.055;
+const GUN_COOL_RATE = 0.48;
+const GUN_OVERHEAT_COOL = 0.72;
 const WAVE_DEFS = [
   {
     id: 1, name: "LEVEL 1 — SCOUT PATROL",
-    active: 4, killTarget: 8, interval: 400, speed: 240, hp: 20, vaults: 3,
+    active: 3, killTarget: 6, interval: 550, speed: 210, hp: 16, vaults: 3,
     blurb: "LEVEL 1: SCOUT PATROL ENGAGING — REMAINING VAULTS: 3",
   },
   {
     id: 2, name: "LEVEL 2 — BOMBER ESCORT",
-    active: 8, killTarget: 14, interval: 320, speed: 265, hp: 28, vaults: 2,
+    active: 5, killTarget: 10, interval: 420, speed: 235, hp: 22, vaults: 2,
     blurb: "LEVEL 2: BOMBER ESCORT ENGAGING — REMAINING VAULTS: 2",
   },
 ];
-const BOSS_HP = 180;
-const MG_DMG = 2; // Twin MGs clear a scout in ~1s sustained fire
+const BOSS_HP = 140;
+const MG_DMG = 2.6; // Twin MGs clear a scout faster — lighter arcade feel
 const STORM_BG = 0x0a1628;
 const STORM_FOG = 0x0c1a30;
 const STORM_FOG_DENSITY = 0.00072;
@@ -1903,7 +1903,7 @@ const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.5, 80
 const camShake = { t: 0 };
 
 function addCamShake(amount) {
-  if (Settings.screenShake) camShake.t = Math.max(camShake.t, amount);
+  if (Settings.screenShake) camShake.t = Math.max(camShake.t, amount * 0.55);
 }
 
 /* —— Persistent user settings —— */
@@ -2978,13 +2978,13 @@ function updateRain(dt) {
   rainLines.visible = density > 0.02;
   rainMat.opacity = (activeEnv.rainOpacity || 0.28) * density * Math.min(rainScale, 1.8);
   if (density <= 0.01) return;
-  // Same look: advance rain by 2× dt every other frame (half CPU, identical motion)
+  // Same look: advance rain by 3× dt every 3rd frame (~66% rain CPU saved)
   _rainFrame++;
-  if (_rainFrame % 2 !== 0) {
+  if (_rainFrame % 3 !== 0) {
     rainLines.position.set(player.mesh.position.x, player.mesh.position.y - 30, player.mesh.position.z);
     return;
   }
-  const step = dt * 2;
+  const step = dt * 3;
   const pos = rainGeo.attributes.position.array;
   const origin = player.mesh.position;
   const fwd = getPlayerForward(_rainFwd);
@@ -3288,17 +3288,23 @@ function spawnFleetShip(s) {
   for (const s of FLEET_LAYOUT) spawnFleetShip(s);
 })();
 
+const _fleetFwd = new THREE.Vector3();
+let _fleetFrame = 0;
+
 function updateFleet(dt) {
+  _fleetFrame++;
+  if (_fleetFrame % 2 !== 0) return;
+  const step = dt * 2;
   const px = player.mesh.position.x;
   const pz = player.mesh.position.z;
-  const fwd = getPlayerForward(new THREE.Vector3());
+  const fwd = getPlayerForward(_fleetFwd);
   for (const ship of fleet) {
     if (!ship.alive) continue;
     // Sail backward beneath flight vector for speed illusion
-    ship.mesh.position.addScaledVector(fwd, -ship.speed * dt * 2.8);
-    ship.mesh.position.x += Math.sin(G.t * 0.3 + ship.lane) * dt * 4;
+    ship.mesh.position.addScaledVector(fwd, -ship.speed * step * 2.8);
+    ship.mesh.position.x += Math.sin(G.t * 0.3 + ship.lane) * step * 4;
     ship.mesh.position.y = Math.sin(G.t * 1.4 + ship.lane * 2) * 1.4;
-    ship.turretPhase += dt * (ship.carrier ? 0.4 : 0.65);
+    ship.turretPhase += step * (ship.carrier ? 0.4 : 0.65);
     const turrets = ship.mesh.userData.turrets || [];
     for (const t of turrets) t.rotation.y = Math.sin(ship.turretPhase) * 0.35;
     const dx = ship.mesh.position.x - px;
@@ -3826,21 +3832,21 @@ function freeVapor(m) {
 
 const _vaporFwd = new THREE.Vector3();
 const _vaporWp = new THREE.Vector3();
-const PARTICLE_SOFT_CAP = 420;
+const PARTICLE_SOFT_CAP = 260;
 
 function emitVapor(jet, intensity) {
   const tips = jet.userData.wingTips;
   if (!tips || !tips.length) return;
   // Soft cap: keep trails looking the same, just spawn less when crowded
   if (G.particles.length > PARTICLE_SOFT_CAP) {
-    if (Math.random() > 0.35) return;
+    if (Math.random() > 0.22) return;
   }
-  const dens = Math.max(0.25, intensity);
+  const dens = Math.max(0.25, intensity) * 0.72;
   _vaporFwd.set(1, 0, 0).applyQuaternion(jet.quaternion);
-  const loops = dens > 0.7 ? (G.particles.length > 280 ? 2 : 3) : 2;
+  const loops = dens > 0.55 ? 2 : 1;
   for (const tip of tips) {
     for (let L = 0; L < loops; L++) {
-      if (Math.random() > dens * 0.72) continue;
+      if (Math.random() > dens * 0.55) continue;
       tip.getWorldPosition(_vaporWp);
       _vaporWp.x += (Math.random() - 0.5) * 0.25;
       _vaporWp.y += (Math.random() - 0.5) * 0.2 + L * 0.08;
@@ -4927,7 +4933,7 @@ function fireMissile() {
   if (!G.running || G.paused || player.dead || G.fireCD > 0) return;
   if (G.overheated) return;
 
-  G.fireCD = 0.08;
+  G.fireCD = 0.065;
   G.heat = Math.min(1, G.heat + getHeatPerShot());
   if (G.heat >= 1) {
     G.overheated = true;
@@ -5028,7 +5034,7 @@ function enemyFirePlasma(e, fromBehind) {
 
 function hurtPlayer(amount) {
   if (player.dead) return;
-  player.health = Math.max(0, player.health - amount);
+  player.health = Math.max(0, player.health - amount * 0.72);
   flashScreen(true);
   flashDamageFrame();
   SFX.integrityAlarm();
@@ -5209,13 +5215,17 @@ function isLobbyVisible() {
 }
 
 function updateLobbyViewport(dt) {
-  updateStratosphereClouds(dt);
-  updateSeaMist(dt);
+  // Cheap lobby: orbit cam + ocean time only; skip rain/fleet/thunder burn
+  G._lobbyFrame = (G._lobbyFrame || 0) + 1;
+  if (G._lobbyFrame % 3 === 0) updateStratosphereClouds(dt * 3);
+  if (G._lobbyFrame % 4 === 0) updateSeaMist(dt * 4);
   updateEnvTerrainFollow();
-  updateFleet(dt);
+  if (G._lobbyFrame % 3 === 0) updateFleet(dt * 3);
   updateOcean(G.t);
-  updateRain(dt);
-  updateThunder(dt);
+  // Keep rain mesh parked / invisible in lobby unless theater wants rain — no CPU loop
+  if (rainLines) {
+    rainLines.visible = false;
+  }
   const t = G.t;
   const pz = player.mesh.position.z;
   camera.position.set(
@@ -5263,7 +5273,7 @@ const _aiLook = new THREE.Vector3();
 const _aiDest = new THREE.Vector3();
 const _tmpA = new THREE.Vector3();
 const _tmpB = new THREE.Vector3();
-const AI_EVERY = isTouch ? 8 : 6;
+const AI_EVERY = isTouch ? 10 : 7;
 
 function projectToScreen(worldPos) {
   _proj.copy(worldPos).project(camera);
@@ -5547,12 +5557,12 @@ function drawRadar() {
 function updateFlight(dt) {
   if (player.dead) return;
   const prec = Settings.flightMode === "precision";
-  const pitchRate = prec ? 1.35 : 2.15;
-  const rollDamp = prec ? 14 : 10;
-  const autoLevel = prec ? 0.75 : 0.55;
-  const rollMax = prec ? 0.65 : 0.9;
-  const turnBase = prec ? 0.82 : 1.15;
-  const turnBrake = prec ? 1.05 : 1.45;
+  const pitchRate = prec ? 1.55 : 2.85;
+  const rollDamp = prec ? 16 : 14;
+  const autoLevel = prec ? 0.95 : 0.85;
+  const rollMax = prec ? 0.72 : 1.05;
+  const turnBase = prec ? 0.95 : 1.45;
+  const turnBrake = prec ? 1.2 : 1.75;
 
   let pitchIn = 0, rollIn = 0;
   // Pitch climb/dive: ↑↓ and W/S (beginner-friendly 3D height control)
@@ -5560,12 +5570,22 @@ function updateFlight(dt) {
   if (G.keys.arrowdown || G.keys.s) pitchIn += 1;
   if (G.keys.a || G.keys.arrowleft) rollIn += 1;
   if (G.keys.d || G.keys.arrowright) rollIn -= 1;
-  pitchIn += G.stick.y;
-  rollIn -= G.stick.x;
+  // Touch stick: deadzone + ease-in so small thumb wiggles don't fight you
+  let sx = G.stick.x, sy = G.stick.y;
+  const stickMag = Math.hypot(sx, sy);
+  if (stickMag < 0.12) { sx = 0; sy = 0; }
+  else {
+    const t = Math.min(1, (stickMag - 0.12) / 0.88);
+    const eased = t * t * (3 - 2 * t); // smoothstep — lighter feel
+    sx = (sx / stickMag) * eased;
+    sy = (sy / stickMag) * eased;
+  }
+  pitchIn += sy;
+  rollIn -= sx;
   pitchIn = THREE.MathUtils.clamp(pitchIn, -1, 1);
   rollIn = THREE.MathUtils.clamp(rollIn, -1, 1);
 
-  if (Math.abs(pitchIn) > 0.04) {
+  if (Math.abs(pitchIn) > 0.03) {
     player.pitch = THREE.MathUtils.clamp(player.pitch + pitchIn * pitchRate * dt, -1.05, 1.05);
   } else {
     player.pitch = THREE.MathUtils.damp(player.pitch, 0, autoLevel, dt);
@@ -5581,7 +5601,7 @@ function updateFlight(dt) {
   let targetSpeed = BASE_SPEED;
   if (G.keys.shift || G.keys.shiftleft || G.keys.shiftright) targetSpeed = BOOST_SPEED;
   else if (G.keys.control || G.keys.controlleft || G.keys.controlright || G.keys.ctrl) targetSpeed = BRAKE_SPEED;
-  player.speed = THREE.MathUtils.damp(player.speed, targetSpeed, 4.5, dt);
+  player.speed = THREE.MathUtils.damp(player.speed, targetSpeed, 5.5, dt);
 
   const forward = getPlayerForward(new THREE.Vector3());
   player.mesh.position.addScaledVector(forward, player.speed * dt);
@@ -5594,7 +5614,7 @@ function updateFlight(dt) {
 
   const throttle = THREE.MathUtils.clamp((player.speed - BRAKE_SPEED) / (BOOST_SPEED - BRAKE_SPEED), 0, 1);
   pulsePlumes(player.mesh, 0.55 + throttle * 0.9, dt);
-  emitVapor(player.mesh, 0.45 + throttle * 0.35 + Math.abs(player.roll) * 0.2);
+  emitVapor(player.mesh, 0.32 + throttle * 0.22 + Math.abs(player.roll) * 0.12);
   SFX.setEngine(player.speed, true);
 
   const glows = player.mesh.userData.exhausts || [];
@@ -5824,7 +5844,7 @@ function updateEnemies(dt) {
     // Subtle contrails — keep horizon readable
     const vaporStrength = e.mode === "breakaway" ? 0.55 : dist > 280 ? 0.42 : 0.32;
     pulsePlumes(e.mesh, e.mode === "strafe" ? 1.0 : 0.8, dt);
-    if (runSteer || (G._aiFrame % 2 === 0)) emitVapor(e.mesh, vaporStrength);
+    if (runSteer || (G._aiFrame % 3 === 0)) emitVapor(e.mesh, vaporStrength);
 
     _tmpB.copy(e.mesh.position).sub(player.mesh.position).normalize();
     const ahead = playerFwd.dot(_tmpB);
@@ -5833,7 +5853,7 @@ function updateEnemies(dt) {
 
     // Long-range red plasma from ~200m+ out during approach/strafe
     if (e.fireCD <= 0 && dist <= 340 && dist >= 95 && e.mode !== "breakaway") {
-      e.fireCD = 0.55 + Math.random() * 0.65;
+      e.fireCD = 0.85 + Math.random() * 0.85;
       enemyFirePlasma(e, behind);
     }
 
@@ -5861,7 +5881,7 @@ function updateEnemies(dt) {
       b._cachedDist = dist;
     }
     pulsePlumes(b.mesh, 0.95, dt);
-    if (runSteer || (G._aiFrame % 2 === 0)) emitVapor(b.mesh, 0.38);
+    if (runSteer || (G._aiFrame % 3 === 0)) emitVapor(b.mesh, 0.38);
     b.revealed = true;
     b.mesh.visible = true;
     _tmpB.copy(b.mesh.position).sub(player.mesh.position).normalize();
@@ -6062,8 +6082,23 @@ function frame(ts) {
   if (dt > 0.05) dt = 0.05;
   G.t = ts * 0.001;
   G._perfFrame = (G._perfFrame || 0) + 1;
-  const heavyFrame = dt > 0.02;
+  // Adaptive DPR: cool GPU when frames get heavy (look barely changes)
+  G._dtSmooth = G._dtSmooth == null ? dt : G._dtSmooth * 0.9 + dt * 0.1;
+  if (G._perfFrame % 30 === 0) {
+    let targetDpr = MAX_DPR;
+    if (G._dtSmooth > 0.022) targetDpr = 1.25;
+    if (G._dtSmooth > 0.028) targetDpr = 1.0;
+    if (isTouch && G._dtSmooth > 0.018) targetDpr = Math.min(targetDpr, 1.25);
+    const next = Math.min(devicePixelRatio, targetDpr);
+    if (Math.abs((G._lastDpr || MAX_DPR) - next) > 0.05) {
+      G._lastDpr = next;
+      renderer.setPixelRatio(next);
+      renderer.setSize(innerWidth, innerHeight, false);
+    }
+  }
+  const heavyFrame = dt > 0.018 || G._dtSmooth > 0.02;
   const oddFrame = G._perfFrame % 2 === 1;
+  const thirdFrame = G._perfFrame % 3 !== 0;
 
   if (G.running && !G.paused) {
     G.fireCD = Math.max(0, G.fireCD - dt);
@@ -6076,13 +6111,13 @@ function frame(ts) {
     updateRelics(dt);
     updateParticles(dt);
     updateHitFlashes();
-    updateStratosphereClouds(dt);
+    if (!thirdFrame) updateStratosphereClouds(dt * 3);
     if (!oddFrame) updateSeaMist(dt);
     updateEnvTerrainFollow();
     updateFleet(dt);
-    updateOcean(G.t);
+    if (!oddFrame) updateOcean(G.t);
     updateRain(dt);
-    updateThunder(dt);
+    if (!heavyFrame) updateThunder(dt);
     if (!heavyFrame) updateFheTicker(dt);
     updateCamera(dt);
     updateLockHUD();
@@ -6097,13 +6132,13 @@ function frame(ts) {
     if (isLobbyVisible()) {
       updateLobbyViewport(dt);
     } else {
-      updateStratosphereClouds(dt);
+      if (!thirdFrame) updateStratosphereClouds(dt * 3);
       if (!oddFrame) updateSeaMist(dt);
       updateEnvTerrainFollow();
-      updateOcean(G.t);
+      if (!oddFrame) updateOcean(G.t);
       updateFleet(dt);
       updateRain(dt);
-      updateThunder(dt);
+      if (!heavyFrame) updateThunder(dt);
     }
     $("threats").innerHTML = "";
     if (!G.running && !player.dead && !isLobbyVisible()) {
