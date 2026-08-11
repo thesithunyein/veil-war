@@ -1758,7 +1758,7 @@
           </div>
           <div class="terminal-wallet" id="homeWalletBox">
             <div id="walletDisconnected">
-              <button class="btn-wallet-inline" id="btnWalletConnect" type="button">LINK METAMASK WALLET</button>
+              <button class="btn-wallet-inline" id="btnWalletConnect" type="button">SIGN IN WITH GOOGLE</button>
             </div>
             <div id="walletConnected" style="display:none">
               <button class="btn-disconnect" id="btnWalletDisconnect" type="button">DISCONNECT SESSION</button>
@@ -1808,11 +1808,13 @@
         <p class="sub">Airframe lost in the storm — FHE veil sealed shut.</p>
         <div class="stats-line">
           Score <span id="failScore">0</span><br />
-          Megapot tickets earned <span id="failTickets">0</span><br />
-          Base chips <span id="failChips">0</span> · Level <span id="failWave">1</span>
+          Megapot credits this run <span id="failTickets">0</span><br />
+          Base chips <span id="failChips">0</span> · Level <span id="failWave">1</span><br />
+          <span id="failClaimStatus" style="color:var(--teal)"></span>
         </div>
         <div class="end-actions">
           <button class="btn-home" id="btnHomeFail" type="button">HOME</button>
+          <button class="btn-redeploy" id="btnClaimMegapotFail" type="button">CLAIM MEGAPOT TICKET</button>
           <button class="btn-redeploy" id="btnRedeployFail" type="button">REDEPLOY COMBAT FLEET</button>
         </div>
       </div>
@@ -1821,14 +1823,16 @@
     <div class="endcard hidden" id="endWin">
       <div class="card win">
         <h1>JACKPOT VOUCHER SECURED</h1>
-        <p class="sub">Flagship destroyed — simulating Megapot buyTickets hook on Base Sepolia.</p>
+        <p class="sub">Flagship destroyed — claim real Megapot tickets on Base Sepolia.</p>
         <div class="stats-line">
           Final score <span id="winScore">0</span><br />
-          Megapot tickets earned <span id="winTickets">0</span><br />
-          Live odds <span id="winOdds">0.000%</span>
+          Megapot credits this run <span id="winTickets">0</span><br />
+          Live odds <span id="winOdds">0.000%</span><br />
+          <span id="winClaimStatus" style="color:var(--teal)"></span>
         </div>
         <div class="end-actions">
           <button class="btn-home" id="btnHomeWin" type="button">HOME</button>
+          <button class="btn-redeploy" id="btnClaimMegapotWin" type="button">CLAIM MEGAPOT TICKET</button>
           <button class="btn-redeploy" id="btnRedeployWin" type="button">REDEPLOY COMBAT FLEET</button>
         </div>
       </div>
@@ -1837,6 +1841,7 @@
 
   <script type="module">
 import * as THREE from "three";
+import { VeilAuth } from "./js/play-auth.js";
 
 /* ============================================================================
  * VEIL WAR — Production aerial combat loop
@@ -2353,8 +2358,24 @@ const Wallet = {
     }
     const connectBtn = $("btnWalletConnect");
     const disconnectBtn = $("btnWalletDisconnect");
-    if (connectBtn) connectBtn.addEventListener("click", () => { if (typeof SFX !== "undefined") SFX.resume(); this.connect(); });
-    if (disconnectBtn) disconnectBtn.addEventListener("click", () => this.disconnect());
+    if (connectBtn) {
+      connectBtn.addEventListener("click", async () => {
+        if (typeof SFX !== "undefined") SFX.resume();
+        try {
+          await VeilAuth.signInWithGoogle();
+        } catch (e) {
+          showPop(e.message || "GOOGLE SIGN-IN FAILED");
+        }
+      });
+    }
+    if (disconnectBtn) {
+      disconnectBtn.addEventListener("click", async () => {
+        const wasPlaying = typeof G !== "undefined" && G.running;
+        await VeilAuth.signOut();
+        this.disconnect();
+        if (wasPlaying && typeof goHome === "function") goHome();
+      });
+    }
   },
 };
 
@@ -4261,6 +4282,30 @@ function bootLobby() {
   SFX.loadSamples();
   TheaterSelect.render();
   Wallet.tryReconnect();
+  VeilAuth.init().then(() => {
+    if (VeilAuth.signedIn()) {
+      Wallet.address = VeilAuth.playAddress;
+      Wallet.updateUI();
+      const handle = $("profileHandle");
+      if (handle && VeilAuth.user) {
+        const email = VeilAuth.user.email || VeilAuth.user.id;
+        handle.textContent = email + " · " + Wallet.shortAddr(VeilAuth.playAddress);
+      }
+    }
+    updateEngageGate();
+  });
+  window.__veilOnAuthChange = () => {
+    if (VeilAuth.signedIn()) {
+      Wallet.address = VeilAuth.playAddress;
+      Wallet.updateUI();
+    } else if (G.running) {
+      goHome();
+    } else {
+      Wallet.address = null;
+      Wallet.updateUI();
+    }
+    updateEngageGate();
+  };
   updateEngageGate();
   updateHUD();
 }
@@ -4571,30 +4616,67 @@ function updateEngageGate() {
   if (!btn) return;
   const chev = btn.querySelector(".engage-chevrons");
   const label = btn.querySelector(".engage-label");
-  if (Wallet.address) {
+  const ready = VeilAuth.signedIn();
+  if (ready) {
     btn.classList.remove("wallet-locked");
     if (chev) chev.textContent = "<< ENGAGE MISSION >>";
     if (label) label.textContent = "ENGAGE";
   } else {
     btn.classList.add("wallet-locked");
-    if (chev) chev.textContent = "<< LINK METAMASK TO PLAY >>";
-    if (label) label.textContent = "CONNECT WALLET";
+    if (chev) chev.textContent = "<< SIGN IN WITH GOOGLE TO PLAY >>";
+    if (label) label.textContent = "SIGN IN";
+  }
+  // Mirror play identity into Wallet so existing HUD/profile still works
+  if (ready) {
+    Wallet.address = VeilAuth.playAddress;
   }
 }
 
 async function requireWalletToPlay() {
-  if (Wallet.address) return true;
-  showPop("METAMASK REQUIRED — LINK WALLET TO PLAY");
-  if (!window.ethereum) {
-    LobbyDrawers.open("Profile");
-    return false;
+  if (VeilAuth.signedIn()) {
+    Wallet.address = VeilAuth.playAddress;
+    return true;
   }
-  const ok = await Wallet.connect();
-  if (!ok) {
+  showPop("GOOGLE SIGN-IN REQUIRED — NO METAMASK POPUP");
+  try {
+    await VeilAuth.signInWithGoogle();
+  } catch (e) {
+    showPop(e.message || "GOOGLE SIGN-IN FAILED");
     LobbyDrawers.open("Profile");
-    return false;
   }
-  return true;
+  return false; // redirect will reload after OAuth
+}
+
+async function syncRunCreditsToCloud() {
+  if (!VeilAuth.signedIn()) return;
+  const add = Math.max(0, G.tickets | 0);
+  try {
+    await VeilAuth.syncMissionCredits(add, G.score | 0);
+    showPop("+" + add + " MEGAPOT CREDITS SAVED");
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+async function claimMegapotFromEndcard(statusElId) {
+  const el = $(statusElId);
+  if (!VeilAuth.signedIn()) {
+    showPop("SIGN IN WITH GOOGLE TO CLAIM");
+    return;
+  }
+  if (el) el.textContent = "Claiming on Base Sepolia…";
+  try {
+    const data = await VeilAuth.claimMegapotTicket();
+    if (el) {
+      el.innerHTML =
+        `Ticket bought · <a href="${data.explorerUrl}" target="_blank" rel="noopener" style="color:var(--cyan)">BaseScan</a>`;
+    }
+    showPop("MEGAPOT TICKET MINTED ON BASE");
+    updateEngageGate();
+  } catch (e) {
+    if (el) el.textContent = e.message || "Claim failed";
+    showPop(e.message || "CLAIM FAILED");
+  }
 }
 
 function awardKill(worldPos, pts, ticketAmt) {
@@ -5102,7 +5184,10 @@ function missionFailed() {
   const fc = $("failChips");
   if (fc) fc.textContent = String(G.chips);
   $("failWave").textContent = String(G.waveIndex + 1);
+  const fcs = $("failClaimStatus");
+  if (fcs) fcs.textContent = "";
   Wallet.saveRunStats(G.score);
+  syncRunCreditsToCloud();
   setTimeout(() => $("endFail").classList.remove("hidden"), 600);
 }
 
@@ -5116,7 +5201,10 @@ function missionComplete() {
   $("winScore").textContent = String(G.score);
   $("winTickets").textContent = String(G.tickets);
   $("winOdds").textContent = odds.toFixed(3) + "%";
+  const wcs = $("winClaimStatus");
+  if (wcs) wcs.textContent = "";
   Wallet.saveRunStats(G.score);
+  syncRunCreditsToCloud();
   // Gold celebration burst
   for (let i = 0; i < 3; i++) {
     setTimeout(() => explode(
@@ -6331,6 +6419,10 @@ $("btnEngage").addEventListener("click", async () => {
 
 $("btnRedeployFail").addEventListener("click", async () => { await SFX.resume(); await redeploy(); });
 $("btnRedeployWin").addEventListener("click", async () => { await SFX.resume(); await redeploy(); });
+const claimFail = $("btnClaimMegapotFail");
+const claimWin = $("btnClaimMegapotWin");
+if (claimFail) claimFail.addEventListener("click", () => claimMegapotFromEndcard("failClaimStatus"));
+if (claimWin) claimWin.addEventListener("click", () => claimMegapotFromEndcard("winClaimStatus"));
 $("btnHomeFail").addEventListener("click", () => { SFX.resume(); goHome(); });
 $("btnHomeWin").addEventListener("click", () => { SFX.resume(); goHome(); });
 $("btnHudHome").addEventListener("click", () => { SFX.resume(); goHome(); });

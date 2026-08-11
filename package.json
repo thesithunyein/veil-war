@@ -1,0 +1,26 @@
+{
+  "name": "veil-war",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "sync:public": "node scripts/sync-public.mjs",
+    "dev": "npm run sync:public && next dev -p 3000",
+    "build": "npm run sync:public && next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.49.4",
+    "next": "^15.3.8",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "viem": "^2.55.11"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.8.3"
+  }
+}

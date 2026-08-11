@@ -28,3 +28,10 @@ memoryCaptures/
 contracts/out/
 contracts/cache/
 _site/
+node_modules/
+.next/
+.env
+.env.local
+.env*.local
+public/
+# synced from web-sandbox at build — keep source of truth in web-sandbox

@@ -1,10 +1,5 @@
 {
-  "framework": null,
-  "installCommand": null,
-  "buildCommand": null,
-  "outputDirectory": "web-sandbox",
-  "rewrites": [
-    { "source": "/play", "destination": "/index.html" },
-    { "source": "/sandbox", "destination": "/index.html" }
-  ]
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install"
 }
