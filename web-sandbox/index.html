@@ -3785,13 +3785,15 @@ function pulsePlumes(jet, throttle, dt) {
 const SFX = {
   ctx: null,
   master: null,
-  _baseMaster: 0.42,
+  _baseMaster: 0.85,
   buffers: {},
   _loaded: false,
   _loadPromise: null,
   engineSrc: null,
   engineGain: null,
   _engineRunning: false,
+  _wantEngine: false,
+  _engineSpeed: BASE_SPEED,
   lockOsc: null,
   lockGain: null,
   lockLfo: null,
@@ -3812,7 +3814,14 @@ const SFX = {
     this.ctx = new AC();
     this.master = this.ctx.createGain();
     this.master.gain.value = this._baseMaster;
-    this.master.connect(this.ctx.destination);
+    const comp = this.ctx.createDynamicsCompressor();
+    comp.threshold.value = -18;
+    comp.knee.value = 12;
+    comp.ratio.value = 3;
+    comp.attack.value = 0.003;
+    comp.release.value = 0.2;
+    this.master.connect(comp);
+    comp.connect(this.ctx.destination);
     this.lockOsc = this.ctx.createOscillator();
     this.lockOsc.type = "sine";
     this.lockOsc.frequency.value = 740;
@@ -3836,71 +3845,87 @@ const SFX = {
     this._loadPromise = (async () => {
       this.ensure();
       if (!this.ctx) return;
+      const decode = (ab) => new Promise((resolve, reject) => {
+        this.ctx.decodeAudioData(ab.slice(0), resolve, reject);
+      });
       for (const [key, url] of Object.entries(this._sampleUrls)) {
         try {
           const res = await fetch(url);
+          if (!res.ok) throw new Error("HTTP " + res.status);
           const ab = await res.arrayBuffer();
-          this.buffers[key] = await this.ctx.decodeAudioData(ab);
+          this.buffers[key] = await decode(ab);
         } catch (e) {
           console.warn("SFX load failed:", key, e);
         }
       }
       this._loaded = true;
+      if (this._wantEngine) this._startEngineLoop();
     })();
     return this._loadPromise;
   },
-  resume() {
+  async resume() {
     this.ensure();
-    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
-    this.loadSamples();
+    if (this.ctx && this.ctx.state === "suspended") await this.ctx.resume();
+    await this.loadSamples();
+    if (this._wantEngine) this.setEngine(this._engineSpeed, true);
   },
   setMasterVolume(norm) {
-    this._baseMaster = THREE.MathUtils.clamp(norm, 0, 1) * 0.65;
+    this._baseMaster = THREE.MathUtils.clamp(norm, 0, 1);
     if (this.master) this.master.gain.value = this._baseMaster;
   },
   _startEngineLoop() {
     if (!this.ctx || !this.buffers.engine) return;
     if (this.engineSrc) {
       try { this.engineSrc.stop(); } catch (_) { /* already stopped */ }
-      this.engineSrc.disconnect();
+      try { this.engineSrc.disconnect(); } catch (_) { /* noop */ }
     }
     this.engineSrc = this.ctx.createBufferSource();
     this.engineSrc.buffer = this.buffers.engine;
     this.engineSrc.loop = true;
     this.engineGain = this.ctx.createGain();
-    this.engineGain.gain.value = 0;
+    this.engineGain.gain.value = 0.001;
     this.engineSrc.connect(this.engineGain);
     this.engineGain.connect(this.master);
     this.engineSrc.start(0);
     this._engineRunning = true;
+    this.setEngine(this._engineSpeed, this._wantEngine);
   },
   setEngine(speed, flying) {
+    this._engineSpeed = speed;
+    this._wantEngine = !!flying;
     if (!this.ctx) return;
     if (flying && this.buffers.engine && !this._engineRunning) this._startEngineLoop();
     if (!this.engineGain || !this.ctx) return;
     const now = this.ctx.currentTime;
     const boost = THREE.MathUtils.clamp((speed - BRAKE_SPEED) / (BOOST_SPEED - BRAKE_SPEED), 0, 1);
-    const target = flying ? 0.32 + boost * 0.38 : 0;
+    const target = flying ? 0.75 + boost * 0.25 : 0.001;
     this.engineGain.gain.cancelScheduledValues(now);
-    this.engineGain.gain.linearRampToValueAtTime(target, now + 0.12);
-    if (this.engineSrc) {
-      const rate = flying ? 0.88 + boost * 0.42 : 1;
-      this.engineSrc.playbackRate.cancelScheduledValues(now);
-      this.engineSrc.playbackRate.linearRampToValueAtTime(rate, now + 0.14);
+    this.engineGain.gain.setValueAtTime(this.engineGain.gain.value, now);
+    this.engineGain.gain.linearRampToValueAtTime(target, now + 0.08);
+    if (this.engineSrc && this.engineSrc.playbackRate) {
+      const rate = flying ? 0.92 + boost * 0.35 : 1;
+      try {
+        this.engineSrc.playbackRate.cancelScheduledValues(now);
+        this.engineSrc.playbackRate.setValueAtTime(this.engineSrc.playbackRate.value, now);
+        this.engineSrc.playbackRate.linearRampToValueAtTime(rate, now + 0.1);
+      } catch (_) {
+        this.engineSrc.playbackRate.value = rate;
+      }
     }
   },
   playOneShot(key, vol, rate) {
     if (!this.ctx) this.ensure();
     const buf = this.buffers[key];
-    if (!buf || !this.ctx) return;
+    if (!buf || !this.ctx) return false;
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     src.playbackRate.value = rate == null ? 1 : rate;
     const g = this.ctx.createGain();
-    g.gain.value = vol == null ? 0.65 : vol;
+    g.gain.value = vol == null ? 1 : vol;
     src.connect(g);
     g.connect(this.master);
-    src.start();
+    src.start(0);
+    return true;
   },
   setLock(on) {
     if (!this.lockGain || !this.ctx) return;
@@ -3918,7 +3943,7 @@ const SFX = {
     this.lockOsc.frequency.setValueAtTime(1180, t);
     this.lockLfoGain.gain.setValueAtTime(0, t);
     this.lockGain.gain.setValueAtTime(0.0001, t);
-    this.lockGain.gain.exponentialRampToValueAtTime(0.09, t + 0.04);
+    this.lockGain.gain.exponentialRampToValueAtTime(0.12, t + 0.04);
   },
   setSeeking(on) {
     if (!this.lockGain || !this.ctx) return;
@@ -3935,21 +3960,23 @@ const SFX = {
     }
     this.lockOsc.frequency.setValueAtTime(620, t);
     this.lockLfo.frequency.setValueAtTime(5.5, t);
-    this.lockLfoGain.gain.setValueAtTime(0.035, t);
-    this.lockGain.gain.setValueAtTime(0.04, t);
+    this.lockLfoGain.gain.setValueAtTime(0.05, t);
+    this.lockGain.gain.setValueAtTime(0.06, t);
   },
-  cannon() {
-    this.resume();
+  async cannon() {
+    await this.resume();
     const keys = ["gun1", "gun2", "gun3"];
     const key = keys[Math.floor(Math.random() * keys.length)];
-    this.playOneShot(key, 0.72, 0.94 + Math.random() * 0.12);
+    if (!this.playOneShot(key, 1.0, 0.96 + Math.random() * 0.08)) {
+      console.warn("SFX cannon: sample missing", key);
+    }
   },
   missile() {
     this.cannon();
   },
-  explode() {
-    this.resume();
-    this.playOneShot("explode", 0.82, 0.98 + Math.random() * 0.08);
+  async explode() {
+    await this.resume();
+    this.playOneShot("explode", 1.0, 1);
   },
   hitCrunch() {
     this.cannon();
@@ -3968,7 +3995,7 @@ const SFX = {
     lp.frequency.exponentialRampToValueAtTime(180, t + 0.38);
     const g = this.ctx.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.22, t + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.35, t + 0.04);
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
     o.connect(lp);
     lp.connect(g);
@@ -4287,7 +4314,7 @@ function showLobby() {
   }
 }
 
-function beginCombatMission() {
+async function beginCombatMission() {
   hideLobbyForCombat();
   applyTheater(Wallet.selectedTheater || "arctic");
   player.health = getPlayerMaxHealth();
@@ -4304,6 +4331,7 @@ function beginCombatMission() {
   respawnNavalFleet();
   startWave(0);
   updateHUD();
+  await SFX.resume();
   SFX.setEngine(BASE_SPEED, true);
   pushTicker("Fetching encrypted bot vector from Inco network…", false);
 }
@@ -4983,7 +5011,7 @@ function updateLobbyViewport(dt) {
   camera.lookAt(0, 28, pz + 520);
 }
 
-function redeploy() {
+async function redeploy() {
   $("endFail").classList.add("hidden");
   $("endWin").classList.add("hidden");
   resetGameState();
@@ -4994,6 +5022,7 @@ function redeploy() {
   respawnNavalFleet();
   G.running = true;
   G.paused = false;
+  await SFX.resume();
   SFX.setEngine(90, true);
   $("btnPause").classList.add("show");
   $("btnHudHome").classList.add("show");
@@ -5933,10 +5962,9 @@ function onResize() {
 addEventListener("resize", onResize);
 addEventListener("orientationchange", () => setTimeout(onResize, 100));
 
-$("btnEngage").addEventListener("click", () => {
-  if (typeof SFX !== "undefined") SFX.resume();
+$("btnEngage").addEventListener("click", async () => {
   if (!Wallet.address) showPop("TIP · LINK WALLET VIA PROFILE TO SAVE TOKENS");
-  beginCombatMission();
+  await beginCombatMission();
 });
 
 $("btnRedeployFail").addEventListener("click", () => { SFX.resume(); redeploy(); });
