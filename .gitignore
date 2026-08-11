@@ -35,3 +35,4 @@ node_modules/
 .env*.local
 public/
 # synced from web-sandbox at build — keep source of truth in web-sandbox
+.env*

@@ -61,11 +61,9 @@ export async function readMegapotPool() {
     args: [drawingId],
   })) as unknown;
 
-  const asTuple = Array.isArray(raw)
-    ? (raw as readonly [bigint, ...unknown[], bigint, boolean])
-    : null;
-
-  const prizePool = asTuple ? (asTuple[0] as bigint) : 0n;
+  const asTuple = Array.isArray(raw) ? (raw as unknown[]) : null;
+  const prizePool =
+    asTuple && typeof asTuple[0] === "bigint" ? asTuple[0] : 0n;
   const ticketPrice = (await client.readContract({
     address: MEGAPOT_SEPOLIA.jackpot,
     abi: megapotAbi,
