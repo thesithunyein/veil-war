@@ -296,6 +296,23 @@
       0% { opacity: 0.9; transform: scale(0.4); }
       100% { opacity: 0; transform: scale(2.2); }
     }
+    .megapot-burst {
+      position: fixed;
+      z-index: 25;
+      pointer-events: none;
+      width: 200px;
+      height: 200px;
+      margin-left: -100px;
+      margin-top: -100px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 200, 87, 0.75) 0%, rgba(255, 170, 60, 0.35) 38%, transparent 72%);
+      box-shadow: 0 0 40px rgba(255, 200, 87, 0.55), 0 0 80px rgba(255, 200, 87, 0.25);
+      animation: megapotBurst 0.9s ease-out forwards;
+    }
+    @keyframes megapotBurst {
+      0% { transform: scale(0.25); opacity: 1; }
+      100% { transform: scale(3.2); opacity: 0; }
+    }
     .hud .row { margin-top: 0.3rem; }
     .brand {
       font-family: var(--display); font-size: 0.62rem;
@@ -594,6 +611,12 @@
     }
     .brief.hidden, .endcard.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
     .brief.hidden { display: none !important; }
+    #app.combat-active #brief {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
+    }
     .card {
       width: min(100%, 520px); padding: 1.35rem 1.4rem;
       background: rgba(8, 18, 32, 0.92);
@@ -1566,7 +1589,7 @@
         </button>
         <div class="drawer-inner">
           <h2 class="drawer-head">THEATERS OF WAR</h2>
-          <p class="drawer-sub">Select deployment zone · swipe to browse</p>
+          <p class="drawer-sub">Select deployment zone · scroll to browse</p>
           <div class="theater-grid" id="theaterGrid"></div>
         </div>
       </aside>
@@ -1884,10 +1907,14 @@ const Wallet = {
     localStorage.setItem(this.storageKey("theaters"), JSON.stringify(this.unlockedTheaters));
     localStorage.setItem(this.storageKey("theater"), this.selectedTheater);
   },
-  saveRunStats(score, sessionTickets) {
+  persistTicketMint(count) {
+    if (!this.address || count <= 0) return;
+    this.allTimeTickets += count;
+    this.saveProfile();
+  },
+  saveRunStats(score) {
     if (!this.address) return;
     this.highScore = Math.max(this.highScore, score);
-    this.allTimeTickets += sessionTickets;
     this.shopCredits += Math.floor(score / 5);
     this.saveProfile();
     this.updateUI();
@@ -3863,30 +3890,108 @@ function updateHUD() {
   else if (WAVE_DEFS[G.waveIndex]) $("hudWave").textContent = WAVE_DEFS[G.waveIndex].name;
 }
 
-function awardKill(worldPos, pts, ticketAmt) {
-  const tickets = ticketAmt == null ? 0 : ticketAmt;
-  G.score += pts;
-  if (tickets > 0) G.tickets += tickets;
-  G.waveKills++;
-  updateHUD();
-  if (tickets > 0) {
-    const ticketEl = $("hudTickets");
+function triggerMegapotTicketBurst(count) {
+  const n = count || 1;
+  const ticketEl = $("hudTickets");
+  if (ticketEl) {
     ticketEl.classList.remove("ticket-pop");
     void ticketEl.offsetWidth;
     ticketEl.classList.add("ticket-pop");
-    const flash = $("ticketFlash");
+  }
+  const flash = $("ticketFlash");
+  if (flash) {
     flash.classList.remove("on");
     void flash.offsetWidth;
     flash.classList.add("on");
-    const panel = document.querySelector(".hud.tr");
-    if (panel) {
-      panel.classList.remove("gold-pulse");
-      void panel.offsetWidth;
-      panel.classList.add("gold-pulse");
-      clearTimeout(awardKill._goldT);
-      awardKill._goldT = setTimeout(() => panel.classList.remove("gold-pulse"), 560);
-    }
   }
+  const panel = document.querySelector(".hud.tr");
+  if (panel) {
+    panel.classList.remove("gold-pulse");
+    void panel.offsetWidth;
+    panel.classList.add("gold-pulse");
+    clearTimeout(triggerMegapotTicketBurst._goldT);
+    triggerMegapotTicketBurst._goldT = setTimeout(() => panel.classList.remove("gold-pulse"), 720);
+  }
+  const radar = document.querySelector(".radar-wrap");
+  const anchor = radar || panel || ticketEl;
+  if (anchor) {
+    const rect = anchor.getBoundingClientRect();
+    const burst = document.createElement("div");
+    burst.className = "megapot-burst";
+    burst.style.left = (rect.left + rect.width / 2) + "px";
+    burst.style.top = (rect.top + rect.height / 2) + "px";
+    document.getElementById("app").appendChild(burst);
+    setTimeout(() => burst.remove(), 950);
+  }
+  showPop("+" + n + " MEGAPOT TICKET" + (n > 1 ? "S" : "") + " MINTED");
+  pushTicker("Megapot buyTickets hook staged — Base Sepolia relay…", true);
+}
+
+function registerMegapotTicket(count) {
+  if (count <= 0) return;
+  triggerMegapotTicketBurst(count);
+  Wallet.persistTicketMint(count);
+}
+
+function hideLobbyForCombat() {
+  LobbyDrawers.close();
+  const settingsPanel = $("settingsPanel");
+  const settingsBackdrop = $("settingsBackdrop");
+  if (settingsPanel) {
+    settingsPanel.classList.remove("open");
+    settingsPanel.setAttribute("aria-hidden", "true");
+  }
+  if (settingsBackdrop) settingsBackdrop.classList.remove("open");
+  const brief = $("brief");
+  if (brief) {
+    brief.classList.add("hidden");
+    brief.style.display = "none";
+  }
+  $("app").classList.add("combat-active");
+}
+
+function showLobby() {
+  $("endFail").classList.add("hidden");
+  $("endWin").classList.add("hidden");
+  $("app").classList.remove("combat-active");
+  LobbyDrawers.close();
+  const brief = $("brief");
+  if (brief) {
+    brief.classList.remove("hidden");
+    brief.style.display = "";
+  }
+}
+
+function beginCombatMission() {
+  hideLobbyForCombat();
+  applyTheater(Wallet.selectedTheater || "arctic");
+  player.health = getPlayerMaxHealth();
+  player.dead = false;
+  $("btnPause").classList.add("show");
+  $("btnHudHome").classList.add("show");
+  G.running = true;
+  G.paused = false;
+  G.chips = 0;
+  G.tickets = 0;
+  G.tickerLines = [];
+  G.tickerAcc = 0;
+  G.thunderT = 6;
+  respawnNavalFleet();
+  startWave(0);
+  updateHUD();
+  SFX.setEngine(BASE_SPEED, true);
+  pushTicker("Fetching encrypted bot vector from Inco network…", false);
+}
+
+function awardKill(worldPos, pts, ticketAmt) {
+  const tickets = ticketAmt == null ? 0 : ticketAmt;
+  G.score += pts;
+  if (tickets > 0) {
+    G.tickets += tickets;
+    registerMegapotTicket(tickets);
+  }
+  G.waveKills++;
+  updateHUD();
   const scr = projectToScreen(worldPos);
   if (scr.z < 1 && scr.z > -1) spawnFloat(scr.x, scr.y, pts, tickets);
   else spawnFloat(innerWidth * 0.5, innerHeight * 0.4, pts, tickets);
@@ -4048,27 +4153,9 @@ function collectChip(worldPos) {
   if (G.chips >= CHIPS_PER_TICKET) {
     G.chips -= CHIPS_PER_TICKET;
     G.tickets++;
-    updateHUD();
-    // Golden ticket mint burst
-    const ticketEl = $("hudTickets");
-    ticketEl.classList.remove("ticket-pop");
-    void ticketEl.offsetWidth;
-    ticketEl.classList.add("ticket-pop");
-    const flash = $("ticketFlash");
-    flash.classList.remove("on");
-    void flash.offsetWidth;
-    flash.classList.add("on");
-    const panel = document.querySelector(".hud.tr");
-    if (panel) {
-      panel.classList.remove("gold-pulse");
-      void panel.offsetWidth;
-      panel.classList.add("gold-pulse");
-      clearTimeout(collectChip._goldT);
-      collectChip._goldT = setTimeout(() => panel.classList.remove("gold-pulse"), 560);
-    }
-    showPop("+1 MEGAPOT TICKET MINTED");
-    pushTicker("Megapot ticket minted — buyTickets hook ready (Base Sepolia)…", true);
+    registerMegapotTicket(1);
     SFX.explode();
+    updateHUD();
   }
 }
 
@@ -4395,7 +4482,7 @@ function missionFailed() {
   const fc = $("failChips");
   if (fc) fc.textContent = String(G.chips);
   $("failWave").textContent = String(G.waveIndex + 1);
-  Wallet.saveRunStats(G.score, G.tickets);
+  Wallet.saveRunStats(G.score);
   setTimeout(() => $("endFail").classList.remove("hidden"), 600);
 }
 
@@ -4409,7 +4496,7 @@ function missionComplete() {
   $("winScore").textContent = String(G.score);
   $("winTickets").textContent = String(G.tickets);
   $("winOdds").textContent = odds.toFixed(3) + "%";
-  Wallet.saveRunStats(G.score, G.tickets);
+  Wallet.saveRunStats(G.score);
   // Gold celebration burst
   for (let i = 0; i < 3; i++) {
     setTimeout(() => explode(
@@ -4535,17 +4622,14 @@ function resetGameState() {
 }
 
 function goHome() {
-  $("endFail").classList.add("hidden");
-  $("endWin").classList.add("hidden");
-  LobbyDrawers.close();
+  showLobby();
   resetGameState();
   destroyNavalFleet(true);
   respawnNavalFleet();
   applyTheater(Wallet.selectedTheater || "arctic");
+  resetStormEnvironment();
   $("btnPause").classList.remove("show");
   $("btnHudHome").classList.remove("show");
-  $("brief").classList.remove("hidden");
-  $("brief").style.display = "";
   Wallet.updateUI();
   TheaterSelect.render();
   updateHUD();
@@ -4575,11 +4659,11 @@ function updateLobbyViewport(dt) {
 function redeploy() {
   $("endFail").classList.add("hidden");
   $("endWin").classList.add("hidden");
-  $("brief").classList.add("hidden");
-  $("brief").style.display = "none";
   resetGameState();
+  hideLobbyForCombat();
   applyTheater(Wallet.selectedTheater || "arctic");
   player.health = getPlayerMaxHealth();
+  player.dead = false;
   respawnNavalFleet();
   G.running = true;
   G.paused = false;
@@ -5513,27 +5597,7 @@ addEventListener("orientationchange", () => setTimeout(onResize, 100));
 $("btnEngage").addEventListener("click", () => {
   if (typeof SFX !== "undefined") SFX.resume();
   if (!Wallet.address) showPop("TIP · LINK WALLET VIA PROFILE TO SAVE TOKENS");
-  LobbyDrawers.close();
-  $("settingsPanel").classList.remove("open");
-  $("settingsBackdrop").classList.remove("open");
-  $("settingsPanel").setAttribute("aria-hidden", "true");
-  applyTheater(Wallet.selectedTheater || "arctic");
-  player.health = getPlayerMaxHealth();
-  $("brief").classList.add("hidden");
-  $("brief").style.display = "none";
-  $("btnPause").classList.add("show");
-  $("btnHudHome").classList.add("show");
-  G.running = true;
-  G.paused = false;
-  G.chips = 0;
-  G.tickerLines = [];
-  G.tickerAcc = 0;
-  G.thunderT = 6;
-  respawnNavalFleet();
-  startWave(0);
-  updateHUD();
-  SFX.setEngine(BASE_SPEED, true);
-  pushTicker("Fetching encrypted bot vector from Inco network…", false);
+  beginCombatMission();
 });
 
 $("btnRedeployFail").addEventListener("click", () => { SFX.resume(); redeploy(); });
