@@ -1404,6 +1404,15 @@
     .btn-engage-launch .engage-label {
       position: relative; z-index: 1;
     }
+    .btn-engage.wallet-locked {
+      background: linear-gradient(135deg, #ffc857, #e8a020);
+      color: #1a1204;
+      box-shadow: 0 0 22px rgba(255, 200, 87, 0.45);
+      animation: none;
+    }
+    .btn-engage.wallet-locked .engage-chevrons {
+      color: rgba(40, 24, 4, 0.4);
+    }
     @keyframes engagePulse {
       0%, 100% { box-shadow: 0 0 22px rgba(61, 255, 168, 0.45), 0 0 40px rgba(0, 255, 178, 0.15); }
       50% { box-shadow: 0 0 36px rgba(61, 255, 168, 0.75), 0 0 60px rgba(0, 255, 178, 0.28); }
@@ -2236,7 +2245,7 @@ const Wallet = {
     if (this.address) {
       if (disc) disc.style.display = "none";
       if (conn) conn.style.display = "block";
-      if (handle) handle.textContent = this.address;
+      if (handle) handle.textContent = this.shortAddr(this.address);
       if (lamp) lamp.classList.add("online");
       if (statusText) statusText.textContent = "ONLINE / LINKED — SECURE FIELD ACTIVE";
       if (stats) {
@@ -2275,12 +2284,13 @@ const Wallet = {
       if (invEl) invEl.textContent = "No armory items equipped.";
       if (purchasesEl) purchasesEl.textContent = "No theater unlocks recorded.";
     }
+    updateEngageGate();
     Shop.updateUI();
     TheaterSelect.render();
   },
   async connect() {
     if (!window.ethereum) {
-      showPop("METAMASK NOT DETECTED");
+      showPop("METAMASK REQUIRED — INSTALL OR OPEN METAMASK TO PLAY");
       return false;
     }
     try {
@@ -2292,11 +2302,12 @@ const Wallet = {
       showPop("WALLET LINKED — " + this.shortAddr(this.address));
       return true;
     } catch (_) {
-      showPop("WALLET CONNECTION DENIED");
+      showPop("WALLET CONNECTION DENIED — LINK METAMASK TO PLAY");
       return false;
     }
   },
   disconnect() {
+    const wasPlaying = typeof G !== "undefined" && G.running;
     this.address = null;
     this.highScore = 0;
     this.allTimeTickets = 0;
@@ -2314,6 +2325,7 @@ const Wallet = {
     TheaterSelect.syncFromWallet();
     this.updateUI();
     showPop("WALLET DISCONNECTED");
+    if (wasPlaying && typeof goHome === "function") goHome();
   },
   async tryReconnect() {
     if (!window.ethereum) return;
@@ -2334,6 +2346,7 @@ const Wallet = {
           this.loadProfile();
         } else {
           this.disconnect();
+          return;
         }
         this.updateUI();
       });
@@ -4248,6 +4261,7 @@ function bootLobby() {
   SFX.loadSamples();
   TheaterSelect.render();
   Wallet.tryReconnect();
+  updateEngageGate();
   updateHUD();
 }
 
@@ -4530,6 +4544,7 @@ function showLobby() {
 }
 
 async function beginCombatMission() {
+  if (!(await requireWalletToPlay())) return;
   hideLobbyForCombat();
   applyTheater(Wallet.selectedTheater || "arctic");
   player.health = getPlayerMaxHealth();
@@ -4549,6 +4564,37 @@ async function beginCombatMission() {
   await unlockGameAudio();
   SFX.setEngine(BASE_SPEED, true);
   pushTicker("Fetching encrypted bot vector from Inco network…", false);
+}
+
+function updateEngageGate() {
+  const btn = $("btnEngage");
+  if (!btn) return;
+  const chev = btn.querySelector(".engage-chevrons");
+  const label = btn.querySelector(".engage-label");
+  if (Wallet.address) {
+    btn.classList.remove("wallet-locked");
+    if (chev) chev.textContent = "<< ENGAGE MISSION >>";
+    if (label) label.textContent = "ENGAGE";
+  } else {
+    btn.classList.add("wallet-locked");
+    if (chev) chev.textContent = "<< LINK METAMASK TO PLAY >>";
+    if (label) label.textContent = "CONNECT WALLET";
+  }
+}
+
+async function requireWalletToPlay() {
+  if (Wallet.address) return true;
+  showPop("METAMASK REQUIRED — LINK WALLET TO PLAY");
+  if (!window.ethereum) {
+    LobbyDrawers.open("Profile");
+    return false;
+  }
+  const ok = await Wallet.connect();
+  if (!ok) {
+    LobbyDrawers.open("Profile");
+    return false;
+  }
+  return true;
 }
 
 function awardKill(worldPos, pts, ticketAmt) {
@@ -5237,6 +5283,7 @@ function updateLobbyViewport(dt) {
 }
 
 async function redeploy() {
+  if (!(await requireWalletToPlay())) return;
   $("endFail").classList.add("hidden");
   $("endWin").classList.add("hidden");
   resetGameState();
@@ -6274,18 +6321,16 @@ $("btnEngage").addEventListener("touchstart", async (e) => {
   e.preventDefault();
   _engageTouchHandled = true;
   await unlockGameAudio();
-  if (!Wallet.address) showPop("TIP · LINK WALLET VIA PROFILE TO SAVE TOKENS");
   await beginCombatMission();
 }, { passive: false });
 $("btnEngage").addEventListener("click", async () => {
   if (_engageTouchHandled) { _engageTouchHandled = false; return; }
-  if (!Wallet.address) showPop("TIP · LINK WALLET VIA PROFILE TO SAVE TOKENS");
   await unlockGameAudio();
   await beginCombatMission();
 });
 
-$("btnRedeployFail").addEventListener("click", () => { SFX.resume(); redeploy(); });
-$("btnRedeployWin").addEventListener("click", () => { SFX.resume(); redeploy(); });
+$("btnRedeployFail").addEventListener("click", async () => { await SFX.resume(); await redeploy(); });
+$("btnRedeployWin").addEventListener("click", async () => { await SFX.resume(); await redeploy(); });
 $("btnHomeFail").addEventListener("click", () => { SFX.resume(); goHome(); });
 $("btnHomeWin").addEventListener("click", () => { SFX.resume(); goHome(); });
 $("btnHudHome").addEventListener("click", () => { SFX.resume(); goHome(); });
