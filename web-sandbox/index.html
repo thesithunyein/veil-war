@@ -830,17 +830,20 @@ scene.add(hemiLight);
   scene.add(glow);
 })();
 
-/* Muted grey-blue warzone sky → fog horizon */
+/* Deep stormy high-altitude blue sky */
+let skyUniforms = null;
 (function buildSky() {
+  skyUniforms = {
+    zenith: { value: new THREE.Color(0x061018) },
+    mid: { value: new THREE.Color(0x0c1a30) },
+    horizon: { value: new THREE.Color(0x1a3a5c) },
+    glow: { value: new THREE.Color(0x4a7090) },
+    sunDir: { value: sun.position.clone().normalize() },
+    flash: { value: 0.0 },
+  };
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: {
-      zenith: { value: new THREE.Color(0x1e2838) },
-      mid: { value: new THREE.Color(0x333b4d) },
-      horizon: { value: new THREE.Color(0x4a5360) },
-      glow: { value: new THREE.Color(0x6a7080) },
-      sunDir: { value: sun.position.clone().normalize() },
-    },
+    uniforms: skyUniforms,
     vertexShader: `
       varying vec3 vPos;
       void main(){
@@ -849,30 +852,41 @@ scene.add(hemiLight);
       }`,
     fragmentShader: `
       uniform vec3 zenith, mid, horizon, glow, sunDir;
+      uniform float flash;
       varying vec3 vPos;
       void main(){
         float h = vPos.y;
-        vec3 col = mix(horizon, mid, smoothstep(-0.05, 0.22, h));
-        col = mix(col, zenith, smoothstep(0.15, 0.85, h));
-        float sunAmt = pow(max(0.0, dot(normalize(vPos), normalize(sunDir))), 32.0);
-        col += glow * sunAmt * 0.45;
+        vec3 col = mix(horizon, mid, smoothstep(-0.08, 0.25, h));
+        col = mix(col, zenith, smoothstep(0.12, 0.9, h));
+        float sunAmt = pow(max(0.0, dot(normalize(vPos), normalize(sunDir))), 28.0);
+        col += glow * sunAmt * 0.35;
+        col = mix(col, vec3(1.0), flash);
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
   scene.add(new THREE.Mesh(new THREE.SphereGeometry(6000, 32, 20), skyMat));
 })();
 
-/* Soft fog bank cloud billboards */
+/* Soft volumetric cloud sprites — fly through mist, not solid discs */
 function makeCloudTexture() {
   const c = document.createElement("canvas");
-  c.width = 128; c.height = 128;
+  c.width = 256; c.height = 256;
   const g = c.getContext("2d");
-  const grd = g.createRadialGradient(64, 64, 8, 64, 64, 60);
-  grd.addColorStop(0, "rgba(255,255,255,0.7)");
-  grd.addColorStop(0.45, "rgba(220,220,220,0.3)");
-  grd.addColorStop(1, "rgba(200,200,200,0)");
-  g.fillStyle = grd;
-  g.fillRect(0, 0, 128, 128);
+  g.clearRect(0, 0, 256, 256);
+  // Soft multi-blob puff for fluffy edges
+  for (let i = 0; i < 7; i++) {
+    const x = 90 + Math.random() * 76;
+    const y = 100 + Math.random() * 56;
+    const r = 48 + Math.random() * 55;
+    const grd = g.createRadialGradient(x, y, 2, x, y, r);
+    grd.addColorStop(0, "rgba(255,255,255,0.55)");
+    grd.addColorStop(0.35, "rgba(240,246,255,0.22)");
+    grd.addColorStop(1, "rgba(220,230,245,0)");
+    g.fillStyle = grd;
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+  }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
@@ -880,35 +894,38 @@ function makeCloudTexture() {
 const cloudTex = makeCloudTexture();
 const clouds = [];
 (function buildClouds() {
-  // Fluffy white volumetric cloud fields — plane slices through them
-  const mat = new THREE.SpriteMaterial({
-    map: cloudTex, color: 0xffffff, transparent: true, opacity: 0.55,
-    depthWrite: false, fog: true,
-  });
-  for (let i = 0; i < 110; i++) {
+  for (let i = 0; i < 140; i++) {
     const cluster = new THREE.Group();
-    const n = 7 + (i % 6);
+    const n = 9 + (i % 7);
     for (let j = 0; j < n; j++) {
-      const spr = new THREE.Sprite(mat.clone());
-      const s = 70 + Math.random() * 160;
-      spr.scale.set(s, s * 0.55, 1);
-      spr.material.color.setHex(Math.random() < 0.35 ? 0xe8f0ff : 0xffffff);
-      spr.material.opacity = 0.28 + Math.random() * 0.42;
-      spr.userData._op = spr.material.opacity;
+      const mat = new THREE.SpriteMaterial({
+        map: cloudTex,
+        color: 0xe8f2ff,
+        transparent: true,
+        opacity: 0.15 + Math.random() * 0.1,
+        depthWrite: false,
+        depthTest: true,
+        fog: true,
+        blending: THREE.NormalBlending,
+      });
+      const spr = new THREE.Sprite(mat);
+      const s = 90 + Math.random() * 200;
+      spr.scale.set(s, s * (0.55 + Math.random() * 0.25), 1);
+      spr.userData._op = mat.opacity;
       spr.position.set(
-        (Math.random() - 0.5) * 140,
-        (Math.random() - 0.5) * 36,
-        (Math.random() - 0.5) * 100
+        (Math.random() - 0.5) * 180,
+        (Math.random() - 0.5) * 50,
+        (Math.random() - 0.5) * 140
       );
       cluster.add(spr);
     }
     cluster.position.set(
-      (Math.random() - 0.5) * 3000,
-      55 + Math.random() * 200,
-      (Math.random() - 0.5) * 3000
+      (Math.random() - 0.5) * 3200,
+      50 + Math.random() * 210,
+      (Math.random() - 0.5) * 3200
     );
     scene.add(cluster);
-    clouds.push({ mesh: cluster, speed: 45 + Math.random() * 85 });
+    clouds.push({ mesh: cluster, speed: 35 + Math.random() * 70 });
   }
 })();
 
@@ -1090,12 +1107,14 @@ function tintStormSurfaces(white) {
     renderer.setClearColor(0xffffff, 1);
     oceanUniforms.uDeep.value.setHex(0xffffff);
     oceanUniforms.uShallow.value.setHex(0xf2f7ff);
+    if (skyUniforms) skyUniforms.flash.value = 1.0;
     for (const c of clouds) {
       c.mesh.traverse((obj) => {
         if (obj.isSprite && obj.material) {
           if (obj.userData._op == null) obj.userData._op = obj.material.opacity;
+          // Brilliant glowing white rim on volumetric mist
           obj.material.color.setHex(0xffffff);
-          obj.material.opacity = Math.min(1, obj.userData._op * 1.85);
+          obj.material.opacity = Math.min(0.85, obj.userData._op * 3.2 + 0.35);
         }
       });
     }
@@ -1108,10 +1127,11 @@ function tintStormSurfaces(white) {
     renderer.setClearColor(STORM_BG, 1);
     oceanUniforms.uDeep.value.setHex(SEA_DEEP);
     oceanUniforms.uShallow.value.setHex(0x163d72);
+    if (skyUniforms) skyUniforms.flash.value = 0.0;
     for (const c of clouds) {
       c.mesh.traverse((obj) => {
         if (obj.isSprite && obj.material) {
-          obj.material.color.setHex(0xffffff);
+          obj.material.color.setHex(0xe8f2ff);
           if (obj.userData._op != null) obj.material.opacity = obj.userData._op;
         }
       });
@@ -1803,130 +1823,161 @@ function pulsePlumes(jet, throttle, dt) {
   }
 }
 
-/* —— Web Audio (no external assets) —— */
+/* —— Premium cinematic Web Audio (Merlin roar + autocannon + lock) —— */
 const SFX = {
   ctx: null,
   master: null,
   engOsc: null,
   engGain: null,
   engFilter: null,
+  engNoise: null,
+  engNoiseGain: null,
+  engNoiseFilter: null,
   lockOsc: null,
   lockGain: null,
-  lockTimer: null,
+  lockLfo: null,
+  lockLfoGain: null,
   locked: false,
+  seeking: false,
+  _eng2: null,
   ensure() {
     if (this.ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     this.ctx = new AC();
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.35;
+    this.master.gain.value = 0.42;
     this.master.connect(this.ctx.destination);
 
-    // Engine hum
+    // —— Rolls-Royce Merlin roar: 45Hz saw + harmonic + filtered noise rumble ——
     this.engOsc = this.ctx.createOscillator();
     this.engOsc.type = "sawtooth";
-    this.engOsc.frequency.value = 55;
+    this.engOsc.frequency.value = 45;
     this.engFilter = this.ctx.createBiquadFilter();
     this.engFilter.type = "lowpass";
-    this.engFilter.frequency.value = 280;
+    this.engFilter.frequency.value = 320;
+    this.engFilter.Q.value = 0.7;
     this.engGain = this.ctx.createGain();
     this.engGain.gain.value = 0;
-    const eng2 = this.ctx.createOscillator();
-    eng2.type = "triangle";
-    eng2.frequency.value = 110;
-    const eng2g = this.ctx.createGain();
-    eng2g.gain.value = 0.25;
     this.engOsc.connect(this.engFilter);
     this.engFilter.connect(this.engGain);
-    eng2.connect(eng2g);
-    eng2g.connect(this.engGain);
     this.engGain.connect(this.master);
     this.engOsc.start();
-    eng2.start();
-    this._eng2 = eng2;
 
-    // Lock-on beeper
+    this._eng2 = this.ctx.createOscillator();
+    this._eng2.type = "triangle";
+    this._eng2.frequency.value = 90;
+    const eng2g = this.ctx.createGain();
+    eng2g.gain.value = 0.22;
+    this._eng2.connect(eng2g);
+    eng2g.connect(this.engGain);
+    this._eng2.start();
+
+    // White-noise propeller rumble through low-pass
+    const nLen = this.ctx.sampleRate * 2;
+    const nBuf = this.ctx.createBuffer(1, nLen, this.ctx.sampleRate);
+    const nData = nBuf.getChannelData(0);
+    for (let i = 0; i < nLen; i++) nData[i] = Math.random() * 2 - 1;
+    this.engNoise = this.ctx.createBufferSource();
+    this.engNoise.buffer = nBuf;
+    this.engNoise.loop = true;
+    this.engNoiseFilter = this.ctx.createBiquadFilter();
+    this.engNoiseFilter.type = "lowpass";
+    this.engNoiseFilter.frequency.value = 180;
+    this.engNoiseGain = this.ctx.createGain();
+    this.engNoiseGain.gain.value = 0;
+    this.engNoise.connect(this.engNoiseFilter);
+    this.engNoiseFilter.connect(this.engNoiseGain);
+    this.engNoiseGain.connect(this.master);
+    this.engNoise.start();
+
+    // Lock synth: seeking hum → solid lock beep
     this.lockOsc = this.ctx.createOscillator();
-    this.lockOsc.type = "square";
-    this.lockOsc.frequency.value = 880;
+    this.lockOsc.type = "sine";
+    this.lockOsc.frequency.value = 740;
     this.lockGain = this.ctx.createGain();
     this.lockGain.gain.value = 0;
+    this.lockLfo = this.ctx.createOscillator();
+    this.lockLfo.type = "sine";
+    this.lockLfo.frequency.value = 6;
+    this.lockLfoGain = this.ctx.createGain();
+    this.lockLfoGain.gain.value = 0;
+    this.lockLfo.connect(this.lockLfoGain);
+    this.lockLfoGain.connect(this.lockGain.gain);
     this.lockOsc.connect(this.lockGain);
     this.lockGain.connect(this.master);
     this.lockOsc.start();
+    this.lockLfo.start();
   },
   resume() {
     this.ensure();
     if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
   },
   setEngine(speed, flying) {
-    if (!this.engGain) return;
-    const target = flying ? 0.12 + Math.min(0.2, speed / 600) : 0;
+    if (!this.engGain || !this.ctx) return;
     const now = this.ctx.currentTime;
-    this.engGain.gain.linearRampToValueAtTime(target, now + 0.08);
-    this.engOsc.frequency.linearRampToValueAtTime(48 + speed * 0.55, now + 0.1);
-    if (this._eng2) this._eng2.frequency.linearRampToValueAtTime(96 + speed * 0.9, now + 0.1);
-    this.engFilter.frequency.linearRampToValueAtTime(220 + speed * 2.5, now + 0.1);
+    const boost = THREE.MathUtils.clamp((speed - BRAKE_SPEED) / (BOOST_SPEED - BRAKE_SPEED), 0, 1);
+    const target = flying ? 0.14 + boost * 0.18 : 0;
+    this.engGain.gain.linearRampToValueAtTime(target, now + 0.1);
+    // Pitch climbs smoothly under boost
+    const baseHz = 45 + boost * 38 + (speed - BASE_SPEED) * 0.08;
+    this.engOsc.frequency.linearRampToValueAtTime(Math.max(40, baseHz), now + 0.12);
+    if (this._eng2) this._eng2.frequency.linearRampToValueAtTime(Math.max(80, baseHz * 2), now + 0.12);
+    this.engFilter.frequency.linearRampToValueAtTime(280 + boost * 420, now + 0.12);
+    if (this.engNoiseGain) {
+      this.engNoiseGain.gain.linearRampToValueAtTime(flying ? 0.045 + boost * 0.06 : 0, now + 0.1);
+      this.engNoiseFilter.frequency.linearRampToValueAtTime(140 + boost * 220, now + 0.12);
+    }
   },
   setLock(on) {
-    if (!this.lockGain) return;
+    if (!this.lockGain || !this.ctx) return;
+    const t = this.ctx.currentTime;
     if (on === this.locked) return;
     this.locked = on;
-    clearInterval(this.lockTimer);
+    if (on) this.seeking = false;
+    this.lockGain.gain.cancelScheduledValues(t);
+    this.lockLfoGain.gain.cancelScheduledValues(t);
     if (!on) {
-      this.lockGain.gain.setValueAtTime(0, this.ctx.currentTime);
+      this.lockGain.gain.setValueAtTime(0.0001, t);
+      this.lockGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      this.lockLfoGain.gain.setValueAtTime(0, t);
       return;
     }
-    let pulse = 0;
-    this.lockTimer = setInterval(() => {
-      if (!this.ctx) return;
-      const t = this.ctx.currentTime;
-      this.lockOsc.frequency.setValueAtTime(720 + (pulse % 2) * 220, t);
-      this.lockGain.gain.cancelScheduledValues(t);
+    // Solid sharp continuous cockpit lock beep
+    this.lockOsc.frequency.setValueAtTime(1180, t);
+    this.lockLfoGain.gain.setValueAtTime(0, t);
+    this.lockGain.gain.setValueAtTime(0.0001, t);
+    this.lockGain.gain.exponentialRampToValueAtTime(0.09, t + 0.04);
+  },
+  setSeeking(on) {
+    if (!this.lockGain || !this.ctx) return;
+    if (this.locked) return;
+    const t = this.ctx.currentTime;
+    if (on === this.seeking) return;
+    this.seeking = on;
+    this.lockGain.gain.cancelScheduledValues(t);
+    this.lockLfoGain.gain.cancelScheduledValues(t);
+    if (!on) {
       this.lockGain.gain.setValueAtTime(0.0001, t);
-      this.lockGain.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
-      this.lockGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
-      pulse++;
-    }, on ? 180 : 9999);
+      this.lockLfoGain.gain.setValueAtTime(0, t);
+      return;
+    }
+    // High-tech warning hum (tremolo) before hard lock
+    this.lockOsc.frequency.setValueAtTime(620, t);
+    this.lockLfo.frequency.setValueAtTime(5.5, t);
+    this.lockLfoGain.gain.setValueAtTime(0.035, t);
+    this.lockGain.gain.setValueAtTime(0.04, t);
   },
-  missile() {
+  /** Heavy autocannon thump — rhythmic white-noise blast */
+  cannon() {
+    if (!this.ctx) this.ensure();
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    const bufSize = this.ctx.sampleRate * 0.35;
-    const buffer = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 1.5);
-    const src = this.ctx.createBufferSource();
-    src.buffer = buffer;
-    const bp = this.ctx.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.frequency.setValueAtTime(1200, t);
-    bp.frequency.exponentialRampToValueAtTime(200, t + 0.3);
-    const g = this.ctx.createGain();
-    g.gain.setValueAtTime(0.45, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-    src.connect(bp); bp.connect(g); g.connect(this.master);
-    src.start();
-    // Whoosh tone
-    const o = this.ctx.createOscillator();
-    o.type = "sawtooth";
-    o.frequency.setValueAtTime(400, t);
-    o.frequency.exponentialRampToValueAtTime(80, t + 0.25);
-    const og = this.ctx.createGain();
-    og.gain.setValueAtTime(0.15, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-    o.connect(og); og.connect(this.master);
-    o.start(); o.stop(t + 0.28);
-  },
-  explode() {
-    if (!this.ctx) return;
-    const t = this.ctx.currentTime;
-    const len = this.ctx.sampleRate * 0.55;
+    const len = Math.floor(this.ctx.sampleRate * 0.085);
     const buffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < len; i++) {
-      const env = Math.pow(1 - i / len, 1.8);
+      const env = Math.pow(1 - i / len, 2.4);
       data[i] = (Math.random() * 2 - 1) * env;
     }
     const src = this.ctx.createBufferSource();
@@ -1934,21 +1985,66 @@ const SFX = {
     const lp = this.ctx.createBiquadFilter();
     lp.type = "lowpass";
     lp.frequency.setValueAtTime(900, t);
-    lp.frequency.exponentialRampToValueAtTime(80, t + 0.5);
+    lp.frequency.exponentialRampToValueAtTime(120, t + 0.07);
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 180;
+    bp.Q.value = 0.8;
     const g = this.ctx.createGain();
     g.gain.setValueAtTime(0.55, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    src.connect(lp);
+    lp.connect(bp);
+    bp.connect(g);
+    g.connect(this.master);
+    src.start();
+    // Low body thump
+    const o = this.ctx.createOscillator();
+    o.type = "sine";
+    o.frequency.setValueAtTime(70, t);
+    o.frequency.exponentialRampToValueAtTime(32, t + 0.06);
+    const og = this.ctx.createGain();
+    og.gain.setValueAtTime(0.28, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    o.connect(og);
+    og.connect(this.master);
+    o.start();
+    o.stop(t + 0.08);
+  },
+  missile() {
+    this.cannon();
+  },
+  explode() {
+    if (!this.ctx) this.ensure();
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const len = this.ctx.sampleRate * 0.6;
+    const buffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      const env = Math.pow(1 - i / len, 1.6);
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(1100, t);
+    lp.frequency.exponentialRampToValueAtTime(70, t + 0.55);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.6, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
     src.connect(lp); lp.connect(g); g.connect(this.master);
     src.start();
     const o = this.ctx.createOscillator();
     o.type = "triangle";
-    o.frequency.setValueAtTime(90, t);
-    o.frequency.exponentialRampToValueAtTime(30, t + 0.4);
+    o.frequency.setValueAtTime(95, t);
+    o.frequency.exponentialRampToValueAtTime(28, t + 0.45);
     const og = this.ctx.createGain();
-    og.gain.setValueAtTime(0.3, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    og.gain.setValueAtTime(0.32, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
     o.connect(og); og.connect(this.master);
-    o.start(); o.stop(t + 0.42);
+    o.start(); o.stop(t + 0.48);
   },
 };
 
@@ -2362,10 +2458,88 @@ function collectChip(worldPos) {
   }
 }
 
+function cacheEnemyMaterials(e) {
+  if (e._mats) return;
+  e._mats = [];
+  e.mesh.traverse((o) => {
+    if (o.isMesh && o.material && o.material.color) {
+      e._mats.push({
+        m: o.material,
+        c: o.material.color.clone(),
+        e: o.material.emissive ? o.material.emissive.clone() : null,
+        ei: o.material.emissiveIntensity,
+      });
+    }
+  });
+}
+
+function flashEnemyHit(e) {
+  if (!e || !e.mesh) return;
+  cacheEnemyMaterials(e);
+  e.flashFrames = 2;
+  e.mesh.traverse((o) => {
+    if (o.isMesh && o.material && o.material.color) {
+      o.material.color.setHex(0xffffff);
+      if (o.material.emissive) {
+        o.material.emissive.setHex(0xffffff);
+        o.material.emissiveIntensity = 1.2;
+      }
+    }
+  });
+  // Fiery wing smoke trails on impact
+  const tips = e.mesh.userData.wingTips || [];
+  for (const tip of tips) {
+    const wp = new THREE.Vector3();
+    tip.getWorldPosition(wp);
+    for (let i = 0; i < 5; i++) {
+      const m = new THREE.Mesh(
+        new THREE.SphereGeometry(0.6 + Math.random() * 1.2, 5, 5),
+        new THREE.MeshBasicMaterial({
+          color: Math.random() < 0.5 ? 0xff6622 : 0xffcc44,
+          transparent: true, opacity: 0.7,
+        })
+      );
+      m.position.copy(wp);
+      scene.add(m);
+      G.particles.push({
+        mesh: m,
+        vel: new THREE.Vector3(
+          (Math.random() - 0.5) * 6,
+          2 + Math.random() * 5,
+          (Math.random() - 0.5) * 6
+        ),
+        life: 1,
+        decay: 0.02 + Math.random() * 0.015,
+        smoke: true,
+      });
+    }
+  }
+  camShake.t = Math.max(camShake.t, 0.28);
+}
+
+function updateHitFlashes() {
+  const list = G.enemies.slice();
+  if (G.boss) list.push(G.boss);
+  for (const e of list) {
+    if (!e.flashFrames) continue;
+    e.flashFrames--;
+    if (e.flashFrames <= 0 && e._mats) {
+      for (const rec of e._mats) {
+        rec.m.color.copy(rec.c);
+        if (rec.e && rec.m.emissive) {
+          rec.m.emissive.copy(rec.e);
+          if (rec.ei != null) rec.m.emissiveIntensity = rec.ei;
+        }
+      }
+    }
+  }
+}
+
 function hurtEnemy(e, idx, dmg) {
   e.hp -= dmg;
   explode(e.mesh.position.clone(), 0.25, false);
   flashCrosshairHit();
+  flashEnemyHit(e);
   if (e.hp <= 0) {
     destroyEnemy(e, idx);
     return true;
@@ -2392,6 +2566,7 @@ function damageBoss(amt) {
   G.boss.hp -= amt;
   explode(G.boss.mesh.position.clone(), 0.45, false);
   flashCrosshairHit();
+  flashEnemyHit(G.boss);
   spawnHitFloat(G.boss.mesh.position.clone(), "HIT");
   updateHUD();
   if (G.boss.hp <= 0) {
@@ -2409,23 +2584,55 @@ function damageBoss(amt) {
   }
 }
 
-function fireOrangeTracer(origin, dir, length) {
+function fireHeavyTracer(origin, dir, length, mint) {
   const d = dir.clone().normalize();
-  const end = origin.clone().addScaledVector(d, length || 95);
+  const end = origin.clone().addScaledVector(d, length || 120);
+  const core = mint ? 0x7dffc4 : 0xffe566;
+  const halo = mint ? 0xc8ffe8 : 0xfff0a8;
   const geo = new THREE.BufferGeometry().setFromPoints([origin.clone(), end]);
   const mat = new THREE.LineBasicMaterial({
-    color: 0xffaa33,
-    transparent: true,
-    opacity: 1,
-    depthWrite: false,
+    color: core, transparent: true, opacity: 1, depthWrite: false,
   });
   const line = new THREE.Line(geo, mat);
   scene.add(line);
-  const geo2 = new THREE.BufferGeometry().setFromPoints([origin.clone(), end]);
-  const mat2 = new THREE.LineBasicMaterial({ color: 0xffee88, transparent: true, opacity: 0.75, depthWrite: false });
-  const line2 = new THREE.Line(geo2, mat2);
+  const mat2 = new THREE.LineBasicMaterial({
+    color: halo, transparent: true, opacity: 0.85, depthWrite: false,
+  });
+  const line2 = new THREE.Line(geo.clone(), mat2);
   scene.add(line2);
-  G.tracers.push({ line, line2, life: 0.08 });
+  G.tracers.push({ line, line2, life: 0.1 });
+}
+
+function spawnMuzzleFlash(origin, dir) {
+  for (let i = 0; i < 10; i++) {
+    const mint = i % 2 === 0;
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.25 + Math.random() * 0.9, 5, 5),
+      new THREE.MeshBasicMaterial({
+        color: mint ? 0xa8ff7a : 0xffee55,
+        transparent: true,
+        opacity: 0.95,
+        depthWrite: false,
+      })
+    );
+    m.position.copy(origin).addScaledVector(dir, Math.random() * 2.5);
+    m.position.x += (Math.random() - 0.5) * 0.8;
+    m.position.y += (Math.random() - 0.5) * 0.8;
+    m.position.z += (Math.random() - 0.5) * 0.8;
+    scene.add(m);
+    G.particles.push({
+      mesh: m,
+      vel: dir.clone().multiplyScalar(25 + Math.random() * 55).add(
+        new THREE.Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12)
+      ),
+      life: 1,
+      decay: 0.18 + Math.random() * 0.12,
+    });
+  }
+}
+
+function fireOrangeTracer(origin, dir, length) {
+  fireHeavyTracer(origin, dir, length, false);
 }
 
 function fireRedTracer(origin, dir, length) {
@@ -2449,7 +2656,7 @@ function fireMissile() {
   if (!G.running || G.paused || player.dead || G.fireCD > 0) return;
   if (G.overheated) return;
 
-  G.fireCD = 0.09;
+  G.fireCD = 0.08;
   G.heat = Math.min(1, G.heat + GUN_HEAT_PER_SHOT);
   if (G.heat >= 1) {
     G.overheated = true;
@@ -2457,7 +2664,7 @@ function fireMissile() {
     updateHeatHUD();
   }
   updateHeatHUD();
-  SFX.missile();
+  SFX.cannon();
 
   const forward = getPlayerForward(new THREE.Vector3());
   const mounts = player.mesh.userData.gunMounts || [];
@@ -2479,13 +2686,12 @@ function fireMissile() {
   if (G.lockTarget && G.lockTarget.mesh && (G.lockTarget.revealed || isFheRevealed(G.lockTarget))) {
     tgtMesh = G.lockTarget.mesh;
   } else {
-    const near = nearestThreat(FHE_REVEAL);
+    const near = nearestThreat(DETECT_RANGE);
     if (near) {
       const to = near.mesh.position.clone().sub(player.mesh.position).normalize();
       if (forward.dot(to) > 0.05) tgtMesh = near.mesh;
     }
   }
-  // Beginner magnetism: bias muzzle toward locked target in front hemisphere
   if (tgtMesh) {
     const toT = tgtMesh.position.clone().sub(player.mesh.position).normalize();
     if (forward.dot(toT) > 0) {
@@ -2493,21 +2699,24 @@ function fireMissile() {
     }
   }
 
-  const ROUND_SPEED = 720;
-  for (const origin of origins) {
-    fireOrangeTracer(origin, fireDir, 95);
+  G.gunAlt = (G.gunAlt || 0) ^ 1;
+  const ROUND_SPEED = 980;
+  origins.forEach((origin, idx) => {
+    const mint = ((G.gunAlt + idx) % 2) === 0;
+    fireHeavyTracer(origin, fireDir, 130, mint);
+    spawnMuzzleFlash(origin, fireDir);
 
     const mesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.07, 0.045, 2.1, 4),
-      new THREE.MeshBasicMaterial({ color: 0xff9933 })
+      new THREE.CylinderGeometry(0.09, 0.05, 2.6, 4),
+      new THREE.MeshBasicMaterial({ color: mint ? 0x7dffc4 : 0xffe566 })
     );
     mesh.position.copy(origin);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), fireDir.clone().normalize());
     scene.add(mesh);
 
     const trail = new THREE.Mesh(
-      new THREE.SphereGeometry(0.18, 4, 4),
-      new THREE.MeshBasicMaterial({ color: 0xffcc66, transparent: true, opacity: 0.55 })
+      new THREE.SphereGeometry(0.22, 4, 4),
+      new THREE.MeshBasicMaterial({ color: mint ? 0xa8ffd8 : 0xfff0a0, transparent: true, opacity: 0.7 })
     );
     trail.position.copy(origin);
     scene.add(trail);
@@ -2516,14 +2725,14 @@ function fireMissile() {
       mesh, trail,
       vel: fireDir.clone().multiplyScalar(ROUND_SPEED),
       target: tgtMesh,
-      life: 1.35,
+      life: 1.45,
       forward: fireDir.clone(),
       speed: ROUND_SPEED,
       gun: true,
       dmg: MG_DMG,
       homing: !!tgtMesh,
     });
-  }
+  });
 }
 
 function enemyFirePlasma(e, fromBehind) {
@@ -2894,7 +3103,14 @@ function updateLockHUD() {
   $("cross").classList.toggle("locked", !!best);
   $("cross").classList.toggle("aim", !!best);
   $("cross").classList.toggle("tracking", isTrackHeld() && !!nearestThreat(520));
-  SFX.setLock(!!best && G.running && !player.dead);
+  const audioOn = G.running && !player.dead;
+  const locked = !!best && audioOn;
+  if (locked) {
+    SFX.setLock(true);
+  } else {
+    SFX.setLock(false);
+    SFX.setSeeking(audioOn && !!nearestThreat(520));
+  }
 }
 
 function drawRadar() {
@@ -3469,6 +3685,7 @@ function frame(ts) {
     updatePlasma(dt);
     updateRelics(dt);
     updateParticles(dt);
+    updateHitFlashes();
     updateClouds(dt);
     updateFleet(dt);
     updateOcean(G.t);
@@ -3483,6 +3700,7 @@ function frame(ts) {
   } else {
     updateTracers(dt);
     updateParticles(dt);
+    updateHitFlashes();
     updateOcean(G.t);
     updateClouds(dt);
     updateFleet(dt);
