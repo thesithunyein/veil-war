@@ -705,6 +705,97 @@
     }
     .claim-status-line.error { color: #ff8f8f; }
     .claim-status-line a { color: var(--cyan); }
+    .how-it-works {
+      margin: 0.85rem 0 0;
+      padding: 0.7rem 0.75rem;
+      border: 1px solid rgba(0, 255, 178, 0.2);
+      background: rgba(0, 16, 24, 0.55);
+      text-align: left;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.04em;
+      color: rgba(234, 246, 255, 0.72);
+      line-height: 1.55;
+    }
+    .how-it-works strong {
+      display: block;
+      color: var(--teal);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 0.35rem;
+      font-size: 0.58rem;
+    }
+    .confirm-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 120;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(2, 8, 14, 0.72);
+      backdrop-filter: blur(6px);
+      padding: 1rem;
+    }
+    .confirm-backdrop.open { display: flex; }
+    .confirm-card {
+      width: min(92vw, 360px);
+      padding: 1.25rem 1.2rem 1.1rem;
+      border: 1px solid rgba(0, 255, 178, 0.35);
+      background: rgba(8, 16, 26, 0.95);
+      text-align: center;
+    }
+    .confirm-card h3 {
+      margin: 0 0 0.55rem;
+      font-family: var(--display);
+      letter-spacing: 0.12em;
+      color: var(--teal);
+      font-size: 0.95rem;
+    }
+    .confirm-card p {
+      margin: 0 0 1rem;
+      color: rgba(234, 246, 255, 0.7);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+    .confirm-actions {
+      display: flex;
+      gap: 0.55rem;
+    }
+    .confirm-actions button {
+      flex: 1;
+      font-family: var(--display);
+      letter-spacing: 0.1em;
+      padding: 0.7rem 0.4rem;
+      border: 1px solid rgba(0, 255, 178, 0.35);
+      background: rgba(0, 255, 178, 0.12);
+      color: var(--teal);
+      cursor: pointer;
+    }
+    .confirm-actions button.danger {
+      border-color: rgba(255, 110, 110, 0.45);
+      background: rgba(255, 70, 70, 0.12);
+      color: #ff9b9b;
+    }
+    .btn-link-mm {
+      display: block;
+      width: 100%;
+      margin-top: 0.55rem;
+      padding: 0.65rem 0.5rem;
+      font-family: var(--display);
+      letter-spacing: 0.1em;
+      font-size: 0.72rem;
+      border: 1px solid rgba(92, 225, 255, 0.4);
+      background: rgba(92, 225, 255, 0.08);
+      color: var(--cyan);
+      cursor: pointer;
+    }
+    .mm-linked {
+      margin-top: 0.45rem;
+      font-family: var(--mono);
+      font-size: 0.58rem;
+      color: rgba(234, 246, 255, 0.55);
+      letter-spacing: 0.06em;
+    }
     .card-home-minimal .btn-engage-launch {
       width: 100%;
       margin-top: 1.5rem;
@@ -1798,8 +1889,17 @@
           <div class="terminal-wallet" id="homeWalletBox">
             <div id="walletDisconnected">
               <button class="btn-wallet-inline" id="btnWalletConnect" type="button">SIGN IN WITH GOOGLE</button>
+              <div class="how-it-works" id="howItWorks">
+                <strong>How it works</strong>
+                1. Sign in with Google (no MetaMask needed to fly)<br />
+                2. Combat earns Megapot credits on your Google account<br />
+                3. Claim real Base Sepolia Megapot tickets from the end screen<br />
+                4. Link MetaMask only to buy armory / theaters with testnet ETH
+              </div>
             </div>
             <div id="walletConnected" style="display:none">
+              <div class="mm-linked" id="mmLinkedLabel">MetaMask: not linked</div>
+              <button class="btn-link-mm" id="btnLinkMetamask" type="button">LINK METAMASK (BASE SEPOLIA)</button>
               <button class="btn-disconnect" id="btnWalletDisconnect" type="button">DISCONNECT SESSION</button>
             </div>
           </div>
@@ -1827,7 +1927,7 @@
         </button>
         <div class="drawer-inner">
           <h2 class="drawer-head amber">ARMORY MARKETPLACE</h2>
-          <div class="shop-credits">Score tokens: <span id="shopCreditsLabel">0</span></div>
+          <div class="shop-credits">Score tokens: <span id="shopCreditsLabel">0</span> · Paid unlocks use Base Sepolia ETH</div>
           <div class="shop-items-grid" id="shopItems"></div>
         </div>
       </aside>
@@ -1839,6 +1939,17 @@
           <img class="logo-megapot" src="assets/megapot-logo.png" alt="Megapot" width="158" height="30" />
         </div>
       </footer>
+    </div>
+
+    <div class="confirm-backdrop" id="confirmHomeBackdrop" aria-hidden="true">
+      <div class="confirm-card" role="dialog" aria-labelledby="confirmHomeTitle">
+        <h3 id="confirmHomeTitle">ABORT MISSION?</h3>
+        <p>Leave now and this run’s score / Megapot credits will <strong style="color:#ff9b9b">not</strong> be saved to your Google account.</p>
+        <div class="confirm-actions">
+          <button type="button" id="confirmHomeNo">NO — STAY</button>
+          <button type="button" class="danger" id="confirmHomeYes">YES — ABORT</button>
+        </div>
+      </div>
     </div>
 
     <div class="endcard hidden" id="endFail">
@@ -2032,6 +2143,7 @@ const THEATERS = [
   },
   {
     id: "crimson", name: "Overgrown Deep Forest Storm", free: false, cost: 2000, chipUnlock: false,
+    ethSku: "theater_crimson", ethLabel: "0.001 ETH",
     theme: "theme-locked", glyph: "🌧", tag: "WEATHER: TROPICAL DOWNPOUR · DENSE JUNGLE CANOPY",
     env: { type: "jungle", rain: true, lightning: false, showOcean: false, showFleet: false, cloudOpacity: 0.04, rainMult: 1.65, rainOpacity: 0.42 },
     bg: 0x0a1810, fog: 0x12331f, fogDensity: 0.00095,
@@ -2041,6 +2153,7 @@ const THEATERS = [
   },
   {
     id: "neon", name: "Majestic Sunset Mountain Ridge", free: false, cost: 5000, chipUnlock: false,
+    ethSku: "theater_neon", ethLabel: "0.002 ETH",
     theme: "theme-locked", glyph: "⛰", tag: "WEATHER: GOLDEN HOUR · JAGGED RIDGE · WISPY CLOUDS",
     env: { type: "mountains", rain: false, lightning: false, showOcean: false, showFleet: false, cloudOpacity: 0.14, cloudBright: true },
     bg: 0xc85820, fog: 0xe67e22, fogDensity: 0.00042,
@@ -2062,11 +2175,14 @@ let envMeshes = { forest: null, jungle: null, mountains: null };
 let _theaterLighting = { ambient: 0.55, hemi: 0.55, sun: 1.15, bg: STORM_BG, fog: STORM_FOG };
 
 const SHOP_ITEMS = [
-  { id: "hull", name: "Heavy Armored Hull", cost: 800, desc: "Reinforced airframe plating for extended sorties",
+  { id: "hull", name: "Heavy Armored Hull", cost: 800, ethLabel: "0.0005 ETH", sku: "hull",
+    desc: "Reinforced airframe plating for extended sorties",
     statLabel: "Shield Capacity", statFrom: 100, statTo: 150, statMax: 150, statUnit: "%" },
-  { id: "muzzle", name: "Muzzle-Velocity Boost", cost: 1200, desc: "Hyper-velocity tracer rounds pierce faster",
+  { id: "muzzle", name: "Muzzle-Velocity Boost", cost: 1200, ethLabel: "0.0008 ETH", sku: "muzzle",
+    desc: "Hyper-velocity tracer rounds pierce faster",
     statLabel: "Tracer Velocity", statFrom: 100, statTo: 130, statMax: 130, statUnit: "%" },
-  { id: "radiator", name: "Overheat Radiator Mod", cost: 900, desc: "Advanced cooling for sustained MG bursts",
+  { id: "radiator", name: "Overheat Radiator Mod", cost: 900, ethLabel: "0.0006 ETH", sku: "radiator",
+    desc: "Advanced cooling for sustained MG bursts",
     statLabel: "Cooling Efficiency", statFrom: 100, statTo: 135, statMax: 135, statUnit: "%" },
 ];
 
@@ -2276,6 +2392,31 @@ const Wallet = {
     this.updateUI();
     Shop.updateUI();
   },
+  applyCloudProfile() {
+    if (!VeilAuth.signedIn()) return;
+    this.address = VeilAuth.playAddress;
+    this.highScore = Math.max(this.highScore, VeilAuth.highScore || 0);
+    this.shopCredits = VeilAuth.shopCredits || this.shopCredits;
+    this.ownedShop = { ...(VeilAuth.ownedShop || {}) };
+    this.unlockedTheaters = Array.isArray(VeilAuth.unlockedTheaters)
+      ? [...VeilAuth.unlockedTheaters]
+      : ["arctic", "sunset", "pacific"];
+    this.selectedTheater = VeilAuth.selectedTheater || this.selectedTheater || "arctic";
+    this.purchaseHistory = Array.isArray(VeilAuth.purchaseHistory)
+      ? [...VeilAuth.purchaseHistory]
+      : this.purchaseHistory;
+    this.lifetimeTokens = VeilAuth.lifetimeTokens || this.lifetimeTokens;
+    this.allTimeTickets = Math.max(this.allTimeTickets, VeilAuth.ticketsMinted || 0);
+    if (!this.unlockedTheaters.includes(this.selectedTheater)) {
+      this.selectedTheater = "arctic";
+    }
+    this.computeRank();
+    this.syncInventoryFromShop();
+    this.saveProfile();
+    Shop.syncFromWallet();
+    TheaterSelect.syncFromWallet();
+    applyTheater(this.selectedTheater);
+  },
   updateUI() {
     const disc = $("walletDisconnected");
     const conn = $("walletConnected");
@@ -2286,17 +2427,32 @@ const Wallet = {
     const purchasesEl = $("profilePurchases");
     const lamp = $("walletStatusLamp");
     const statusText = $("walletStatusText");
+    const mmLabel = $("mmLinkedLabel");
+    const linkBtn = $("btnLinkMetamask");
     if (this.address) {
       if (disc) disc.style.display = "none";
       if (conn) conn.style.display = "block";
-      if (handle) handle.textContent = this.shortAddr(this.address);
+      if (handle) {
+        const email = VeilAuth.user?.email || "";
+        handle.textContent = (email ? email + " · " : "") + this.shortAddr(this.address);
+      }
       if (lamp) lamp.classList.add("online");
-      if (statusText) statusText.textContent = "ONLINE / LINKED — SECURE FIELD ACTIVE";
+      if (statusText) statusText.textContent = "ONLINE / GOOGLE — SECURE FIELD ACTIVE";
+      if (mmLabel) {
+        mmLabel.textContent = VeilAuth.linkedMetamask
+          ? "MetaMask linked: " + this.shortAddr(VeilAuth.linkedMetamask)
+          : "MetaMask: not linked (needed for ETH shop / theaters)";
+      }
+      if (linkBtn) {
+        linkBtn.textContent = VeilAuth.linkedMetamask
+          ? "RELINK METAMASK (BASE SEPOLIA)"
+          : "LINK METAMASK (BASE SEPOLIA)";
+      }
       if (stats) {
         stats.innerHTML =
           `All-time high <span>${this.highScore}</span><br>` +
-          `Tickets <span>${this.allTimeTickets}</span> · Tokens <span>${this.shopCredits}</span><br>` +
-          `Lifetime tokens <span>${this.lifetimeTokens}</span>`;
+          `Megapot credits <span>${VeilAuth.megapotCredits || 0}</span> · Tickets minted <span>${VeilAuth.ticketsMinted || 0}</span><br>` +
+          `Score tokens <span>${this.shopCredits}</span>`;
       }
       if (rankEl) {
         rankEl.innerHTML =
@@ -2310,23 +2466,25 @@ const Wallet = {
           : "No armory items equipped.";
       }
       if (purchasesEl) {
-        const theaterBuys = this.purchaseHistory.filter((p) => p.type === "theater_unlock");
-        purchasesEl.innerHTML = theaterBuys.length
-          ? theaterBuys.slice(-5).reverse().map((p) =>
-              `${p.name} — ${p.cost} tokens · ${new Date(p.at).toLocaleDateString()}`
+        const buys = (this.purchaseHistory || []).filter((p) =>
+          p.type === "theater_unlock" || p.type === "shop_buy"
+        );
+        purchasesEl.innerHTML = buys.length
+          ? buys.slice(-5).reverse().map((p) =>
+              `${p.name || p.sku} — ${p.eth || (p.cost + " tokens")} · ${new Date(p.at).toLocaleDateString()}`
             ).join("<br>")
-          : "No theater unlocks recorded.";
+          : "No purchases recorded.";
       }
     } else {
       if (disc) disc.style.display = "block";
       if (conn) conn.style.display = "none";
-      if (handle) handle.textContent = "LINK METAMASK TO INITIALIZE DOSSIER";
+      if (handle) handle.textContent = "SIGN IN WITH GOOGLE TO INITIALIZE DOSSIER";
       if (lamp) lamp.classList.remove("online");
       if (statusText) statusText.textContent = "OFFLINE — AWAITING LINK";
-      if (stats) stats.innerHTML = "Connect wallet to save scores, tokens & theater unlocks locally.";
+      if (stats) stats.innerHTML = "Sign in with Google to save Megapot credits, unlocks & score per account.";
       if (rankEl) rankEl.textContent = "";
       if (invEl) invEl.textContent = "No armory items equipped.";
-      if (purchasesEl) purchasesEl.textContent = "No theater unlocks recorded.";
+      if (purchasesEl) purchasesEl.textContent = "No purchases recorded.";
     }
     updateEngageGate();
     Shop.updateUI();
@@ -2415,6 +2573,25 @@ const Wallet = {
         if (wasPlaying && typeof goHome === "function") goHome();
       });
     }
+    const linkMm = $("btnLinkMetamask");
+    if (linkMm) {
+      linkMm.addEventListener("click", async () => {
+        if (typeof SFX !== "undefined") SFX.resume();
+        if (!VeilAuth.signedIn()) {
+          showPop("SIGN IN WITH GOOGLE FIRST");
+          return;
+        }
+        try {
+          showPop("LINKING METAMASK…");
+          await VeilAuth.connectMetamask();
+          this.applyCloudProfile();
+          this.updateUI();
+          showPop("METAMASK LINKED — " + this.shortAddr(VeilAuth.linkedMetamask));
+        } catch (e) {
+          showPop(e.message || "METAMASK LINK FAILED");
+        }
+      });
+    }
   },
 };
 
@@ -2425,23 +2602,29 @@ const Shop = {
   syncFromWallet() {
     /* ownedShop lives on Wallet */
   },
-  buy(id) {
+  async buy(id) {
     const item = SHOP_ITEMS.find((x) => x.id === id);
     if (!item || this.owned(id)) return;
-    if (!Wallet.address) { showPop("LINK WALLET TO SAVE PURCHASES · TAP PROFILE ICON"); return; }
-    if (Wallet.shopCredits < item.cost) {
-      showPop("INSUFFICIENT TOKENS — NEED " + item.cost);
+    if (!VeilAuth.signedIn()) {
+      showPop("SIGN IN WITH GOOGLE · TAP PROFILE");
       return;
     }
-    Wallet.shopCredits -= item.cost;
-    Wallet.ownedShop[id] = true;
-    Wallet.syncInventoryFromShop();
-    Wallet.saveProfile();
-    player.health = getPlayerMaxHealth();
-    this.updateUI();
-    Wallet.updateUI();
-    updateHUD();
-    showPop("PURCHASED — " + item.name.toUpperCase());
+    try {
+      showPop("CONFIRM " + item.ethLabel + " IN METAMASK…");
+      const data = await VeilAuth.purchaseWithEth(item.sku);
+      Wallet.applyCloudProfile();
+      if (data.explorerUrl) {
+        showPop("OWNED ON-CHAIN — OPEN BASESCAN FROM PROFILE HISTORY");
+      } else {
+        showPop("PURCHASED — " + item.name.toUpperCase());
+      }
+      player.health = getPlayerMaxHealth();
+      this.updateUI();
+      Wallet.updateUI();
+      updateHUD();
+    } catch (e) {
+      showPop(e.message || "PURCHASE FAILED");
+    }
   },
   updateUI() {
     const label = $("shopCreditsLabel");
@@ -2451,25 +2634,21 @@ const Shop = {
     wrap.innerHTML = "";
     for (const item of SHOP_ITEMS) {
       const owned = this.owned(item.id);
-      const canAfford = Wallet.shopCredits >= item.cost;
-      const fromPct = (item.statFrom / item.statMax) * 100;
-      const toPct = (item.statTo / item.statMax) * 100;
       const row = document.createElement("div");
       row.className = "shop-item";
       row.innerHTML =
         `<div class="shop-item-header"><div class="shop-item-info"><b>${item.name}</b><small>${item.desc}</small></div></div>` +
         `<div class="shop-stat-bar"><label><span>${item.statLabel}</span>` +
         `<span>${item.statFrom}${item.statUnit} → ${item.statTo}${item.statUnit}</span></label>` +
-        `<div class="shop-stat-track"><div class="shop-stat-from" style="width:${fromPct}%"></div>` +
-        `<div class="shop-stat-to" style="width:${toPct}%"></div></div></div>`;
+        `<div class="shop-stat-track"><div class="shop-stat-from" style="width:${(item.statFrom / item.statMax) * 100}%"></div>` +
+        `<div class="shop-stat-to" style="width:${(item.statTo / item.statMax) * 100}%"></div></div></div>`;
       const btn = document.createElement("button");
       btn.className = "shop-buy" + (owned ? " owned" : "");
       btn.type = "button";
       if (owned) {
         btn.textContent = "OWNED / EQUIP";
       } else {
-        btn.textContent = item.cost + " TOKENS";
-        if (!canAfford) btn.disabled = true;
+        btn.textContent = "BUY " + item.ethLabel + " · BASE SEPOLIA";
         btn.addEventListener("click", () => this.buy(item.id));
       }
       row.appendChild(btn);
@@ -2540,46 +2719,32 @@ const TheaterSelect = {
     if (t.free) return true;
     return Wallet.unlockedTheaters.includes(t.id);
   },
-  tryUnlock(t) {
+  async tryUnlock(t) {
     if (this.isUnlocked(t)) return true;
-    if (!Wallet.address) {
-      showPop("LINK WALLET TO SAVE UNLOCKS · TAP PROFILE ICON");
+    if (!VeilAuth.signedIn()) {
+      showPop("SIGN IN WITH GOOGLE · TAP PROFILE");
       return false;
     }
-    if (t.chipUnlock && (Wallet.totalChips >= 1 || G.chips >= 1)) {
-      if (G.chips >= 1) G.chips--;
-      else Wallet.totalChips--;
-      Wallet.unlockedTheaters.push(t.id);
+    if (!t.ethSku) {
+      showPop("THIS THEATER CANNOT BE PURCHASED");
+      return false;
+    }
+    try {
+      showPop("CONFIRM " + t.ethLabel + " IN METAMASK…");
+      await VeilAuth.purchaseWithEth(t.ethSku);
+      Wallet.applyCloudProfile();
       Wallet.selectedTheater = t.id;
       applyTheater(t.id);
       Wallet.saveProfile();
       Wallet.updateUI();
       Shop.updateUI();
-      showPop("UNLOCKED VIA BASE CHIP — " + t.name.toUpperCase());
+      showPop("THEATER UNLOCKED ON-CHAIN — " + t.name.toUpperCase());
       this.render();
       return true;
+    } catch (e) {
+      showPop(e.message || "UNLOCK FAILED");
+      return false;
     }
-    if (Wallet.shopCredits >= t.cost) {
-      Wallet.shopCredits -= t.cost;
-      Wallet.unlockedTheaters.push(t.id);
-      Wallet.selectedTheater = t.id;
-      Wallet.recordPurchase({
-        type: "theater_unlock",
-        theaterId: t.id,
-        name: t.name,
-        cost: t.cost,
-        at: Date.now(),
-      });
-      applyTheater(t.id);
-      Wallet.saveProfile();
-      Wallet.updateUI();
-      Shop.updateUI();
-      showPop("THEATER UNLOCKED — " + t.name.toUpperCase());
-      this.render();
-      return true;
-    }
-    showPop("REQUIRES " + t.cost + " TOKENS" + (t.chipUnlock ? " OR BASE CHIP" : ""));
-    return false;
   },
   select(id) {
     const t = THEATERS.find((x) => x.id === id);
@@ -2613,12 +2778,8 @@ const TheaterSelect = {
       inner += `<span class="tc-title">${t.name}</span>`;
       inner += `<span class="tc-tag">${t.tag || ""}</span>`;
       if (!unlocked) {
-        const canAfford = Wallet.shopCredits >= t.cost
-          || (t.chipUnlock && (Wallet.totalChips >= 1 || G.chips >= 1));
-        const unlockLabel = t.chipUnlock
-          ? "UNLOCK " + t.cost + " TOKENS / CHIP"
-          : "UNLOCK " + t.cost + " TOKENS";
-        inner += `<button type="button" class="tc-unlock${canAfford ? " can-afford" : ""}">${unlockLabel}</button>`;
+        const unlockLabel = "UNLOCK " + (t.ethLabel || "ON-CHAIN") + " · BASE SEPOLIA";
+        inner += `<button type="button" class="tc-unlock can-afford">${unlockLabel}</button>`;
       } else if (Wallet.selectedTheater === t.id) {
         inner += `<span class="tc-tag" style="color:var(--teal);margin-top:0.5rem;font-size:0.72rem">● DEPLOYMENT READY</span>`;
       }
@@ -4323,26 +4484,22 @@ function bootLobby() {
   Wallet.tryReconnect();
   VeilAuth.init().then(() => {
     if (VeilAuth.signedIn()) {
-      Wallet.address = VeilAuth.playAddress;
+      Wallet.applyCloudProfile();
+      Wallet.loadProfile();
+      Wallet.applyCloudProfile();
       Wallet.updateUI();
-      const handle = $("profileHandle");
-      if (handle && VeilAuth.user) {
-        const email = VeilAuth.user.email || VeilAuth.user.id;
-        handle.textContent = email + " · " + Wallet.shortAddr(VeilAuth.playAddress);
-      }
     }
     updateEngageGate();
     refreshMegapotLivePanel();
   });
   window.__veilOnAuthChange = () => {
     if (VeilAuth.signedIn()) {
-      Wallet.address = VeilAuth.playAddress;
+      Wallet.applyCloudProfile();
       Wallet.updateUI();
     } else if (G.running) {
       goHome();
     } else {
-      Wallet.address = null;
-      Wallet.updateUI();
+      Wallet.disconnect();
     }
     updateEngageGate();
     refreshMegapotLivePanel();
@@ -4704,11 +4861,46 @@ async function syncRunCreditsToCloud() {
   if (!VeilAuth.signedIn()) return;
   const add = Math.max(0, G.tickets | 0);
   try {
-    await VeilAuth.syncMissionCredits(add, G.score | 0);
+    await VeilAuth.syncMissionCredits(add, G.score | 0, {
+      shopCredits: Wallet.shopCredits,
+      lifetimeTokens: Wallet.lifetimeTokens,
+      ownedShop: Wallet.ownedShop,
+      unlockedTheaters: Wallet.unlockedTheaters,
+      selectedTheater: Wallet.selectedTheater,
+      purchaseHistory: Wallet.purchaseHistory,
+    });
+    Wallet.applyCloudProfile();
     showPop("+" + add + " MEGAPOT CREDITS SAVED");
   } catch (e) {
     console.warn(e);
   }
+}
+
+function openAbortConfirm() {
+  const el = $("confirmHomeBackdrop");
+  if (!el) return;
+  el.classList.add("open");
+  el.setAttribute("aria-hidden", "false");
+  G.paused = true;
+  const pauseBtn = $("btnPause");
+  if (pauseBtn) pauseBtn.textContent = "▶";
+}
+
+function closeAbortConfirm() {
+  const el = $("confirmHomeBackdrop");
+  if (!el) return;
+  el.classList.remove("open");
+  el.setAttribute("aria-hidden", "true");
+}
+
+function abortMissionToHome() {
+  // Abandon: do NOT save score / Megapot credits / shop token earn for this run
+  closeAbortConfirm();
+  G.score = 0;
+  G.tickets = 0;
+  G.chips = 0;
+  goHome();
+  showPop("MISSION ABORTED — RUN NOT SAVED");
 }
 
 function friendlyClaimError(raw) {
@@ -6555,7 +6747,32 @@ if (claimFail) claimFail.addEventListener("click", () => claimMegapotFromEndcard
 if (claimWin) claimWin.addEventListener("click", () => claimMegapotFromEndcard("winClaimStatus"));
 $("btnHomeFail").addEventListener("click", () => { SFX.resume(); goHome(); });
 $("btnHomeWin").addEventListener("click", () => { SFX.resume(); goHome(); });
-$("btnHudHome").addEventListener("click", () => { SFX.resume(); goHome(); });
+$("btnHudHome").addEventListener("click", () => {
+  SFX.resume();
+  if (G.running && !player.dead) openAbortConfirm();
+  else goHome();
+});
+const confirmYes = $("confirmHomeYes");
+const confirmNo = $("confirmHomeNo");
+const confirmBackdrop = $("confirmHomeBackdrop");
+if (confirmYes) confirmYes.addEventListener("click", () => { SFX.resume(); abortMissionToHome(); });
+if (confirmNo) confirmNo.addEventListener("click", () => {
+  SFX.resume();
+  closeAbortConfirm();
+  G.paused = false;
+  const pauseBtn = $("btnPause");
+  if (pauseBtn) pauseBtn.textContent = "❚❚";
+});
+if (confirmBackdrop) {
+  confirmBackdrop.addEventListener("click", (e) => {
+    if (e.target === confirmBackdrop) {
+      closeAbortConfirm();
+      G.paused = false;
+      const pauseBtn = $("btnPause");
+      if (pauseBtn) pauseBtn.textContent = "❚❚";
+    }
+  });
+}
 
 $("btnPause").addEventListener("click", () => {
   if (player.dead) return;
