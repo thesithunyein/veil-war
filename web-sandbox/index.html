@@ -798,15 +798,17 @@
     }
     .card-home-minimal .btn-engage-launch {
       width: 100%;
-      margin-top: 1.5rem;
+      margin-top: 1.35rem;
+      margin-bottom: 0.15rem;
       padding: 1rem;
       font-size: 0.95rem;
     }
     .btn-how-works {
       display: block;
       width: 100%;
-      margin-top: 0.55rem;
-      padding: 0.65rem 0.5rem;
+      margin-top: 0.75rem;
+      margin-bottom: 0.15rem;
+      padding: 0.7rem 0.5rem;
       font-family: var(--display);
       letter-spacing: 0.12em;
       font-size: 0.72rem;
@@ -1570,7 +1572,17 @@
       animation: none;
     }
     .btn-engage.wallet-locked .engage-chevrons {
-      color: rgba(40, 24, 4, 0.4);
+      display: none;
+    }
+    .btn-engage.wallet-locked .engage-label {
+      letter-spacing: 0.14em;
+      font-size: 0.88rem;
+    }
+    .lobby-tab[hidden] {
+      display: none !important;
+    }
+    .card-home-minimal {
+      padding-bottom: 1.15rem;
     }
     @keyframes engagePulse {
       0%, 100% { box-shadow: 0 0 22px rgba(61, 255, 168, 0.45), 0 0 40px rgba(0, 255, 178, 0.15); }
@@ -1857,7 +1869,7 @@
     </aside>
 
     <div class="brief" id="brief">
-      <button class="lobby-tab tab-theaters" id="btnTabTheaters" type="button" aria-label="Theaters of War">
+      <button class="lobby-tab tab-theaters" id="btnTabTheaters" type="button" aria-label="Theaters of War" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <circle cx="12" cy="12" r="9"/>
           <ellipse cx="12" cy="12" rx="9" ry="3.5"/>
@@ -1866,7 +1878,7 @@
           <path d="M12 12l5-5M12 12l-5 5"/>
         </svg>
       </button>
-      <button class="lobby-tab tab-shop" id="btnTabShop" type="button" aria-label="Armory Shop">
+      <button class="lobby-tab tab-shop" id="btnTabShop" type="button" aria-label="Armory Shop" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <rect x="3" y="9" width="5" height="11" rx="1"/>
           <rect x="9.5" y="5" width="5" height="15" rx="1"/>
@@ -1875,7 +1887,7 @@
           <path d="M5.5 9h0M12 5h0M18.5 10h0" stroke-linecap="round"/>
         </svg>
       </button>
-      <button class="lobby-tab tab-profile" id="btnTabProfile" type="button" aria-label="Pilot Profile">
+      <button class="lobby-tab tab-profile" id="btnTabProfile" type="button" aria-label="Pilot Profile" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
           <circle cx="12" cy="8" r="4"/>
           <path d="M5.5 20c0-3.8 2.9-6 6.5-6s6.5 2.2 6.5 6"/>
@@ -4862,6 +4874,7 @@ function updateEngageGate() {
   const howPanel = $("howItWorksHome");
   const megapot = $("megapotLive");
   const homeSub = $("homeSub");
+  const lobbyTabs = ["btnTabTheaters", "btnTabShop", "btnTabProfile"];
   if (ready) {
     btn.classList.remove("wallet-locked");
     if (chev) chev.textContent = "<< ENGAGE MISSION >>";
@@ -4873,14 +4886,23 @@ function updateEngageGate() {
       homeSub.textContent = "Combat earns Megapot credits → house mints real Base Sepolia tickets";
     }
     Wallet.address = VeilAuth.playAddress;
+    for (const id of lobbyTabs) {
+      const tab = $(id);
+      if (tab) tab.hidden = false;
+    }
     refreshMegapotLivePanel();
   } else {
     btn.classList.add("wallet-locked");
-    if (chev) chev.textContent = "<< SIGN IN WITH GOOGLE TO PLAY >>";
-    if (label) label.textContent = "SIGN IN";
+    if (chev) chev.textContent = "";
+    if (label) label.textContent = "SIGN IN WITH GOOGLE";
     if (howBtn) howBtn.hidden = false;
     if (megapot) megapot.hidden = true;
     if (homeSub) homeSub.textContent = "Gritty WWII dogfight · Sign in with Google to play";
+    for (const id of lobbyTabs) {
+      const tab = $(id);
+      if (tab) tab.hidden = true;
+    }
+    if (typeof LobbyDrawers !== "undefined" && LobbyDrawers.close) LobbyDrawers.close();
   }
 }
 
