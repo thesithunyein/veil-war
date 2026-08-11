@@ -61,6 +61,16 @@
     .frame::after { top: calc(8px + var(--safe-t)); right: 8px; border-left: 0; border-bottom: 0; }
     .frame i::before { bottom: calc(8px + var(--safe-b)); left: 8px; border-right: 0; border-top: 0; }
     .frame i::after { bottom: calc(8px + var(--safe-b)); right: 8px; border-left: 0; border-top: 0; }
+    .frame.damage::before, .frame.damage::after,
+    .frame.damage i::before, .frame.damage i::after {
+      border-color: #ff4d6d;
+      box-shadow: 0 0 22px rgba(255, 77, 109, 0.95), inset 0 0 8px rgba(255, 77, 109, 0.35);
+      animation: dmgFramePulse 0.18s ease-out;
+    }
+    @keyframes dmgFramePulse {
+      0% { border-color: #ff2244; box-shadow: 0 0 32px rgba(255, 34, 68, 1); }
+      100% { border-color: #ff4d6d; box-shadow: 0 0 22px rgba(255, 77, 109, 0.95); }
+    }
 
     .cross {
       position: absolute; left: 50%; top: 48%;
@@ -766,6 +776,9 @@ const BOSS_HP = 180;
 const MG_DMG = 2; // Twin MGs clear a scout in ~1s sustained fire
 const STORM_BG = 0x0a1628;
 const STORM_FOG = 0x0c1a30;
+const STORM_FOG_DENSITY = 0.00105;
+const VICTORY_FOG = 0x4a90e2;
+const VICTORY_BG = 0x6eb5f0;
 const SEA_DEEP = 0x0f2b5c;
 const BOSS_LEVEL_BLURB = "LEVEL 3: BOSS DUEL — MEGAPOT FLAGSHIP ONLINE";
 
@@ -791,10 +804,11 @@ renderer.setSize(innerWidth, innerHeight, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
+renderer.sortObjects = true;
 renderer.setClearColor(STORM_BG, 1);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(STORM_FOG, 0.00135);
+scene.fog = new THREE.FogExp2(STORM_FOG, STORM_FOG_DENSITY);
 scene.background = new THREE.Color(STORM_BG);
 
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.5, 8000);
@@ -904,13 +918,14 @@ const clouds = [];
         transparent: true,
         opacity: 0.15 + Math.random() * 0.1,
         depthWrite: false,
-        depthTest: true,
+        depthTest: false,
         fog: true,
         blending: THREE.NormalBlending,
       });
       const spr = new THREE.Sprite(mat);
       const s = 90 + Math.random() * 200;
       spr.scale.set(s, s * (0.55 + Math.random() * 0.25), 1);
+      spr.renderOrder = -80;
       spr.userData._op = mat.opacity;
       spr.position.set(
         (Math.random() - 0.5) * 180,
@@ -924,6 +939,7 @@ const clouds = [];
       50 + Math.random() * 210,
       (Math.random() - 0.5) * 3200
     );
+    cluster.renderOrder = -80;
     scene.add(cluster);
     clouds.push({ mesh: cluster, speed: 35 + Math.random() * 70 });
   }
@@ -1017,6 +1033,10 @@ const rainLines = new THREE.LineSegments(rainGeo, rainMat);
 scene.add(rainLines);
 
 function updateRain(dt) {
+  const density = G.rainDensity == null ? 1 : G.rainDensity;
+  rainLines.visible = density > 0.02;
+  rainMat.opacity = 0.28 * density;
+  if (density <= 0.01) return;
   const pos = rainGeo.attributes.position.array;
   const origin = player.mesh.position;
   const fwd = getPlayerForward(new THREE.Vector3());
@@ -1098,6 +1118,7 @@ function clearLightningBolts() {
 }
 
 function tintStormSurfaces(white) {
+  if (G.victoryEnv && G.victoryEnv.active) return;
   if (white) {
     ambientLight.intensity = 5.0;
     hemiLight.intensity = 2.6;
@@ -1152,6 +1173,7 @@ function triggerLightning() {
 }
 
 function updateThunder(dt) {
+  if (G.victoryEnv && G.victoryEnv.active) return;
   if (G.lightningFrames > 0) {
     G.lightningFrames--;
     if (G.lightningFrames <= 0) tintStormSurfaces(false);
@@ -1162,6 +1184,94 @@ function updateThunder(dt) {
   if (G.thunderT <= 0) {
     G.thunderT = 6;
     triggerLightning();
+  }
+}
+
+const _stormFogCol = new THREE.Color(STORM_FOG);
+const _victoryFogCol = new THREE.Color(VICTORY_FOG);
+const _stormBgCol = new THREE.Color(STORM_BG);
+const _victoryBgCol = new THREE.Color(VICTORY_BG);
+
+function beginVictoryEnvironment() {
+  G.victoryEnv = { active: true, t: 0, duration: 4.5 };
+  G.thunderT = 999999;
+  G.lightningFrames = 0;
+  clearLightningBolts();
+  tintStormSurfaces(false);
+}
+
+function resetStormEnvironment() {
+  G.victoryEnv = { active: false, t: 0, duration: 4.5 };
+  G.rainDensity = 1;
+  G.thunderT = 6;
+  G.lightningFrames = 0;
+  scene.fog.color.setHex(STORM_FOG);
+  scene.fog.density = STORM_FOG_DENSITY;
+  scene.background.setHex(STORM_BG);
+  renderer.setClearColor(STORM_BG, 1);
+  rainMat.opacity = 0.28;
+  rainLines.visible = true;
+  if (skyUniforms) {
+    skyUniforms.zenith.value.setHex(0x061018);
+    skyUniforms.mid.value.setHex(0x0c1a30);
+    skyUniforms.horizon.value.setHex(0x1a3a5c);
+    skyUniforms.glow.value.setHex(0x4a7090);
+    skyUniforms.flash.value = 0;
+  }
+  ambientLight.intensity = 0.55;
+  hemiLight.intensity = 0.55;
+  sun.intensity = 1.15;
+  oceanUniforms.uDeep.value.setHex(SEA_DEEP);
+  oceanUniforms.uShallow.value.setHex(0x163d72);
+  for (const c of clouds) {
+    c.mesh.traverse((obj) => {
+      if (obj.isSprite && obj.material) {
+        obj.material.color.setHex(0xe8f2ff);
+        if (obj.userData._op != null) obj.material.opacity = obj.userData._op;
+      }
+    });
+  }
+}
+
+function updateVictoryEnvironment(dt) {
+  if (!G.victoryEnv || !G.victoryEnv.active) return;
+  G.victoryEnv.t += dt;
+  const p = Math.min(1, G.victoryEnv.t / G.victoryEnv.duration);
+  const ease = p * p * (3 - 2 * p);
+
+  scene.fog.color.copy(_stormFogCol).lerp(_victoryFogCol, ease);
+  scene.fog.density = THREE.MathUtils.lerp(STORM_FOG_DENSITY, 0.00042, ease);
+  scene.background.copy(_stormBgCol).lerp(_victoryBgCol, ease);
+  renderer.setClearColor(scene.background);
+
+  if (skyUniforms) {
+    skyUniforms.zenith.value.setHex(0x061018).lerp(new THREE.Color(0x2878c8), ease);
+    skyUniforms.mid.value.setHex(0x0c1a30).lerp(new THREE.Color(0x4a90e2), ease);
+    skyUniforms.horizon.value.setHex(0x1a3a5c).lerp(new THREE.Color(0x87ceeb), ease);
+    skyUniforms.glow.value.setHex(0x4a7090).lerp(new THREE.Color(0xffeedd), ease);
+    skyUniforms.flash.value = 0;
+  }
+
+  G.rainDensity = 1 - ease;
+  rainMat.opacity = 0.28 * G.rainDensity;
+
+  ambientLight.intensity = THREE.MathUtils.lerp(0.55, 1.25, ease);
+  hemiLight.intensity = THREE.MathUtils.lerp(0.55, 0.95, ease);
+  sun.intensity = THREE.MathUtils.lerp(1.15, 2.1, ease);
+  oceanUniforms.uDeep.value.setHex(SEA_DEEP).lerp(new THREE.Color(0x2a6cb8), ease);
+  oceanUniforms.uShallow.value.setHex(0x163d72).lerp(new THREE.Color(0x5aadf0), ease);
+
+  for (const c of clouds) {
+    c.mesh.traverse((obj) => {
+      if (obj.isSprite && obj.material) {
+        obj.material.color.setHex(0xe8f2ff).lerp(new THREE.Color(0xffffff), ease);
+        if (obj.userData._op != null) {
+          obj.material.opacity = THREE.MathUtils.lerp(
+            obj.userData._op, Math.min(0.38, obj.userData._op * 2.1), ease
+          );
+        }
+      }
+    });
   }
 }
 
@@ -1481,23 +1591,48 @@ function makeJet(scheme) {
   return g;
 }
 
-/** Hostile scout fighter / twin-engine bomber — dark camo + red combat silhouette */
+/** Ensure combat craft render above volumetric mist and ignore distance fog */
+function tagCombatCraft(group, order) {
+  const ro = order == null ? 120 : order;
+  group.renderOrder = ro;
+  group.traverse((o) => {
+    if (o.isMesh) {
+      o.renderOrder = ro;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        if (!m) continue;
+        m.fog = false;
+        if (!m.transparent) m.depthWrite = true;
+        m.depthTest = true;
+      }
+    }
+    if (o.isLineSegments && o.material) {
+      o.renderOrder = ro + 2;
+      o.material.fog = false;
+      o.material.depthWrite = false;
+    }
+  });
+}
+
+/** Hostile scout fighter / twin-engine bomber — charcoal camo silhouette */
 function makeEnemyCraft(isBomber) {
   const g = new THREE.Group();
   const bodyMat = new THREE.MeshStandardMaterial({
-    color: isBomber ? 0x2a3228 : 0x323a30,
-    metalness: 0.4, roughness: 0.62,
-    emissive: 0x5a1010, emissiveIntensity: 0.65,
+    color: isBomber ? 0x4a5058 : 0x565e66,
+    metalness: 0.48, roughness: 0.52,
+    emissive: 0x1c2024, emissiveIntensity: 0.18,
+    fog: false,
   });
   const wingMat = new THREE.MeshStandardMaterial({
-    color: 0x1e2420, metalness: 0.35, roughness: 0.7,
-    emissive: 0x3a0808, emissiveIntensity: 0.5,
+    color: 0x3a4048, metalness: 0.42, roughness: 0.62,
+    emissive: 0x14181c, emissiveIntensity: 0.1,
+    fog: false,
   });
   const wireMat = new THREE.LineBasicMaterial({
-    color: 0xff2a4a, transparent: true, opacity: 0.95,
+    color: 0xff3355, transparent: true, opacity: 0.9, fog: false, depthWrite: false,
   });
   const glowMat = new THREE.MeshBasicMaterial({
-    color: 0xff2244, transparent: true, opacity: 0.75,
+    color: 0xff2244, transparent: true, opacity: 0.8, fog: false, depthWrite: false,
   });
 
   const addWire = (mesh) => {
@@ -1602,8 +1737,9 @@ function makeEnemyCraft(isBomber) {
   const canopy = new THREE.Mesh(
     new THREE.SphereGeometry(fuseR * 0.9, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2),
     new THREE.MeshStandardMaterial({
-      color: 0x1a1018, metalness: 0.85, roughness: 0.2,
-      emissive: 0xff2244, emissiveIntensity: 0.35, transparent: true, opacity: 0.8,
+      color: 0x2a3038, metalness: 0.85, roughness: 0.22,
+      emissive: 0x334455, emissiveIntensity: 0.25, transparent: true, opacity: 0.85,
+      fog: false,
     })
   );
   canopy.rotation.z = Math.PI / 2;
@@ -1626,6 +1762,7 @@ function makeEnemyCraft(isBomber) {
   });
 
   g.scale.setScalar(isBomber ? 1.55 : 1.35);
+  tagCombatCraft(g, 120);
   return g;
 }
 
@@ -1633,18 +1770,20 @@ function makeFlagship() {
   // Massive Megapot sky fortress — ~5x player fighter scale
   const g = new THREE.Group();
   const hull = new THREE.MeshStandardMaterial({
-    color: 0x2a3034, metalness: 0.55, roughness: 0.45,
-    emissive: 0x1a0808, emissiveIntensity: 0.45,
+    color: 0x4a5058, metalness: 0.55, roughness: 0.45,
+    emissive: 0x1a1e22, emissiveIntensity: 0.2, fog: false,
   });
   const plate = new THREE.MeshStandardMaterial({
-    color: 0x3a4248, metalness: 0.6, roughness: 0.4,
-    emissive: 0x221010, emissiveIntensity: 0.35,
+    color: 0x565e66, metalness: 0.6, roughness: 0.4,
+    emissive: 0x222428, emissiveIntensity: 0.15, fog: false,
   });
   const accent = new THREE.MeshStandardMaterial({
-    color: 0x5a2018, metalness: 0.4, roughness: 0.5,
-    emissive: 0xff4422, emissiveIntensity: 0.55,
+    color: 0x5a4038, metalness: 0.4, roughness: 0.5,
+    emissive: 0xff4422, emissiveIntensity: 0.45, fog: false,
   });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x1a1e22, metalness: 0.5, roughness: 0.55 });
+  const dark = new THREE.MeshStandardMaterial({
+    color: 0x323840, metalness: 0.5, roughness: 0.55, fog: false,
+  });
 
   const keel = new THREE.Mesh(new THREE.BoxGeometry(52, 6, 14), hull);
   g.add(keel);
@@ -1748,6 +1887,7 @@ function makeFlagship() {
   g.add(beacon);
 
   g.scale.setScalar(1.85);
+  tagCombatCraft(g, 130);
   return g;
 }
 
@@ -2046,6 +2186,93 @@ const SFX = {
     o.connect(og); og.connect(this.master);
     o.start(); o.stop(t + 0.48);
   },
+  /** Metallic thwip/crunch when tracers connect */
+  hitCrunch() {
+    if (!this.ctx) this.ensure();
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const len = Math.floor(this.ctx.sampleRate * 0.042);
+    const buffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      const env = Math.pow(1 - i / len, 3.2);
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.setValueAtTime(2400, t);
+    bp.frequency.exponentialRampToValueAtTime(600, t + 0.035);
+    bp.Q.value = 1.4;
+    const hp = this.ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 900;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.38, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    src.connect(bp);
+    bp.connect(hp);
+    hp.connect(g);
+    g.connect(this.master);
+    src.start();
+    const ping = this.ctx.createOscillator();
+    ping.type = "triangle";
+    ping.frequency.setValueAtTime(1800, t);
+    ping.frequency.exponentialRampToValueAtTime(420, t + 0.028);
+    const pg = this.ctx.createGain();
+    pg.gain.setValueAtTime(0.22, t);
+    pg.gain.exponentialRampToValueAtTime(0.001, t + 0.032);
+    ping.connect(pg);
+    pg.connect(this.master);
+    ping.start();
+    ping.stop(t + 0.035);
+    const crunch = this.ctx.createOscillator();
+    crunch.type = "square";
+    crunch.frequency.setValueAtTime(140, t);
+    crunch.frequency.exponentialRampToValueAtTime(55, t + 0.025);
+    const cg = this.ctx.createGain();
+    cg.gain.setValueAtTime(0.12, t);
+    cg.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+    crunch.connect(cg);
+    cg.connect(this.master);
+    crunch.start();
+    crunch.stop(t + 0.032);
+  },
+  /** Low-pass integrity alarm when player takes fire */
+  integrityAlarm() {
+    if (!this.ctx) this.ensure();
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(220, t);
+    o.frequency.linearRampToValueAtTime(185, t + 0.35);
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(420, t);
+    lp.frequency.exponentialRampToValueAtTime(180, t + 0.38);
+    lp.Q.value = 0.9;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.22, t + 0.04);
+    g.gain.setValueAtTime(0.22, t + 0.18);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
+    o.connect(lp);
+    lp.connect(g);
+    g.connect(this.master);
+    o.start();
+    o.stop(t + 0.44);
+    const pulse = this.ctx.createOscillator();
+    pulse.type = "sine";
+    pulse.frequency.value = 3.5;
+    const lfoG = this.ctx.createGain();
+    lfoG.gain.value = 0.08;
+    pulse.connect(lfoG);
+    lfoG.connect(g.gain);
+    pulse.start();
+    pulse.stop(t + 0.44);
+  },
 };
 
 const player = {
@@ -2100,6 +2327,8 @@ const G = {
   boltLines: [],
   tickerLines: [],
   tickerAcc: 0,
+  rainDensity: 1,
+  victoryEnv: { active: false, t: 0, duration: 4.5 },
 };
 
 /* Flight forward = world -Z rotated by yaw/pitch. Model nose is +X → offset quat. */
@@ -2206,6 +2435,13 @@ function flashScreen(red) {
   el.classList.toggle("red", !!red);
   el.classList.add("on");
   setTimeout(() => el.classList.remove("on"), 110);
+}
+
+function flashDamageFrame() {
+  const f = document.querySelector(".frame");
+  if (!f) return;
+  f.classList.add("damage");
+  setTimeout(() => f.classList.remove("damage"), 180);
 }
 
 function spawnFloat(sx, sy, pts, tickets) {
@@ -2540,6 +2776,7 @@ function hurtEnemy(e, idx, dmg) {
   explode(e.mesh.position.clone(), 0.25, false);
   flashCrosshairHit();
   flashEnemyHit(e);
+  SFX.hitCrunch();
   if (e.hp <= 0) {
     destroyEnemy(e, idx);
     return true;
@@ -2567,6 +2804,7 @@ function damageBoss(amt) {
   explode(G.boss.mesh.position.clone(), 0.45, false);
   flashCrosshairHit();
   flashEnemyHit(G.boss);
+  SFX.hitCrunch();
   spawnHitFloat(G.boss.mesh.position.clone(), "HIT");
   updateHUD();
   if (G.boss.hp <= 0) {
@@ -2759,7 +2997,9 @@ function hurtPlayer(amount) {
   if (player.dead) return;
   player.health = Math.max(0, player.health - amount);
   flashScreen(true);
-  camShake.t = Math.max(camShake.t, 0.35);
+  flashDamageFrame();
+  SFX.integrityAlarm();
+  camShake.t = Math.max(camShake.t, 0.52);
   updateHUD();
   if (player.health <= 0) missionFailed();
 }
@@ -2783,6 +3023,7 @@ function missionFailed() {
 function missionComplete() {
   G.running = false;
   player.dead = true; // freeze controls
+  beginVictoryEnvironment();
   flashScreen(false);
   showPop("SECTOR SECURED");
   const odds = Math.min(99.9, (G.tickets / CIRC) * 100);
@@ -2880,6 +3121,7 @@ function redeploy() {
   $("endWin").classList.add("hidden");
   $("brief").classList.add("hidden");
   clearEntities();
+  resetStormEnvironment();
   player.health = 100;
   player.dead = false;
   player.mesh.visible = true;
@@ -3451,7 +3693,7 @@ function updateEnemies(dt) {
 
     // Long-range red plasma from ~200m+ out during approach/strafe
     if (e.fireCD <= 0 && dist <= 340 && dist >= 95 && e.mode !== "breakaway") {
-      e.fireCD = 0.7 + Math.random() * 0.55;
+      e.fireCD = 0.55 + Math.random() * 0.65;
       enemyFirePlasma(e, behind);
     }
 
@@ -3701,6 +3943,7 @@ function frame(ts) {
     updateTracers(dt);
     updateParticles(dt);
     updateHitFlashes();
+    updateVictoryEnvironment(dt);
     updateOcean(G.t);
     updateClouds(dt);
     updateFleet(dt);
