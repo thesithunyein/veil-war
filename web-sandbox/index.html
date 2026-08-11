@@ -41,11 +41,15 @@
     html, body {
       margin: 0; width: 100%; height: 100%;
       overflow: hidden; touch-action: none;
-      background: #061018; color: var(--ink);
+      background: transparent; color: var(--ink);
       font-family: var(--sans); user-select: none;
     }
-    #app { position: fixed; inset: 0; overflow: hidden; }
-    #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #app { position: fixed; inset: 0; overflow: hidden; background: transparent; }
+    #c {
+      position: absolute; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      display: block; z-index: 1;
+    }
 
     /* Thin neon frame corners */
     .frame {
@@ -570,17 +574,21 @@
     }
 
     .brief, .endcard {
-      position: absolute; inset: 0; z-index: 30;
+      position: absolute; inset: 0; z-index: 50;
       display: flex; align-items: center; justify-content: center;
       padding: 1.2rem; padding-top: calc(1.2rem + var(--safe-t));
       transition: opacity 0.45s, visibility 0.45s;
     }
     .brief {
       background: transparent;
-      backdrop-filter: none;
       pointer-events: none;
     }
-    .brief .card, .brief .lobby-tab, .brief .lobby-drawer, .brief .lobby-drawer-backdrop { pointer-events: auto; }
+    .brief > .lobby-tab,
+    .brief > .card,
+    .brief > .lobby-drawer,
+    .brief > .lobby-drawer-backdrop {
+      pointer-events: auto;
+    }
     .endcard {
       background: rgba(4, 12, 22, 0.72); backdrop-filter: blur(10px);
     }
@@ -635,8 +643,8 @@
 
     /* —— Lobby icon tabs —— */
     .lobby-tab {
-      position: absolute;
-      z-index: 32;
+      position: fixed;
+      z-index: 60;
       width: 50px;
       height: 50px;
       border-radius: 14px;
@@ -674,12 +682,12 @@
 
     /* —— Lobby drawer overlays (PUBG-style full-height panels) —— */
     .lobby-drawer-backdrop {
-      position: absolute;
+      position: fixed;
       inset: 0;
-      z-index: 32;
-      background: rgba(2, 8, 16, 0.22);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
+      z-index: 90;
+      background: rgba(2, 8, 16, 0.18);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
@@ -691,31 +699,29 @@
       pointer-events: auto;
     }
     .lobby-drawer {
-      position: absolute;
-      z-index: 33;
+      position: fixed;
+      z-index: 100;
       top: 0;
       bottom: 0;
-      height: 100%;
-      width: clamp(300px, 46vw, 540px);
+      height: 100vh;
+      width: min(450px, 48vw);
       padding: 30px;
       padding-top: calc(30px + var(--safe-t));
       padding-bottom: calc(30px + env(safe-area-inset-bottom, 0px));
       border-radius: 0;
       border: none;
-      border-left: 2px solid rgba(0, 255, 178, 0.4);
-      background: rgba(10, 18, 30, 0.78);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      box-shadow: -12px 0 48px rgba(0, 0, 0, 0.45), 0 0 40px rgba(0, 255, 178, 0.06);
-      opacity: 1;
+      border-left: 2px solid #00ffb2;
+      background: rgba(10, 20, 30, 0.85);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      box-shadow: -16px 0 56px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 255, 178, 0.06);
       visibility: hidden;
       pointer-events: none;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-                  visibility 0.38s,
-                  opacity 0.38s;
+                  visibility 0.38s;
     }
     .lobby-drawer.open {
       visibility: visible;
@@ -770,40 +776,27 @@
     .drawer-profile,
     .drawer-shop {
       right: 0;
-      transform: translateX(105%);
+      transform: translateX(100%);
     }
     .drawer-profile.open,
     .drawer-shop.open {
       transform: translateX(0);
     }
     .drawer-theaters {
-      left: 50%;
-      right: auto;
-      width: clamp(340px, 52vw, 720px);
-      border-left: 2px solid rgba(0, 255, 178, 0.4);
-      border-right: 2px solid rgba(0, 255, 178, 0.4);
-      box-shadow: 0 0 60px rgba(0, 0, 0, 0.5), 0 0 48px rgba(0, 255, 178, 0.08);
-      transform: translate(-50%, 0) scale(0.94);
-      opacity: 0;
+      right: 0;
+      left: auto;
+      width: min(520px, 52vw);
+      transform: translateX(100%);
     }
     .drawer-theaters.open {
-      transform: translate(-50%, 0) scale(1);
-      opacity: 1;
+      transform: translateX(0);
     }
     @media (max-width: 640px) {
       .lobby-drawer {
         width: 100vw;
         border-left: none;
-        border-top: 2px solid rgba(0, 255, 178, 0.4);
+        border-top: 2px solid #00ffb2;
       }
-      .drawer-theaters {
-        left: 0;
-        width: 100vw;
-        border-right: none;
-        transform: translateX(105%);
-        opacity: 1;
-      }
-      .drawer-theaters.open { transform: translateX(0); }
     }
     /* Dim minimalist center card when drawer open */
     .brief.drawer-open .card-home-minimal {
@@ -1981,8 +1974,10 @@ const Wallet = {
         this.updateUI();
       });
     }
-    $("btnWalletConnect").addEventListener("click", () => { SFX.resume(); this.connect(); });
-    $("btnWalletDisconnect").addEventListener("click", () => this.disconnect());
+    const connectBtn = $("btnWalletConnect");
+    const disconnectBtn = $("btnWalletDisconnect");
+    if (connectBtn) connectBtn.addEventListener("click", () => { if (typeof SFX !== "undefined") SFX.resume(); this.connect(); });
+    if (disconnectBtn) disconnectBtn.addEventListener("click", () => this.disconnect());
   },
 };
 
@@ -1996,7 +1991,7 @@ const Shop = {
   buy(id) {
     const item = SHOP_ITEMS.find((x) => x.id === id);
     if (!item || this.owned(id)) return;
-    if (!Wallet.address) { showPop("CONNECT WALLET TO PURCHASE"); LobbyDrawers.open("Profile"); return; }
+    if (!Wallet.address) { showPop("LINK WALLET TO SAVE PURCHASES · TAP PROFILE ICON"); return; }
     if (Wallet.shopCredits < item.cost) {
       showPop("INSUFFICIENT TOKENS — NEED " + item.cost);
       return;
@@ -2084,12 +2079,17 @@ const LobbyDrawers = {
     });
   },
   bindEvents() {
-    $("btnTabProfile").addEventListener("click", () => { SFX.resume(); this.open("Profile"); });
-    $("btnTabTheaters").addEventListener("click", () => { SFX.resume(); this.open("Theaters"); });
-    $("btnTabShop").addEventListener("click", () => { SFX.resume(); this.open("Shop"); });
-    $("drawerBackdrop").addEventListener("click", () => this.close());
+    const safeOn = (id, fn) => {
+      const el = $(id);
+      if (el) el.addEventListener("click", fn);
+    };
+    safeOn("btnTabProfile", () => { if (typeof SFX !== "undefined") SFX.resume(); this.open("Profile"); });
+    safeOn("btnTabTheaters", () => { if (typeof SFX !== "undefined") SFX.resume(); this.open("Theaters"); });
+    safeOn("btnTabShop", () => { if (typeof SFX !== "undefined") SFX.resume(); this.open("Shop"); });
+    const backdrop = $("drawerBackdrop");
+    if (backdrop) backdrop.addEventListener("click", () => this.close());
     document.querySelectorAll("[data-drawer-close]").forEach((btn) => {
-      btn.addEventListener("click", () => this.close());
+      btn.addEventListener("click", (e) => { e.stopPropagation(); this.close(); });
     });
   },
 };
@@ -2105,8 +2105,7 @@ const TheaterSelect = {
   tryUnlock(t) {
     if (this.isUnlocked(t)) return true;
     if (!Wallet.address) {
-      showPop("CONNECT WALLET TO UNLOCK THEATERS");
-      LobbyDrawers.open("Profile");
+      showPop("LINK WALLET TO SAVE UNLOCKS · TAP PROFILE ICON");
       return false;
     }
     if (t.chipUnlock && (Wallet.totalChips >= 1 || G.chips >= 1)) {
@@ -2200,11 +2199,7 @@ const TheaterSelect = {
   bindEvents() {},
 };
 
-Wallet.bindEvents();
-Shop.bindEvents();
-LobbyDrawers.bindEvents();
-TheaterSelect.render();
-Wallet.tryReconnect();
+/* UI bindings deferred until bootLobby() after full scene init */
 
 /* —— Overcast WWII battlefield lighting —— */
 const ambientLight = new THREE.AmbientLight(0xb0b4b8, 0.55);
@@ -2778,15 +2773,17 @@ function updateFleet(dt) {
   }
 }
 
-function destroyNavalFleet() {
+function destroyNavalFleet(silent) {
   for (const ship of fleet) {
     if (!ship.alive) continue;
     ship.alive = false;
-    explode(ship.mesh.position.clone().add(new THREE.Vector3(0, 20, 0)), 5, true);
-    explode(ship.mesh.position.clone().add(new THREE.Vector3(40, 18, 0)), 3, true);
+    if (!silent) {
+      explode(ship.mesh.position.clone().add(new THREE.Vector3(0, 20, 0)), 5, true);
+      explode(ship.mesh.position.clone().add(new THREE.Vector3(40, 18, 0)), 3, true);
+    }
     scene.remove(ship.mesh);
   }
-  showPop("SURFACE FLEET DESTROYED");
+  if (!silent) showPop("SURFACE FLEET DESTROYED");
 }
 
 function respawnNavalFleet() {
@@ -3648,6 +3645,21 @@ const player = {
 };
 player.mesh.position.set(0, 95, 0);
 scene.add(player.mesh);
+
+let lobbyBooted = false;
+function bootLobby() {
+  if (lobbyBooted) return;
+  lobbyBooted = true;
+  applyTheater(Wallet.selectedTheater || "arctic");
+  resetStormEnvironment();
+  respawnNavalFleet();
+  Wallet.bindEvents();
+  Shop.bindEvents();
+  LobbyDrawers.bindEvents();
+  TheaterSelect.render();
+  Wallet.tryReconnect();
+  updateHUD();
+}
 
 const G = {
   running: false,
@@ -4525,7 +4537,7 @@ function goHome() {
   $("endWin").classList.add("hidden");
   LobbyDrawers.close();
   resetGameState();
-  destroyNavalFleet();
+  destroyNavalFleet(true);
   respawnNavalFleet();
   applyTheater(Wallet.selectedTheater || "arctic");
   $("btnPause").classList.remove("show");
@@ -5328,6 +5340,7 @@ function updateParticles(dt) {
 
 function frame(ts) {
   requestAnimationFrame(frame);
+  try {
   if (!G.last) G.last = ts;
   let dt = (ts - G.last) / 1000;
   G.last = ts;
@@ -5384,6 +5397,9 @@ function frame(ts) {
   }
 
   renderer.render(scene, camera);
+  } catch (err) {
+    console.error("Veil War frame error:", err);
+  }
 }
 
 /* —— Input —— */
@@ -5491,7 +5507,8 @@ addEventListener("resize", onResize);
 addEventListener("orientationchange", () => setTimeout(onResize, 100));
 
 $("btnEngage").addEventListener("click", () => {
-  SFX.resume();
+  if (typeof SFX !== "undefined") SFX.resume();
+  if (!Wallet.address) showPop("TIP · LINK WALLET VIA PROFILE TO SAVE TOKENS");
   LobbyDrawers.close();
   applyTheater(Wallet.selectedTheater || "arctic");
   player.health = getPlayerMaxHealth();
@@ -5575,8 +5592,7 @@ $("btnPause").addEventListener("click", () => {
 })();
 
 updateHUD();
-applyTheater(Wallet.selectedTheater || "arctic");
-respawnNavalFleet();
+bootLobby();
 requestAnimationFrame(frame);
   </script>
 </body>
