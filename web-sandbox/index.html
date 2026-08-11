@@ -603,7 +603,8 @@
     .brief > .lobby-tab,
     .brief > .card,
     .brief > .lobby-drawer,
-    .brief > .lobby-drawer-backdrop {
+    .brief > .lobby-drawer-backdrop,
+    .brief > .lobby-powered-footer {
       pointer-events: auto;
     }
     .endcard {
@@ -664,6 +665,41 @@
       padding: 1rem;
       font-size: 0.95rem;
     }
+
+    .lobby-powered-footer {
+      position: fixed;
+      bottom: calc(0.7rem + env(safe-area-inset-bottom, 0px));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 52;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      pointer-events: none;
+      user-select: none;
+    }
+    .lobby-powered-footer .powered-label {
+      font-family: var(--mono);
+      font-size: 0.46rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(234, 246, 255, 0.42);
+      white-space: nowrap;
+    }
+    .lobby-powered-footer .powered-logos {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+    .lobby-powered-footer img {
+      display: block;
+      width: auto;
+      object-fit: contain;
+      image-rendering: -webkit-optimize-contrast;
+    }
+    .lobby-powered-footer .logo-inco { height: 24px; }
+    .lobby-powered-footer .logo-megapot { height: 20px; }
 
     /* —— Lobby icon tabs —— */
     .lobby-tab {
@@ -1664,6 +1700,14 @@
           <div class="shop-items-grid" id="shopItems"></div>
         </div>
       </aside>
+
+      <footer class="lobby-powered-footer" aria-label="Powered by Inco and Megapot">
+        <span class="powered-label">Powered by</span>
+        <div class="powered-logos">
+          <img class="logo-inco" src="assets/inco-logo.png" alt="Inco" width="80" height="24" />
+          <img class="logo-megapot" src="assets/megapot-logo.png" alt="Megapot" width="120" height="20" />
+        </div>
+      </footer>
     </div>
 
     <div class="endcard hidden" id="endFail">
