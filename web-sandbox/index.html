@@ -11,6 +11,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="theme-color" content="#8a9098" />
   <title>Veil War — WWII Aerial Combat</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -486,6 +487,16 @@
       border: 1px solid rgba(92, 225, 255, 0.15); max-width: 48vw; text-align: right;
     }
     @media (pointer: coarse) { .hint { display: none; } }
+    .hint-mobile {
+      display: none;
+      left: calc(0.65rem + env(safe-area-inset-left, 0px));
+      right: auto;
+      bottom: calc(5.4rem + var(--safe-b));
+      max-width: 46vw;
+      text-align: left;
+      font-size: 0.54rem;
+    }
+    @media (pointer: coarse) { .hint-mobile { display: block; } }
 
     .flash {
       position: absolute; inset: 0; z-index: 15; pointer-events: none;
@@ -860,6 +871,73 @@
         border-left: none;
         border-top: 2px solid #00ffb2;
       }
+      .brief { padding: 0.65rem; padding-top: calc(0.65rem + var(--safe-t)); }
+      .card, .card.card-home { width: 100%; padding: 1rem 0.9rem; }
+      .card.card-home-minimal {
+        min-height: auto;
+        padding: 1.5rem 1rem 1rem;
+        gap: 0.5rem;
+      }
+      .card-home-minimal .btn-engage-launch {
+        width: 100%;
+        min-height: 52px;
+        font-size: 0.82rem;
+      }
+      .lobby-tab { width: 44px; height: 44px; border-radius: 12px; }
+      .lobby-tab svg { width: 20px; height: 20px; }
+      .lobby-powered-footer .powered-label { font-size: 0.4rem; }
+      .lobby-powered-footer .logo-inco { height: 20px; }
+      .lobby-powered-footer .logo-megapot { height: 22px; }
+      .hud.tl { min-width: 118px; padding: 0.35rem 0.45rem; }
+      .hud.tr { max-width: 40vw; padding: 0.35rem 0.45rem; }
+      .radar-wrap { width: 76px; height: 76px; }
+      .hud .val { font-size: 0.78rem; }
+      .hud .lbl { font-size: 0.42rem; }
+      .boss-bar { width: min(92vw, 320px); top: calc(2.6rem + var(--safe-t)); }
+      .hint-mobile { font-size: 0.5rem; max-width: 52vw; }
+    }
+    @media (pointer: coarse) {
+      .settings-btn {
+        top: calc(0.55rem + var(--safe-t));
+        right: calc(0.65rem + env(safe-area-inset-right, 0px));
+        left: auto;
+        bottom: auto;
+      }
+      .settings-panel {
+        right: calc(0.65rem + env(safe-area-inset-right, 0px));
+        left: auto;
+        bottom: auto;
+        top: calc(3.1rem + var(--safe-t));
+        width: min(92vw, 280px);
+      }
+      .hud.tr {
+        top: calc(0.55rem + var(--safe-t));
+        right: calc(3.6rem + env(safe-area-inset-right, 0px));
+      }
+      .hud-home-btn { top: calc(2.35rem + var(--safe-t)); }
+      .hud.tl { top: calc(4rem + var(--safe-t)); }
+      .heat-wrap { bottom: calc(5.6rem + var(--safe-b)); width: min(52vw, 190px); }
+      .stick-zone {
+        width: 138px; height: 138px;
+        left: calc(0.35rem + env(safe-area-inset-left, 0px));
+        bottom: calc(0.35rem + var(--safe-b));
+      }
+      .stick-base { width: 96px; height: 96px; margin: -48px 0 0 -48px; }
+      .fire-btn {
+        width: 68px; height: 68px;
+        right: calc(0.65rem + env(safe-area-inset-right, 0px));
+        bottom: calc(1.2rem + var(--safe-b));
+      }
+      .track-btn {
+        right: calc(0.65rem + env(safe-area-inset-right, 0px));
+        bottom: calc(5.4rem + var(--safe-b));
+        width: 68px; height: 48px;
+      }
+      .pause { top: calc(0.55rem + var(--safe-t)); }
+    }
+    @media (min-width: 641px) and (max-width: 1024px) {
+      .card.card-home-minimal { width: min(100%, 440px); }
+      .hud.tl { min-width: 145px; }
     }
     /* Dim minimalist center card when drawer open */
     .brief.drawer-open .card-home-minimal {
@@ -872,6 +950,7 @@
     #app:has(.brief:not(.hidden)) .hud,
     #app:has(.brief:not(.hidden)) .heat-wrap,
     #app:has(.brief:not(.hidden)) .hint,
+    #app:has(.brief:not(.hidden)) .hint-mobile,
     #app:has(.brief:not(.hidden)) .cross,
     #app:has(.brief:not(.hidden)) #locks,
     #app:has(.brief:not(.hidden)) #threats,
@@ -1564,6 +1643,7 @@
     <button class="pause" id="btnPause" type="button" aria-label="Pause">❚❚</button>
     <button class="hud-home-btn" id="btnHudHome" type="button">HOME</button>
     <div class="hint">↑↓ / W·S pitch · A/D bank · SHIFT boost · CTRL brake · HOLD SPACE guns</div>
+    <div class="hint hint-mobile">Drag stick to fly · HOLD FIRE · TRACK to lock</div>
 
     <div class="fhe-ticker" id="fheTicker" aria-live="polite"></div>
 
@@ -1806,7 +1886,7 @@ if (isTouch) {
 const renderer = new THREE.WebGLRenderer({
   canvas, antialias: true, powerPreference: "high-performance",
 });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1827,7 +1907,7 @@ function addCamShake(amount) {
 
 /* —— Persistent user settings —— */
 const Settings = {
-  masterVolume: 0.7,
+  masterVolume: isTouch ? 0.92 : 0.7,
   flightMode: "arcade",
   rainEnabled: true,
   screenShake: true,
@@ -3785,7 +3865,9 @@ function pulsePlumes(jet, throttle, dt) {
 const SFX = {
   ctx: null,
   master: null,
-  _baseMaster: 0.85,
+  _baseMaster: isTouch ? 0.92 : 0.85,
+  _useHtml: isTouch,
+  _html: { engine: null, guns: [], explode: null, ready: false },
   buffers: {},
   _loaded: false,
   _loadPromise: null,
@@ -3806,6 +3888,68 @@ const SFX = {
     gun2: "assets/sfx/gunfire-2.mp3",
     gun3: "assets/sfx/gunfire-3.mp3",
     explode: "assets/sfx/explosion.mp3",
+  },
+  initHtmlAudio() {
+    if (this._html.ready) return;
+    const mk = (url, loop) => {
+      const a = new Audio(url);
+      a.loop = !!loop;
+      a.preload = "auto";
+      a.setAttribute("playsinline", "");
+      a.setAttribute("webkit-playsinline", "");
+      return a;
+    };
+    this._html.engine = mk(this._sampleUrls.engine, true);
+    this._html.engine.volume = 0.85 * this._baseMaster;
+    for (let i = 1; i <= 3; i++) {
+      const g = mk(this._sampleUrls[`gun${i}`], false);
+      g.volume = this._baseMaster;
+      this._html.guns.push(g);
+    }
+    this._html.explode = mk(this._sampleUrls.explode, false);
+    this._html.explode.volume = this._baseMaster;
+    this._html.ready = true;
+  },
+  async unlockHtml() {
+    if (!this._useHtml) return;
+    this.initHtmlAudio();
+    const probe = this._html.guns[0];
+    if (!probe) return;
+    try {
+      const prev = probe.volume;
+      probe.volume = 0.001;
+      await probe.play();
+      probe.pause();
+      probe.currentTime = 0;
+      probe.volume = prev;
+    } catch (_) { /* needs user gesture */ }
+  },
+  _setEngineHtml(speed, flying) {
+    const eng = this._html.engine;
+    if (!eng) return;
+    const boost = THREE.MathUtils.clamp((speed - BRAKE_SPEED) / (BOOST_SPEED - BRAKE_SPEED), 0, 1);
+    if (flying) {
+      eng.playbackRate = 0.92 + boost * 0.35;
+      eng.volume = Math.min(1, (0.78 + boost * 0.22) * this._baseMaster);
+      eng.play().catch(() => {});
+    } else {
+      eng.pause();
+    }
+  },
+  _playHtmlGun() {
+    const guns = this._html.guns;
+    if (!guns.length) return;
+    const g = guns[Math.floor(Math.random() * guns.length)];
+    g.volume = this._baseMaster;
+    g.currentTime = 0;
+    g.play().catch(() => {});
+  },
+  _playHtmlExplode() {
+    const ex = this._html.explode;
+    if (!ex) return;
+    ex.volume = this._baseMaster;
+    ex.currentTime = 0;
+    ex.play().catch(() => {});
   },
   ensure() {
     if (this.ctx) return;
@@ -3866,12 +4010,25 @@ const SFX = {
   async resume() {
     this.ensure();
     if (this.ctx && this.ctx.state === "suspended") await this.ctx.resume();
+    if (this._useHtml) {
+      this.initHtmlAudio();
+      await this.unlockHtml();
+    }
     await this.loadSamples();
     if (this._wantEngine) this.setEngine(this._engineSpeed, true);
   },
   setMasterVolume(norm) {
     this._baseMaster = THREE.MathUtils.clamp(norm, 0, 1);
     if (this.master) this.master.gain.value = this._baseMaster;
+    if (this._html.ready) {
+      if (this._html.engine) {
+        const boost = THREE.MathUtils.clamp((this._engineSpeed - BRAKE_SPEED) / (BOOST_SPEED - BRAKE_SPEED), 0, 1);
+        const vol = this._wantEngine ? (0.78 + boost * 0.22) * this._baseMaster : 0.85 * this._baseMaster;
+        this._html.engine.volume = Math.min(1, vol);
+      }
+      this._html.guns.forEach((g) => { g.volume = this._baseMaster; });
+      if (this._html.explode) this._html.explode.volume = this._baseMaster;
+    }
   },
   _startEngineLoop() {
     if (!this.ctx || !this.buffers.engine) return;
@@ -3893,6 +4050,10 @@ const SFX = {
   setEngine(speed, flying) {
     this._engineSpeed = speed;
     this._wantEngine = !!flying;
+    if (this._useHtml && this._html.ready) {
+      this._setEngineHtml(speed, flying);
+      return;
+    }
     if (!this.ctx) return;
     if (flying && this.buffers.engine && !this._engineRunning) this._startEngineLoop();
     if (!this.engineGain || !this.ctx) return;
@@ -3965,6 +4126,10 @@ const SFX = {
   },
   async cannon() {
     await this.resume();
+    if (this._useHtml && this._html.ready) {
+      this._playHtmlGun();
+      return;
+    }
     const keys = ["gun1", "gun2", "gun3"];
     const key = keys[Math.floor(Math.random() * keys.length)];
     if (!this.playOneShot(key, 1.0, 0.96 + Math.random() * 0.08)) {
@@ -3976,6 +4141,10 @@ const SFX = {
   },
   async explode() {
     await this.resume();
+    if (this._useHtml && this._html.ready) {
+      this._playHtmlExplode();
+      return;
+    }
     this.playOneShot("explode", 1.0, 1);
   },
   hitCrunch() {
@@ -4005,6 +4174,25 @@ const SFX = {
   },
 };
 
+let _audioUnlocked = false;
+async function unlockGameAudio() {
+  if (typeof SFX === "undefined") return;
+  await SFX.resume();
+  if (!_audioUnlocked && SFX.ctx) {
+    _audioUnlocked = true;
+    try {
+      const buf = SFX.ctx.createBuffer(1, 1, 22050);
+      const src = SFX.ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(SFX.ctx.destination);
+      src.start(0);
+    } catch (_) { /* noop */ }
+  }
+}
+["touchstart", "click", "keydown"].forEach((evt) => {
+  document.addEventListener(evt, () => { unlockGameAudio(); }, { once: true, passive: true });
+});
+
 const player = {
   mesh: makeJet({
     body: 0x4a5340, camo: 0x3d4538, accent: 0x5a4030, stripe: 0xd4a017, scale: 1.2,
@@ -4030,6 +4218,7 @@ function bootLobby() {
   Wallet.bindEvents();
   Shop.bindEvents();
   LobbyDrawers.bindEvents();
+  if (isTouch) SFX.initHtmlAudio();
   SFX.loadSamples();
   TheaterSelect.render();
   Wallet.tryReconnect();
@@ -4331,7 +4520,7 @@ async function beginCombatMission() {
   respawnNavalFleet();
   startWave(0);
   updateHUD();
-  await SFX.resume();
+  await unlockGameAudio();
   SFX.setEngine(BASE_SPEED, true);
   pushTicker("Fetching encrypted bot vector from Inco network…", false);
 }
@@ -5889,6 +6078,7 @@ addEventListener("keyup", (e) => {
 
 $("fireBtn").addEventListener("touchstart", (e) => {
   e.preventDefault();
+  unlockGameAudio();
   G.firingTouch = true;
   fireMissile();
 }, { passive: false });
@@ -5902,6 +6092,7 @@ $("fireBtn").addEventListener("click", (e) => e.preventDefault());
   const btn = $("trackBtn");
   const down = (e) => {
     e.preventDefault();
+    unlockGameAudio();
     G.trackAssist = true;
     btn.classList.add("on");
   };
@@ -5940,6 +6131,7 @@ $("fireBtn").addEventListener("click", (e) => e.preventDefault());
     knob.style.transform = "translate(0,0)";
   }
   zone.addEventListener("touchstart", (e) => {
+    unlockGameAudio();
     active = true;
     setFromEvent(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
     e.preventDefault();
@@ -5956,14 +6148,24 @@ $("fireBtn").addEventListener("click", (e) => e.preventDefault());
 function onResize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1.5 : 2));
   renderer.setSize(innerWidth, innerHeight, false);
 }
 addEventListener("resize", onResize);
 addEventListener("orientationchange", () => setTimeout(onResize, 100));
 
-$("btnEngage").addEventListener("click", async () => {
+let _engageTouchHandled = false;
+$("btnEngage").addEventListener("touchstart", async (e) => {
+  e.preventDefault();
+  _engageTouchHandled = true;
+  await unlockGameAudio();
   if (!Wallet.address) showPop("TIP · LINK WALLET VIA PROFILE TO SAVE TOKENS");
+  await beginCombatMission();
+}, { passive: false });
+$("btnEngage").addEventListener("click", async () => {
+  if (_engageTouchHandled) { _engageTouchHandled = false; return; }
+  if (!Wallet.address) showPop("TIP · LINK WALLET VIA PROFILE TO SAVE TOKENS");
+  await unlockGameAudio();
   await beginCombatMission();
 });
 
