@@ -672,17 +672,18 @@
       top: calc(50% + 36px);
     }
 
-    /* —— Lobby drawer overlays —— */
+    /* —— Lobby drawer overlays (PUBG-style full-height panels) —— */
     .lobby-drawer-backdrop {
       position: absolute;
       inset: 0;
       z-index: 32;
-      background: rgba(2, 8, 16, 0.35);
-      backdrop-filter: blur(2px);
+      background: rgba(2, 8, 16, 0.22);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
-      transition: opacity 0.32s, visibility 0.32s;
+      transition: opacity 0.38s, visibility 0.38s;
     }
     .lobby-drawer-backdrop.open {
       opacity: 1;
@@ -692,79 +693,123 @@
     .lobby-drawer {
       position: absolute;
       z-index: 33;
-      background: rgba(10, 18, 30, 0.82);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(0, 255, 178, 0.28);
-      border-radius: 14px;
-      padding: 1.1rem 1.15rem 1rem;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45), 0 0 32px rgba(0, 255, 178, 0.08);
-      opacity: 0;
+      top: 0;
+      bottom: 0;
+      height: 100%;
+      width: clamp(300px, 46vw, 540px);
+      padding: 30px;
+      padding-top: calc(30px + var(--safe-t));
+      padding-bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+      border-radius: 0;
+      border: none;
+      border-left: 2px solid rgba(0, 255, 178, 0.4);
+      background: rgba(10, 18, 30, 0.78);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: -12px 0 48px rgba(0, 0, 0, 0.45), 0 0 40px rgba(0, 255, 178, 0.06);
+      opacity: 1;
       visibility: hidden;
       pointer-events: none;
-      transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-                  transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-                  visibility 0.32s;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+                  visibility 0.38s,
+                  opacity 0.38s;
     }
     .lobby-drawer.open {
-      opacity: 1;
       visibility: visible;
       pointer-events: auto;
-      transform: none !important;
+    }
+    .drawer-inner {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 0.25rem;
+      -webkit-overflow-scrolling: touch;
     }
     .drawer-close {
       position: absolute;
-      top: 0.55rem;
-      right: 0.55rem;
-      width: 30px;
-      height: 30px;
-      border: none;
-      border-radius: 8px;
-      background: rgba(255, 77, 109, 0.12);
+      top: calc(18px + var(--safe-t));
+      right: 18px;
+      z-index: 2;
+      width: 44px;
+      height: 44px;
+      border: 1px solid rgba(255, 77, 109, 0.55);
+      border-radius: 12px;
+      background: rgba(255, 77, 109, 0.16);
       color: #ff4d6d;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.15s;
+      box-shadow: 0 0 22px rgba(255, 77, 109, 0.35);
+      transition: background 0.15s, box-shadow 0.15s, transform 0.12s;
     }
-    .drawer-close:hover { background: rgba(255, 77, 109, 0.22); }
-    .drawer-close svg { width: 14px; height: 14px; }
+    .drawer-close:hover {
+      background: rgba(255, 77, 109, 0.28);
+      box-shadow: 0 0 32px rgba(255, 77, 109, 0.5);
+    }
+    .drawer-close:active { transform: scale(0.94); }
+    .drawer-close svg { width: 18px; height: 18px; }
     .drawer-head {
-      margin: 0 2rem 0.75rem 0;
+      margin: 0 3.5rem 1rem 0;
       font-family: var(--display);
-      font-size: 0.68rem;
-      letter-spacing: 0.14em;
+      font-size: clamp(0.85rem, 2.2vw, 1rem);
+      letter-spacing: 0.16em;
       color: var(--cyan);
     }
-    .drawer-profile {
-      top: calc(4.6rem + var(--safe-t));
-      right: calc(1rem + env(safe-area-inset-right, 0px));
-      width: min(calc(100vw - 2rem), 320px);
-      transform: translateX(24px) scale(0.97);
+    .drawer-head.amber { color: var(--amber); }
+    .drawer-sub {
+      margin: -0.5rem 0 0.75rem;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: rgba(234, 246, 255, 0.45);
+      letter-spacing: 0.04em;
+    }
+    .drawer-profile,
+    .drawer-shop {
+      right: 0;
+      transform: translateX(105%);
+    }
+    .drawer-profile.open,
+    .drawer-shop.open {
+      transform: translateX(0);
     }
     .drawer-theaters {
-      left: calc(1rem + env(safe-area-inset-left, 0px));
-      bottom: calc(1.2rem + env(safe-area-inset-bottom, 0px));
-      width: min(calc(100vw - 2rem), 560px);
-      transform: translateX(-28px) scale(0.97);
+      left: 50%;
+      right: auto;
+      width: clamp(340px, 52vw, 720px);
+      border-left: 2px solid rgba(0, 255, 178, 0.4);
+      border-right: 2px solid rgba(0, 255, 178, 0.4);
+      box-shadow: 0 0 60px rgba(0, 0, 0, 0.5), 0 0 48px rgba(0, 255, 178, 0.08);
+      transform: translate(-50%, 0) scale(0.94);
+      opacity: 0;
     }
-    .drawer-shop {
-      left: calc(5.5rem + env(safe-area-inset-left, 0px));
-      top: 50%;
-      width: min(calc(100vw - 7rem), 380px);
-      transform: translate(-20px, -50%) scale(0.97);
+    .drawer-theaters.open {
+      transform: translate(-50%, 0) scale(1);
+      opacity: 1;
     }
-    @media (max-width: 480px) {
-      .drawer-shop {
-        left: 1rem;
-        right: 1rem;
-        width: auto;
-        top: auto;
-        bottom: calc(1.2rem + env(safe-area-inset-bottom, 0px));
-        transform: translateY(28px) scale(0.97);
+    @media (max-width: 640px) {
+      .lobby-drawer {
+        width: 100vw;
+        border-left: none;
+        border-top: 2px solid rgba(0, 255, 178, 0.4);
       }
-      .drawer-shop.open { transform: none !important; }
+      .drawer-theaters {
+        left: 0;
+        width: 100vw;
+        border-right: none;
+        transform: translateX(105%);
+        opacity: 1;
+      }
+      .drawer-theaters.open { transform: translateX(0); }
+    }
+    /* Dim minimalist center card when drawer open */
+    .brief.drawer-open .card-home-minimal {
+      opacity: 0.35;
+      filter: blur(1px);
+      transition: opacity 0.35s, filter 0.35s;
     }
 
     /* Hide combat HUD on lobby */
@@ -897,53 +942,97 @@
     .theater-grid {
       display: flex;
       flex-direction: row;
-      gap: 0.55rem;
+      gap: 1rem;
       overflow-x: auto;
       scroll-snap-type: x mandatory;
-      padding: 0.35rem 0.15rem 0.5rem;
+      padding: 0.75rem 0.5rem 1rem;
       margin-bottom: 0;
       max-height: none;
       -webkit-overflow-scrolling: touch;
+      align-items: stretch;
     }
-    .theater-grid::-webkit-scrollbar { height: 4px; }
-    .theater-grid::-webkit-scrollbar-thumb { background: rgba(0, 255, 178, 0.3); border-radius: 2px; }
+    .drawer-theaters .theater-grid {
+      min-height: min(52vh, 420px);
+      gap: 1.15rem;
+      padding: 1rem 0.75rem 1.25rem;
+    }
+    .theater-grid::-webkit-scrollbar { height: 6px; }
+    .theater-grid::-webkit-scrollbar-thumb { background: rgba(0, 255, 178, 0.35); border-radius: 3px; }
     .theater-card {
       position: relative; overflow: hidden;
-      flex: 0 0 min(210px, 72vw);
+      flex: 0 0 min(240px, 72vw);
       scroll-snap-align: center;
-      padding: 0.55rem 0.65rem 0.5rem;
-      border-radius: 8px;
+      padding: 1rem 1.1rem;
+      min-height: 180px;
+      border-radius: 12px;
       background: rgba(4, 12, 22, 0.55);
       cursor: pointer; text-align: left;
-      font-family: var(--mono); font-size: 0.5rem;
-      color: var(--muted); transition: 0.18s ease;
+      font-family: var(--mono); font-size: 0.58rem;
+      color: var(--muted); transition: 0.2s ease;
       border: 1px solid rgba(92, 225, 255, 0.25);
+    }
+    .drawer-theaters .theater-card {
+      flex: 0 0 min(280px, 78vw);
+      min-height: 220px;
+      padding: 1.15rem 1.2rem;
     }
     .theater-card::before {
       content: ""; position: absolute; inset: 0; opacity: 0.12; pointer-events: none;
       background: repeating-linear-gradient(90deg, transparent, transparent 8px, rgba(255,255,255,0.04) 8px, rgba(255,255,255,0.04) 9px);
     }
     .theater-card .tc-glyph {
-      position: absolute; right: 6px; top: 4px;
-      font-size: 1.4rem; opacity: 0.15; pointer-events: none;
+      position: absolute; right: 10px; top: 8px;
+      font-size: 2rem; opacity: 0.18; pointer-events: none;
     }
+    .drawer-theaters .theater-card .tc-glyph { font-size: 2.8rem; }
     .theater-card .tc-title {
       display: block; font-family: var(--display);
-      font-size: 0.58rem; letter-spacing: 0.08em;
-      color: var(--ink); margin-bottom: 0.2rem;
+      font-size: 0.72rem; letter-spacing: 0.1em;
+      color: var(--ink); margin-bottom: 0.35rem;
     }
+    .drawer-theaters .theater-card .tc-title { font-size: 0.88rem; }
     .theater-card .tc-tag {
-      display: block; font-size: 0.46rem; letter-spacing: 0.03em;
-      color: rgba(234, 246, 255, 0.55); line-height: 1.35;
+      display: block; font-size: 0.58rem; letter-spacing: 0.04em;
+      color: rgba(234, 246, 255, 0.6); line-height: 1.45;
     }
+    .drawer-theaters .theater-card .tc-tag { font-size: 0.65rem; }
     .theater-card .tc-unlock {
-      margin-top: 0.35rem; padding: 0.28rem 0.45rem;
-      font-family: var(--display); font-size: 0.48rem;
-      letter-spacing: 0.08em; border-radius: 4px;
-      border: 1px solid rgba(255, 200, 87, 0.55);
-      background: rgba(255, 200, 87, 0.1); color: var(--amber);
+      margin-top: 0.65rem; padding: 0.65rem 0.75rem;
+      font-family: var(--display); font-size: 0.68rem;
+      letter-spacing: 0.1em; border-radius: 8px;
+      border: 1px solid rgba(255, 200, 87, 0.6);
+      background: rgba(255, 200, 87, 0.12); color: var(--amber);
       cursor: pointer; width: 100%;
-      box-shadow: 0 0 10px rgba(255, 200, 87, 0.15);
+      box-shadow: 0 0 14px rgba(255, 200, 87, 0.2);
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+    .theater-card .tc-unlock:hover {
+      background: rgba(255, 200, 87, 0.22);
+      box-shadow: 0 0 22px rgba(255, 200, 87, 0.35);
+    }
+    .theater-card .tc-unlock.can-afford {
+      border-color: rgba(0, 255, 178, 0.65);
+      color: var(--teal);
+      box-shadow: 0 0 18px rgba(0, 255, 178, 0.25);
+    }
+    .theater-card .tc-status {
+      display: inline-block;
+      margin-top: 0.5rem;
+      padding: 0.35rem 0.55rem;
+      font-family: var(--display);
+      font-size: 0.58rem;
+      letter-spacing: 0.1em;
+      border-radius: 6px;
+    }
+    .theater-card .tc-status.unlocked {
+      color: var(--teal);
+      background: rgba(0, 255, 178, 0.1);
+      border: 1px solid rgba(0, 255, 178, 0.35);
+    }
+    .theater-card .tc-status.locked {
+      color: #ff8a9a;
+      background: rgba(255, 77, 109, 0.1);
+      border: 1px solid rgba(255, 77, 109, 0.35);
     }
     .theater-card .tc-lock {
       display: inline-flex; align-items: center; gap: 0.25rem;
@@ -964,7 +1053,8 @@
       box-shadow: 0 0 18px rgba(0, 255, 178, 0.18), inset 0 0 14px rgba(0, 255, 178, 0.06);
     }
     .theater-card.selected .tc-title { color: var(--teal); }
-    .theater-card.locked { cursor: default; }
+    .theater-card.locked { cursor: pointer; }
+    .theater-card.locked:not(:has(.can-afford)) { cursor: default; opacity: 0.82; }
     .drawer-profile .wallet-stats {
       font-family: var(--mono);
       font-size: 0.58rem;
@@ -991,57 +1081,94 @@
     }
     .drawer-shop .shop-credits {
       font-family: var(--mono);
-      font-size: 0.58rem;
+      font-size: 0.82rem;
       color: var(--muted);
-      margin-bottom: 0.65rem;
-    }
-    .drawer-shop .shop-credits span { color: var(--teal); }
-    .shop-item {
-      padding: 0.65rem 0.55rem; margin-bottom: 0.45rem;
-      border: 1px solid rgba(255, 200, 87, 0.2);
+      margin-bottom: 1.25rem;
+      padding: 0.65rem 0.75rem;
       border-radius: 8px;
-      background: rgba(4, 12, 22, 0.45);
+      background: rgba(0, 255, 178, 0.06);
+      border: 1px solid rgba(0, 255, 178, 0.2);
+    }
+    .drawer-shop .shop-credits span {
+      color: var(--teal);
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .shop-items-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .shop-item {
+      padding: 1.25rem 1.15rem;
+      margin-bottom: 0;
+      border: 1px solid rgba(255, 200, 87, 0.28);
+      border-radius: 12px;
+      background: rgba(4, 12, 22, 0.5);
     }
     .shop-item-header {
       display: flex; justify-content: space-between; align-items: flex-start;
-      gap: 0.5rem; margin-bottom: 0.4rem;
+      gap: 0.75rem; margin-bottom: 0.65rem;
     }
-    .shop-item-info b { display: block; font-size: 0.62rem; color: var(--ink); }
-    .shop-item-info small { font-family: var(--mono); font-size: 0.48rem; color: var(--muted); }
+    .shop-item-info b { display: block; font-size: 0.95rem; color: var(--ink); letter-spacing: 0.06em; }
+    .shop-item-info small { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); line-height: 1.45; margin-top: 0.35rem; display: block; }
     .shop-stat-bar {
-      margin: 0.35rem 0 0.45rem;
+      margin: 0.65rem 0 0.85rem;
     }
     .shop-stat-bar label {
       display: flex; justify-content: space-between;
-      font-family: var(--mono); font-size: 0.46rem;
-      color: var(--muted); margin-bottom: 0.2rem;
+      font-family: var(--mono); font-size: 0.68rem;
+      color: var(--muted); margin-bottom: 0.35rem;
     }
-    .shop-stat-bar label span { color: var(--teal); }
+    .shop-stat-bar label span:last-child { color: var(--teal); font-weight: 600; }
     .shop-stat-track {
-      height: 6px; border-radius: 3px;
+      height: 10px; border-radius: 5px;
       background: rgba(255,255,255,0.08);
       overflow: hidden; position: relative;
     }
     .shop-stat-from {
       position: absolute; left: 0; top: 0; height: 100%;
       background: rgba(92, 225, 255, 0.35);
-      border-radius: 3px;
+      border-radius: 5px;
     }
     .shop-stat-to {
       position: absolute; left: 0; top: 0; height: 100%;
       background: linear-gradient(90deg, rgba(61,255,168,0.5), var(--teal));
-      border-radius: 3px;
-      box-shadow: 0 0 8px rgba(61, 255, 168, 0.45);
+      border-radius: 5px;
+      box-shadow: 0 0 12px rgba(61, 255, 168, 0.45);
     }
     .shop-buy {
-      padding: 0.35rem 0.55rem; font-family: var(--mono);
-      font-size: 0.52rem; letter-spacing: 0.06em;
-      border: 1px solid rgba(255, 200, 87, 0.5);
-      background: rgba(255, 200, 87, 0.12); color: var(--amber);
-      cursor: pointer; border-radius: 5px; white-space: nowrap;
-      width: 100%; margin-top: 0.25rem;
+      padding: 0.9rem 1rem;
+      font-family: var(--display);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      border: 1px solid rgba(255, 200, 87, 0.55);
+      background: rgba(255, 200, 87, 0.14);
+      color: var(--amber);
+      cursor: pointer;
+      border-radius: 8px;
+      white-space: nowrap;
+      width: 100%;
+      margin-top: 0.35rem;
+      transition: background 0.15s, box-shadow 0.15s, transform 0.12s;
     }
-    .shop-buy.owned { border-color: rgba(61,255,168,0.5); color: var(--teal); background: rgba(61,255,168,0.1); cursor: default; }
+    .shop-buy:hover:not(.owned):not(:disabled) {
+      background: rgba(255, 200, 87, 0.24);
+      box-shadow: 0 0 20px rgba(255, 200, 87, 0.25);
+    }
+    .shop-buy:active:not(.owned) { transform: scale(0.98); }
+    .shop-buy:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .shop-buy.owned {
+      border-color: rgba(255, 200, 87, 0.7);
+      color: var(--amber);
+      background: linear-gradient(135deg, rgba(255, 200, 87, 0.22), rgba(255, 170, 60, 0.12));
+      box-shadow: 0 0 20px rgba(255, 200, 87, 0.28);
+      cursor: default;
+    }
     .card.fail { border-color: rgba(255, 77, 109, 0.55); box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 40px rgba(255, 77, 109, 0.15); }
     .card.win { border-color: rgba(255, 200, 87, 0.65); box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 50px rgba(255, 200, 87, 0.2); }
     .card h1 {
@@ -1417,19 +1544,21 @@
             <path d="M6 6l12 12M18 6L6 18"/>
           </svg>
         </button>
-        <h2 class="drawer-head">PILOT PROFILE</h2>
-        <div class="link-status">
-          <span class="status-lamp" id="walletStatusLamp"></span>
-          <span id="walletStatusText">OFFLINE — AWAITING LINK</span>
-        </div>
-        <div class="wallet-stats" id="walletBriefStats"></div>
-        <div class="terminal-wallet" id="homeWalletBox">
-          <div id="walletDisconnected">
-            <button class="btn-wallet-inline" id="btnWalletConnect" type="button">LINK METAMASK WALLET</button>
+        <div class="drawer-inner">
+          <h2 class="drawer-head">PILOT PROFILE</h2>
+          <div class="link-status">
+            <span class="status-lamp" id="walletStatusLamp"></span>
+            <span id="walletStatusText">OFFLINE — AWAITING LINK</span>
           </div>
-          <div id="walletConnected" style="display:none">
-            <div class="addr" id="walletFullAddr"></div>
-            <button class="btn-disconnect" id="btnWalletDisconnect" type="button">DISCONNECT WALLET</button>
+          <div class="wallet-stats" id="walletBriefStats"></div>
+          <div class="terminal-wallet" id="homeWalletBox">
+            <div id="walletDisconnected">
+              <button class="btn-wallet-inline" id="btnWalletConnect" type="button">LINK METAMASK WALLET</button>
+            </div>
+            <div id="walletConnected" style="display:none">
+              <div class="addr" id="walletFullAddr"></div>
+              <button class="btn-disconnect" id="btnWalletDisconnect" type="button">DISCONNECT WALLET</button>
+            </div>
           </div>
         </div>
       </aside>
@@ -1440,8 +1569,11 @@
             <path d="M6 6l12 12M18 6L6 18"/>
           </svg>
         </button>
-        <h2 class="drawer-head">THEATERS OF WAR</h2>
-        <div class="theater-grid" id="theaterGrid"></div>
+        <div class="drawer-inner">
+          <h2 class="drawer-head">THEATERS OF WAR</h2>
+          <p class="drawer-sub">Select deployment zone · swipe to browse</p>
+          <div class="theater-grid" id="theaterGrid"></div>
+        </div>
       </aside>
 
       <aside class="lobby-drawer drawer-shop" id="drawerShop">
@@ -1450,9 +1582,11 @@
             <path d="M6 6l12 12M18 6L6 18"/>
           </svg>
         </button>
-        <h2 class="drawer-head" style="color:var(--amber)">ARMORY MARKETPLACE</h2>
-        <div class="shop-credits">Score tokens: <span id="shopCreditsLabel">0</span></div>
-        <div id="shopItems"></div>
+        <div class="drawer-inner">
+          <h2 class="drawer-head amber">ARMORY MARKETPLACE</h2>
+          <div class="shop-credits">Score tokens: <span id="shopCreditsLabel">0</span></div>
+          <div class="shop-items-grid" id="shopItems"></div>
+        </div>
       </aside>
     </div>
 
@@ -1862,13 +1996,18 @@ const Shop = {
   buy(id) {
     const item = SHOP_ITEMS.find((x) => x.id === id);
     if (!item || this.owned(id)) return;
-    if (!Wallet.address) { showPop("CONNECT WALLET FIRST"); return; }
-    if (Wallet.shopCredits < item.cost) { showPop("INSUFFICIENT SCORE TOKENS"); return; }
+    if (!Wallet.address) { showPop("CONNECT WALLET TO PURCHASE"); LobbyDrawers.open("Profile"); return; }
+    if (Wallet.shopCredits < item.cost) {
+      showPop("INSUFFICIENT TOKENS — NEED " + item.cost);
+      return;
+    }
     Wallet.shopCredits -= item.cost;
     Wallet.ownedShop[id] = true;
     Wallet.saveProfile();
+    player.health = getPlayerMaxHealth();
     this.updateUI();
     Wallet.updateUI();
+    updateHUD();
     showPop("PURCHASED — " + item.name.toUpperCase());
   },
   updateUI() {
@@ -1879,6 +2018,7 @@ const Shop = {
     wrap.innerHTML = "";
     for (const item of SHOP_ITEMS) {
       const owned = this.owned(item.id);
+      const canAfford = Wallet.shopCredits >= item.cost;
       const fromPct = (item.statFrom / item.statMax) * 100;
       const toPct = (item.statTo / item.statMax) * 100;
       const row = document.createElement("div");
@@ -1892,8 +2032,13 @@ const Shop = {
       const btn = document.createElement("button");
       btn.className = "shop-buy" + (owned ? " owned" : "");
       btn.type = "button";
-      btn.textContent = owned ? "OWNED" : item.cost + " TOKENS";
-      if (!owned) btn.addEventListener("click", () => this.buy(item.id));
+      if (owned) {
+        btn.textContent = "OWNED / EQUIP";
+      } else {
+        btn.textContent = item.cost + " TOKENS";
+        if (!canAfford) btn.disabled = true;
+        btn.addEventListener("click", () => this.buy(item.id));
+      }
       row.appendChild(btn);
       wrap.appendChild(row);
     }
@@ -1914,6 +2059,7 @@ const LobbyDrawers = {
     const panel = $(this.panels[name]);
     if (panel) panel.classList.add("open");
     $("drawerBackdrop").classList.add("open");
+    $("brief").classList.add("drawer-open");
     Object.values(this.tabs).forEach((id) => {
       const tab = $(id);
       if (tab) tab.classList.remove("active");
@@ -1931,6 +2077,7 @@ const LobbyDrawers = {
       if (panel) panel.classList.remove("open");
     });
     $("drawerBackdrop").classList.remove("open");
+    $("brief").classList.remove("drawer-open");
     Object.values(this.tabs).forEach((id) => {
       const tab = $(id);
       if (tab) tab.classList.remove("active");
@@ -1957,11 +2104,20 @@ const TheaterSelect = {
   },
   tryUnlock(t) {
     if (this.isUnlocked(t)) return true;
+    if (!Wallet.address) {
+      showPop("CONNECT WALLET TO UNLOCK THEATERS");
+      LobbyDrawers.open("Profile");
+      return false;
+    }
     if (t.chipUnlock && (Wallet.totalChips >= 1 || G.chips >= 1)) {
       if (G.chips >= 1) G.chips--;
       else Wallet.totalChips--;
       Wallet.unlockedTheaters.push(t.id);
+      Wallet.selectedTheater = t.id;
+      applyTheater(t.id);
       Wallet.saveProfile();
+      Wallet.updateUI();
+      Shop.updateUI();
       showPop("UNLOCKED VIA BASE CHIP — " + t.name.toUpperCase());
       this.render();
       return true;
@@ -1969,6 +2125,8 @@ const TheaterSelect = {
     if (Wallet.shopCredits >= t.cost) {
       Wallet.shopCredits -= t.cost;
       Wallet.unlockedTheaters.push(t.id);
+      Wallet.selectedTheater = t.id;
+      applyTheater(t.id);
       Wallet.saveProfile();
       Wallet.updateUI();
       Shop.updateUI();
@@ -2003,17 +2161,22 @@ const TheaterSelect = {
       el.setAttribute("role", unlocked ? "button" : "presentation");
       let inner = `<span class="tc-glyph">${t.glyph || "◈"}</span>`;
       if (!unlocked) {
-        inner += `<span class="tc-lock"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-3 0H10V7a2 2 0 0 1 4 0v2z"/></svg> LOCKED SECTOR</span>`;
+        inner += `<span class="tc-lock"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-3 0H10V7a2 2 0 0 1 4 0v2z"/></svg> LOCKED SECTOR</span>`;
+        inner += `<span class="tc-status locked">STATUS: LOCKED</span>`;
+      } else {
+        inner += `<span class="tc-status unlocked">STATUS: UNLOCKED</span>`;
       }
       inner += `<span class="tc-title">${t.name}</span>`;
       inner += `<span class="tc-tag">${t.tag || ""}</span>`;
       if (!unlocked) {
+        const canAfford = Wallet.shopCredits >= t.cost
+          || (t.chipUnlock && (Wallet.totalChips >= 1 || G.chips >= 1));
         const unlockLabel = t.chipUnlock
           ? "UNLOCK " + t.cost + " TOKENS / CHIP"
           : "UNLOCK " + t.cost + " TOKENS";
-        inner += `<button type="button" class="tc-unlock">${unlockLabel}</button>`;
+        inner += `<button type="button" class="tc-unlock${canAfford ? " can-afford" : ""}">${unlockLabel}</button>`;
       } else if (Wallet.selectedTheater === t.id) {
-        inner += `<span class="tc-tag" style="color:var(--teal);margin-top:0.15rem">● DEPLOYMENT READY</span>`;
+        inner += `<span class="tc-tag" style="color:var(--teal);margin-top:0.5rem;font-size:0.72rem">● DEPLOYMENT READY</span>`;
       }
       el.innerHTML = inner;
       if (unlocked) {
@@ -2029,6 +2192,7 @@ const TheaterSelect = {
             this.tryUnlock(t);
           });
         }
+        el.addEventListener("click", () => this.tryUnlock(t));
       }
       grid.appendChild(el);
     }
