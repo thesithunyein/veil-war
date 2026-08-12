@@ -572,7 +572,17 @@
       background: #ffc857; opacity: 0; transition: opacity 0.12s;
     }
     .flash.on { opacity: 0.32; }
-    .flash.red.on { background: #ff4d6d; opacity: 0.28; }
+    .flash.red.on { background: #ff4d6d; opacity: 0.38; }
+    .flash.red.heavy.on { background: #ff1133; opacity: 0.55; }
+    .cross.player-hit {
+      border-color: #ff1133 !important;
+      box-shadow: 0 0 36px rgba(255, 20, 50, 1) !important;
+      animation: playerHitPulse 0.22s ease-out;
+    }
+    @keyframes playerHitPulse {
+      0% { transform: translate(-50%, -50%) scale(1.18); }
+      100% { transform: translate(-50%, -50%) scale(1); }
+    }
 
     .pop {
       position: fixed; z-index: 200; left: 50%; top: 18%;
@@ -5385,6 +5395,63 @@ const SFX = {
     o.start();
     o.stop(t + 0.44);
   },
+  enemyGun() {
+    if (!this.ctx) this.ensure();
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const n = this.ctx.createBufferSource();
+    const len = Math.floor(this.ctx.sampleRate * 0.06);
+    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    n.buffer = buf;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.setValueAtTime(920, t);
+    bp.Q.setValueAtTime(0.7, t);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.42, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    n.connect(bp);
+    bp.connect(g);
+    g.connect(this.master);
+    n.start();
+  },
+  nearMiss() {
+    if (!this.ctx) this.ensure();
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    o.type = "sine";
+    o.frequency.setValueAtTime(180, t);
+    o.frequency.exponentialRampToValueAtTime(90, t + 0.18);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    o.connect(g);
+    g.connect(this.master);
+    o.start();
+    o.stop(t + 0.22);
+  },
+  playerHit(direct) {
+    if (!this.ctx) this.ensure();
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    o.type = direct ? "square" : "sawtooth";
+    o.frequency.setValueAtTime(direct ? 320 : 260, t);
+    o.frequency.exponentialRampToValueAtTime(direct ? 140 : 170, t + 0.28);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(direct ? 0.55 : 0.38, t + 0.025);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+    o.connect(g);
+    g.connect(this.master);
+    o.start();
+    o.stop(t + 0.34);
+  },
 };
 
 let _audioUnlocked = false;
@@ -5418,6 +5485,8 @@ const player = {
   health: 100,
   dead: false,
   smokeAcc: 0,
+  vel: new THREE.Vector3(),
+  _prevPos: null,
 };
 player.mesh.position.set(0, 95, 0);
 scene.add(player.mesh);
@@ -5684,11 +5753,12 @@ function updateHeatHUD() {
   if (banner) banner.classList.toggle("show", !!G.overheated);
 }
 
-function flashScreen(red) {
+function flashScreen(red, heavy) {
   const el = $("flash");
   el.classList.toggle("red", !!red);
+  el.classList.toggle("heavy", !!heavy);
   el.classList.add("on");
-  setTimeout(() => el.classList.remove("on"), 110);
+  setTimeout(() => el.classList.remove("on"), heavy ? 160 : 110);
 }
 
 function flashDamageFrame() {
@@ -6219,6 +6289,8 @@ function spawnEnemy(opts) {
     breakDir: null,
     breakTarget: null,
     reinforced,
+    peelCD: 0,
+    peelSide: side,
     revealed: true,
   });
   mesh.visible = true;
@@ -6556,19 +6628,84 @@ function fireOrangeTracer(origin, dir, length) {
 
 function fireRedTracer(origin, dir, length) {
   const d = dir.clone().normalize();
-  const end = origin.clone().addScaledVector(d, length || 90);
+  const len = length || 220;
+  const end = origin.clone().addScaledVector(d, len);
   const geo = new THREE.BufferGeometry().setFromPoints([origin.clone(), end]);
   const mat = new THREE.LineBasicMaterial({
-    color: 0xff1a3c, transparent: true, opacity: 1, depthWrite: false,
+    color: 0xff2244, transparent: true, opacity: 1, depthWrite: false, fog: false,
   });
   const line = new THREE.Line(geo, mat);
+  line.renderOrder = 128;
   scene.add(line);
   const mat2 = new THREE.LineBasicMaterial({
-    color: 0xff6688, transparent: true, opacity: 0.8, depthWrite: false,
+    color: 0xff8899, transparent: true, opacity: 0.88, depthWrite: false, fog: false,
   });
   const line2 = new THREE.Line(geo.clone(), mat2);
+  line2.renderOrder = 127;
   scene.add(line2);
-  G.tracers.push({ line, line2, life: 0.1 });
+  const mat3 = new THREE.LineBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false, fog: false,
+  });
+  const line3 = new THREE.Line(geo.clone(), mat3);
+  line3.renderOrder = 126;
+  scene.add(line3);
+  G.tracers.push({ line, line2, line3, life: 0.34 });
+}
+
+function getPlayerVelocity(out) {
+  const v = out || new THREE.Vector3();
+  if (player.vel && player.vel.lengthSq() > 1) return v.copy(player.vel);
+  return getPlayerForward(v).multiplyScalar(player.speed);
+}
+
+function computeLeadDir(origin, projSpeed) {
+  const pVel = getPlayerVelocity(_tmpV);
+  const dist = origin.distanceTo(player.mesh.position);
+  const t = THREE.MathUtils.clamp(dist / Math.max(projSpeed, 120), 0.06, 1.6);
+  const lead = player.mesh.position.clone().addScaledVector(pVel, t * 0.78);
+  return lead.sub(origin).normalize();
+}
+
+function spawnMuzzleFlash(origin, dir) {
+  for (let i = 0; i < 5; i++) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(1.1 + Math.random(), 5, 5),
+      new THREE.MeshBasicMaterial({ color: i % 2 ? 0xffcc66 : 0xff5522, transparent: true, opacity: 0.95 })
+    );
+    m.position.copy(origin).addScaledVector(dir, 1.5 + Math.random() * 4);
+    scene.add(m);
+    G.particles.push({
+      mesh: m,
+      vel: dir.clone().multiplyScalar(35 + Math.random() * 45).add(new THREE.Vector3(
+        (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 12
+      )),
+      life: 0.14, decay: 0.09, smoke: false,
+    });
+  }
+}
+
+function spawnImpactSparks(worldPos, heavy) {
+  const n = heavy ? 12 : 7;
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.35 + Math.random() * 0.5, 4, 4),
+      new THREE.MeshBasicMaterial({
+        color: heavy ? 0xff4411 : 0xffaa44, transparent: true, opacity: 0.95,
+      })
+    );
+    m.position.copy(worldPos).add(new THREE.Vector3(
+      (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6
+    ));
+    scene.add(m);
+    G.particles.push({
+      mesh: m,
+      vel: new THREE.Vector3((Math.random() - 0.5) * 28, 6 + Math.random() * 18, (Math.random() - 0.5) * 28),
+      life: 0.35, decay: 0.045, smoke: false,
+    });
+  }
+  flashCrosshairHit();
+  $("cross").classList.add("player-hit");
+  setTimeout(() => $("cross").classList.remove("player-hit"), 220);
 }
 
 function fireMissile() {
@@ -6659,32 +6796,61 @@ function fireMissile() {
   });
 }
 
-function enemyFirePlasma(e, fromBehind) {
+function enemyFirePlasma(e, fromBehind, opts) {
+  opts = opts || {};
+  const PLASMA_SPEED = 380;
   const origin = e.mesh.position.clone();
-  const dir = player.mesh.position.clone().sub(origin).normalize();
+  let dir = computeLeadDir(origin, PLASMA_SPEED);
+  const spread = opts.inFront ? 0.028 : 0.07;
+  dir.add(new THREE.Vector3(
+    (Math.random() - 0.5) * spread,
+    (Math.random() - 0.5) * spread * 0.85,
+    (Math.random() - 0.5) * spread
+  )).normalize();
   const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
   if (right.lengthSq() < 0.01) right.set(1, 0, 0);
+  SFX.enemyGun();
+  spawnMuzzleFlash(origin.clone().addScaledVector(dir, 10), dir);
   for (const side of [-1, 1]) {
     const o = origin.clone().addScaledVector(dir, 12).addScaledVector(right, side * 5.5);
-    fireRedTracer(o, dir, 180);
+    fireRedTracer(o, dir, 240);
     const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.85, 6, 6),
+      new THREE.SphereGeometry(1.35, 8, 8),
       new THREE.MeshBasicMaterial({ color: 0xff2244 })
     );
     mesh.position.copy(o);
     scene.add(mesh);
-    G.plasma.push({ mesh, vel: dir.clone().multiplyScalar(340), life: 2.8 });
+    const glow = new THREE.Mesh(
+      new THREE.SphereGeometry(2.1, 6, 6),
+      new THREE.MeshBasicMaterial({ color: 0xff6688, transparent: true, opacity: 0.38 })
+    );
+    glow.position.copy(o);
+    scene.add(glow);
+    G.plasma.push({
+      mesh, glow, vel: dir.clone().multiplyScalar(PLASMA_SPEED), life: 3.2, fromEnemy: true,
+    });
   }
+  e.peelCD = 1.0 + Math.random() * 0.5;
+  e.peelSide = e.peelSide || (Math.random() < 0.5 ? 1 : -1);
   if (fromBehind) pulseThreat();
 }
 
-function hurtPlayer(amount) {
+function hurtPlayer(amount, opts) {
+  opts = opts || {};
   if (player.dead) return;
   player.health = Math.max(0, player.health - amount);
-  flashScreen(true);
+  const kind = opts.kind || "hit";
+  const heavy = kind === "direct" || kind === "ram";
+  flashScreen(true, heavy);
   flashDamageFrame();
-  SFX.integrityAlarm();
-  addCamShake(0.52);
+  SFX.playerHit(kind === "direct");
+  if (kind !== "direct") SFX.integrityAlarm();
+  addCamShake(heavy ? 0.72 : 0.48);
+  const hitPos = opts.pos || player.mesh.position;
+  spawnImpactSparks(hitPos, heavy);
+  if (kind === "direct") spawnHitFloat(hitPos, "DIRECT HIT");
+  else if (kind === "wing") spawnHitFloat(hitPos, "WING HIT");
+  else if (kind === "ram") spawnHitFloat(hitPos, "COLLISION");
   updateHUD();
   if (player.health <= 0) missionFailed();
 }
@@ -6744,6 +6910,7 @@ function clearEntities() {
   for (const e of G.enemies) scene.remove(e.mesh);
   for (const m of G.missiles) { scene.remove(m.mesh); scene.remove(m.trail); }
   for (const p of G.plasma) scene.remove(p.mesh);
+  for (const p of G.plasma) { if (p.glow) scene.remove(p.glow); }
   for (const r of G.relics) scene.remove(r.mesh);
   for (const p of G.particles) scene.remove(p.mesh);
   for (const t of G.tracers) { scene.remove(t.line); scene.remove(t.line2); }
@@ -6833,6 +7000,8 @@ function resetGameState() {
   player.yaw = 0;
   player.speed = BASE_SPEED;
   player.smokeAcc = 0;
+  player.vel.set(0, 0, 0);
+  player._prevPos = null;
   G.score = 0;
   G.tickets = 0;
   G.chips = 0;
@@ -7333,24 +7502,32 @@ function updateFlight(dt) {
   }
   updateHeatHUD();
 
-  if (player.health < 40 && player.health > 0) {
+  if (!player._prevPos) player._prevPos = player.mesh.position.clone();
+  player.vel.copy(player.mesh.position).sub(player._prevPos).multiplyScalar(1 / Math.max(dt, 0.001));
+  player._prevPos.copy(player.mesh.position);
+
+  const maxH = getPlayerMaxHealth();
+  if (player.health < maxH * 0.5 && player.health > 0) {
     player.smokeAcc += dt;
-    if (player.smokeAcc > 0.08) {
+    const smokeRate = player.health < maxH * 0.35 ? 0.05 : 0.09;
+    if (player.smokeAcc > smokeRate) {
       player.smokeAcc = 0;
       const exhausts = player.mesh.userData.exhausts || [];
-      for (const ex of exhausts) {
+      const src = exhausts.length ? exhausts : [player.mesh];
+      for (const ex of src.slice(0, 2)) {
         const wp = new THREE.Vector3();
-        ex.getWorldPosition(wp);
+        ex.getWorldPosition ? ex.getWorldPosition(wp) : wp.copy(player.mesh.position);
+        wp.x += (Math.random() - 0.5) * 4;
         const m = new THREE.Mesh(
-          new THREE.SphereGeometry(0.8 + Math.random(), 5, 5),
-          new THREE.MeshBasicMaterial({ color: 0x555555, transparent: true, opacity: 0.55 })
+          new THREE.SphereGeometry(1.1 + Math.random() * 0.8, 5, 5),
+          new THREE.MeshBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.62 })
         );
         m.position.copy(wp);
         scene.add(m);
         G.particles.push({
           mesh: m,
-          vel: new THREE.Vector3((Math.random() - 0.5) * 4, 2, (Math.random() - 0.5) * 4),
-          life: 1, decay: 0.025, smoke: true,
+          vel: new THREE.Vector3((Math.random() - 0.5) * 6, 3 + Math.random() * 4, (Math.random() - 0.5) * 6),
+          life: 1.4, decay: 0.022, smoke: true,
         });
       }
     }
@@ -7392,7 +7569,7 @@ function updateCamera(dt) {
   camera.rotateZ(-player.roll * (threat ? 0.75 : 1.05));
 }
 
-/** Scouts hold a loose front formation and make wider passes like aircraft, not drones. */
+/** Scouts weave, peel after firing, and re-attack like real bandits. */
 function steerFollowFront(e, dt) {
   const playerPos = player.mesh.position;
   const playerFwd = getPlayerForward(_aiFwd);
@@ -7403,23 +7580,39 @@ function steerFollowFront(e, dt) {
   if (!e._prevPos) e._prevPos = e.mesh.position.clone();
   if (e.followDist == null) e.followDist = ENEMY_FOLLOW_MIN + Math.random() * (ENEMY_FOLLOW_MAX - ENEMY_FOLLOW_MIN);
   if (e.lane == null) e.lane = (Math.random() - 0.5) * 110;
-  e.wavePhase = (e.wavePhase || 0) + dt * 0.42;
-
-  _aiTarget.copy(playerPos)
-    .addScaledVector(playerFwd, e.followDist)
-    .addScaledVector(_right, e.lane + Math.sin(e.wavePhase) * 34);
-  _aiTarget.y = playerPos.y + Math.sin(e.wavePhase * 0.75) * 12;
+  if (e.peelSide == null) e.peelSide = Math.random() < 0.5 ? 1 : -1;
+  e.wavePhase = (e.wavePhase || 0) + dt * 0.48;
+  e.peelCD = Math.max(0, (e.peelCD || 0) - dt);
 
   _aiToE.copy(e.mesh.position).sub(playerPos);
-  const dist = _aiToE.length();
-  const ahead = dist > 0.001 ? playerFwd.dot(_aiToE.normalize()) : 1;
+  let dist = _aiToE.length();
+  const ahead = dist > 0.001 ? playerFwd.dot(_aiToE.clone().normalize()) : 1;
 
-  // Drifted behind or too far — glide back to a front slot
-  if (ahead < 0.08 || dist > 380) {
+  if (e.peelCD > 0) {
+    _aiDesired.copy(_right).multiplyScalar(e.peelSide).add(new THREE.Vector3(0, 0.22, 0)).normalize();
+    e.mesh.position.addScaledVector(_aiDesired, Math.max(e.speed, player.speed * 0.92) * 1.25 * dt);
+  } else if (dist < 195 && ahead > -0.2) {
+    const hold = THREE.MathUtils.clamp(88 + Math.sin(e.wavePhase * 0.65) * 32, 72, 165);
+    const lat = Math.sin(e.wavePhase * 1.05) * (Math.PI / 3.8);
+    _aiTargetDir.copy(playerFwd).multiplyScalar(Math.cos(lat)).addScaledVector(_right, Math.sin(lat)).normalize();
+    _aiTarget.copy(playerPos)
+      .addScaledVector(_aiTargetDir, hold)
+      .addScaledVector(_right, Math.sin(e.wavePhase * 1.15) * 52 + e.lane * 0.35);
+    _aiTarget.y = playerPos.y + Math.sin(e.wavePhase * 0.85) * 14;
+    _aiDesired.copy(_aiTarget).sub(e.mesh.position);
+    const dLen = _aiDesired.length();
+    if (dLen > 0.001) _aiDesired.multiplyScalar(1 / dLen);
+    const spd = Math.max(e.speed, player.speed * (dLen > 120 ? 1.02 : 0.94));
+    e.mesh.position.addScaledVector(_aiDesired, spd * Math.min(1.15, dLen / 120) * dt);
+  } else if (ahead < -0.42 && dist > 145) {
     const reset = spawnInFrontOfPlayer(ENEMY_SPAWN_MIN, ENEMY_SPAWN_MAX, e.lane);
-    e.mesh.position.lerp(reset, Math.min(1, dt * 1.45));
+    e.mesh.position.lerp(reset, Math.min(1, dt * 1.35));
     e.followDist = THREE.MathUtils.lerp(e.followDist, ENEMY_FOLLOW_MIN + 50, dt * 0.9);
   } else {
+    _aiTarget.copy(playerPos)
+      .addScaledVector(playerFwd, e.followDist)
+      .addScaledVector(_right, e.lane + Math.sin(e.wavePhase) * 34);
+    _aiTarget.y = playerPos.y + Math.sin(e.wavePhase * 0.75) * 12;
     _aiDesired.copy(_aiTarget).sub(e.mesh.position);
     const dLen = _aiDesired.length();
     if (dLen > 0.001) _aiDesired.multiplyScalar(1 / dLen);
@@ -7609,14 +7802,24 @@ function updateEnemies(dt) {
     e.fireCD -= dt;
 
     if (dist < 40 && (G.playerHitCD || 0) <= 0) {
-      hurtPlayer(8);
+      hurtPlayer(9, { kind: "ram", pos: e.mesh.position.clone() });
       G.playerHitCD = 0.55;
       addCamShake(0.35);
     }
 
-    if (e.fireCD <= 0 && dist <= 360 && dist >= 55) {
-      e.fireCD = 0.65 + Math.random() * 0.75;
-      enemyFirePlasma(e, behind);
+    const inFront = ahead > 0.32;
+    const closeRange = dist < 200;
+    const minRange = closeRange ? 32 : 48;
+    if (e.fireCD <= 0 && dist <= 380 && dist >= minRange) {
+      if (!inFront && Math.random() > 0.55) {
+        e.fireCD = 0.25;
+      } else {
+        e.fireCD = closeRange
+          ? 0.32 + Math.random() * 0.38
+          : 0.52 + Math.random() * 0.55;
+        if (inFront && closeRange) e.fireCD *= 0.82;
+        enemyFirePlasma(e, behind, { inFront, dist, ahead });
+      }
     }
   }
 
@@ -7647,40 +7850,42 @@ function updateEnemies(dt) {
     b.turretCD = (b.turretCD || 0) - dt;
 
     if (dist < 70 && (G.playerHitCD || 0) <= 0) {
-      hurtPlayer(20);
+      hurtPlayer(22, { kind: "ram", pos: b.mesh.position.clone() });
       G.playerHitCD = 0.65;
       addCamShake(0.5);
     }
 
-    if (dist < 120 && dist > 30 && b.turretCD <= 0) {
-      b.turretCD = 0.38;
+    if (dist < 140 && dist > 28 && b.turretCD <= 0) {
+      b.turretCD = 0.32;
       const turrets = b.mesh.userData.turrets || [];
-      const dir = player.mesh.position.clone().sub(b.mesh.position).normalize();
       const sources = turrets.length
         ? turrets.map((t) => { const wp = new THREE.Vector3(); t.getWorldPosition(wp); return wp; })
         : [b.mesh.position.clone()];
+      SFX.enemyGun();
       for (const o of sources) {
-        const aim = dir.clone().add(new THREE.Vector3(
-          (Math.random() - 0.5) * 0.06,
-          (Math.random() - 0.5) * 0.05,
-          (Math.random() - 0.5) * 0.06
+        const aim = computeLeadDir(o, 360).add(new THREE.Vector3(
+          (Math.random() - 0.5) * 0.04,
+          (Math.random() - 0.5) * 0.035,
+          (Math.random() - 0.5) * 0.04
         )).normalize();
-        const end = o.clone().addScaledVector(aim, 70);
+        spawnMuzzleFlash(o, aim);
+        const end = o.clone().addScaledVector(aim, 120);
         const geo = new THREE.BufferGeometry().setFromPoints([o.clone(), end]);
-        const mat = new THREE.LineBasicMaterial({ color: 0xffee55, transparent: true, opacity: 1, depthWrite: false });
+        const mat = new THREE.LineBasicMaterial({ color: 0xffee55, transparent: true, opacity: 1, depthWrite: false, fog: false });
         const line = new THREE.Line(geo, mat);
+        line.renderOrder = 128;
         scene.add(line);
-        const mat2 = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, depthWrite: false });
+        const mat2 = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75, depthWrite: false, fog: false });
         const line2 = new THREE.Line(geo.clone(), mat2);
         scene.add(line2);
-        G.tracers.push({ line, line2, life: 0.1 });
+        G.tracers.push({ line, line2, life: 0.28 });
         const mesh = new THREE.Mesh(
-          new THREE.SphereGeometry(0.5, 5, 5),
+          new THREE.SphereGeometry(1.1, 6, 6),
           new THREE.MeshBasicMaterial({ color: 0xffdd33 })
         );
         mesh.position.copy(o);
         scene.add(mesh);
-        G.plasma.push({ mesh, vel: aim.multiplyScalar(200), life: 1.8 });
+        G.plasma.push({ mesh, vel: aim.clone().multiplyScalar(360), life: 2.4, fromEnemy: true, boss: true });
       }
       if (bossBehind) pulseThreat();
     }
@@ -7761,11 +7966,13 @@ function updateTracers(dt) {
   for (let i = G.tracers.length - 1; i >= 0; i--) {
     const t = G.tracers[i];
     t.life -= dt;
-    t.line.material.opacity = Math.max(0, t.life * 8);
-    t.line2.material.opacity = Math.max(0, t.life * 4);
+    t.line.material.opacity = Math.max(0, t.life * 6);
+    t.line2.material.opacity = Math.max(0, t.life * 4.5);
+    if (t.line3) t.line3.material.opacity = Math.max(0, t.life * 2.5);
     if (t.life <= 0) {
       scene.remove(t.line);
       scene.remove(t.line2);
+      if (t.line3) scene.remove(t.line3);
       G.tracers.splice(i, 1);
     }
   }
@@ -7784,15 +7991,36 @@ function updatePlasma(dt) {
     const p = G.plasma[i];
     p.life -= dt;
     p.mesh.position.addScaledVector(p.vel, dt);
-    if (!player.dead && (G.playerHitCD || 0) <= 0 && p.mesh.position.distanceTo(player.mesh.position) < 14) {
-      hurtPlayer(7);
-      G.playerHitCD = 0.48;
+    if (p.glow) {
+      p.glow.position.copy(p.mesh.position);
+      p.glow.material.opacity = 0.22 + Math.min(0.35, p.life * 0.15);
+    }
+    const distToPlayer = p.mesh.position.distanceTo(player.mesh.position);
+    const hitRad = p.boss ? 20 : 17;
+    const nearRad = hitRad + 14;
+    if (!player.dead && distToPlayer < nearRad && distToPlayer >= hitRad * 0.65 && !p.nearMissed) {
+      p.nearMissed = true;
+      SFX.nearMiss();
+    }
+    if (!player.dead && (G.playerHitCD || 0) <= 0 && distToPlayer < hitRad) {
+      const toPlayer = player.mesh.position.clone().sub(p.mesh.position);
+      const align = toPlayer.lengthSq() > 0.01
+        ? Math.abs(p.vel.clone().normalize().dot(toPlayer.normalize()))
+        : 0;
+      const kind = align > 0.78 ? "direct" : "wing";
+      const dmg = p.boss
+        ? (kind === "direct" ? 14 : 8)
+        : (kind === "direct" ? 11 : 5);
+      hurtPlayer(dmg, { kind, pos: p.mesh.position.clone() });
+      G.playerHitCD = kind === "direct" ? 0.42 : 0.32;
       scene.remove(p.mesh);
+      if (p.glow) scene.remove(p.glow);
       G.plasma.splice(i, 1);
       continue;
     }
     if (p.life <= 0) {
       scene.remove(p.mesh);
+      if (p.glow) scene.remove(p.glow);
       G.plasma.splice(i, 1);
     }
   }
