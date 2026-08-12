@@ -2528,16 +2528,17 @@ function startLobbyTheaterCarousel() {
 }
 
 function syncLobbyTheaterBackground() {
-  if (typeof VeilAuth !== "undefined" && VeilAuth.signedIn()) {
-    stopLobbyTheaterCarousel();
-    applyTheater(Wallet.selectedTheater || DEFAULT_THEATER);
-  } else {
-    startLobbyTheaterCarousel();
-  }
+  stopLobbyTheaterCarousel();
+  const pick = (Wallet.selectedTheater && Wallet.unlockedTheaters.includes(Wallet.selectedTheater))
+    ? Wallet.selectedTheater
+    : DEFAULT_THEATER;
+  applyTheater(pick);
 }
 
 function applyTheater(id) {
-  const t = THEATERS.find((x) => x.id === id) || THEATERS[0];
+  const t = THEATERS.find((x) => x.id === id)
+    || THEATERS.find((x) => x.id === DEFAULT_THEATER)
+    || THEATERS[0];
   activeTheaterId = t.id;
   scene.background.setHex(t.bg);
   renderer.setClearColor(t.bg, 1);
@@ -5457,6 +5458,7 @@ function enterReadyLobby(asGuest) {
     Wallet.loadProfile();
     Wallet.applyCloudProfile();
   }
+  syncLobbyTheaterBackground();
   updateEngageGate();
 }
 
@@ -7953,6 +7955,11 @@ addEventListener("keydown", (e) => {
   }
   G.keys[k] = true;
   if (e.code.startsWith("Arrow")) G.keys[e.code.toLowerCase()] = true;
+  // Flight keys only during combat — never affect lobby / map preview
+  if (!G.running && ["w", "a", "s", "d", " ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) {
+    G.keys[k] = false;
+    if (e.code.startsWith("Arrow")) G.keys[e.code.toLowerCase()] = false;
+  }
 });
 addEventListener("keyup", (e) => {
   const k = e.key.toLowerCase();
