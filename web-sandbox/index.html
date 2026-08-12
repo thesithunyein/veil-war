@@ -2530,7 +2530,7 @@ const SHOP_ITEMS = [
 
 let activeTheaterId = DEFAULT_THEATER;
 
-/** Signed-out lobby: cycle all theaters every 5s. Stops after Google sign-in. */
+/** Login (gate) screen only: cycle theater backgrounds every 5s. Stops in ready lobby / combat. */
 let _lobbyCarouselTimer = null;
 let _lobbyCarouselIdx = 0;
 
@@ -2543,17 +2543,16 @@ function stopLobbyTheaterCarousel() {
 
 function startLobbyTheaterCarousel() {
   stopLobbyTheaterCarousel();
-  if (typeof VeilAuth !== "undefined" && VeilAuth.signedIn()) {
-    applyTheater(Wallet.selectedTheater || DEFAULT_THEATER);
-    return;
-  }
+  // Only rotate while the gate / login UI is showing
+  const gate = $("homeGate");
+  if (!gate || gate.hidden) return;
   _lobbyCarouselIdx = Math.max(0, THEATERS.findIndex((t) => t.id === activeTheaterId));
   if (_lobbyCarouselIdx < 0) _lobbyCarouselIdx = 0;
   applyTheater(THEATERS[_lobbyCarouselIdx].id);
   _lobbyCarouselTimer = setInterval(() => {
-    if (typeof VeilAuth !== "undefined" && VeilAuth.signedIn()) {
+    const g = $("homeGate");
+    if (!g || g.hidden || isLobbyReady()) {
       stopLobbyTheaterCarousel();
-      applyTheater(Wallet.selectedTheater || DEFAULT_THEATER);
       return;
     }
     _lobbyCarouselIdx = (_lobbyCarouselIdx + 1) % THEATERS.length;
@@ -5639,6 +5638,7 @@ function enterGateLobby() {
     if (tab) tab.hidden = true;
   }
   if (typeof LobbyDrawers !== "undefined" && LobbyDrawers.close) LobbyDrawers.close();
+  startLobbyTheaterCarousel();
 }
 
 function enterReadyLobby(asGuest) {
