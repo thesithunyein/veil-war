@@ -2313,12 +2313,12 @@ const GUN_OVERHEAT_COOL = 0.72;
 const WAVE_DEFS = [
   {
     id: 1, name: "LEVEL 1 — SCOUT PATROL",
-    active: 2, killTarget: 6, interval: 900, speed: 205, hp: 16, vaults: 3,
+    active: 4, killTarget: 6, interval: 900, speed: 205, hp: 16, vaults: 3,
     blurb: "LEVEL 1: SCOUT PATROL ENGAGING — REMAINING VAULTS: 3",
   },
   {
     id: 2, name: "LEVEL 2 — BOMBER ESCORT",
-    active: 3, killTarget: 8, interval: 1150, speed: 225, hp: 22, vaults: 2,
+    active: 5, killTarget: 8, interval: 1150, speed: 225, hp: 22, vaults: 2,
     blurb: "LEVEL 2: BOMBER ESCORT ENGAGING — REMAINING VAULTS: 2",
   },
 ];
@@ -5827,11 +5827,14 @@ function spawnInFrontOfPlayer(minR, maxR, laneOffset) {
   if (right.lengthSq() > 0.001) right.normalize();
   else right.set(1, 0, 0);
   const dist = (minR || ENEMY_SPAWN_MIN) + Math.random() * ((maxR || ENEMY_SPAWN_MAX) - (minR || ENEMY_SPAWN_MIN));
-  const lane = laneOffset != null ? laneOffset : (Math.random() - 0.5) * 70;
+  // Keep bandits in a tight frontal cone — not wide beside the wings
+  const lane = laneOffset != null ? laneOffset : (Math.random() - 0.5) * 28;
+  const py = player.mesh.position.y;
   return player.mesh.position.clone()
     .addScaledVector(fwd, dist)
     .addScaledVector(right, lane)
-    .add(new THREE.Vector3(0, (Math.random() - 0.5) * 10, 0));
+    .add(new THREE.Vector3(0, 4 + (Math.random() - 0.35) * 8, 0))
+    .setY(THREE.MathUtils.clamp(py + 6 + (Math.random() - 0.3) * 10, Math.max(70, py - 4), Math.min(240, py + 22)));
 }
 
 function spawnAwayFromPlayer(minR, maxR, frontal) {
@@ -6428,7 +6431,8 @@ function awardKill(worldPos, pts, ticketAmt, xpAmt) {
 /* —— Combat entities —— */
 function spawnEnemy(opts) {
   const slot = G.enemies.length;
-  const lanes = [-95, 0, 95, -55, 55];
+  // Frontal formation lanes (narrow) — stay ahead in the player's view cone
+  const lanes = [-32, -12, 12, 32, 0];
   const pos = spawnInFrontOfPlayer(ENEMY_SPAWN_MIN, ENEMY_SPAWN_MAX, lanes[slot % lanes.length]);
   const reinforced = !!(opts && opts.reinforced);
   const mesh = makeEnemyCraft(reinforced);
@@ -6454,7 +6458,7 @@ function spawnEnemy(opts) {
     peelSide: side,
     orbitSide: side,
     passDir: null,
-    formSlot: lanes[slot % lanes.length] / 50,
+    formSlot: lanes[slot % lanes.length] / 40,
     formDist: ENEMY_FOLLOW_MIN + Math.random() * (ENEMY_FOLLOW_MAX - ENEMY_FOLLOW_MIN),
     followDist: ENEMY_FOLLOW_MIN + Math.random() * (ENEMY_FOLLOW_MAX - ENEMY_FOLLOW_MIN),
     lane: lanes[slot % lanes.length],
@@ -7715,7 +7719,7 @@ function updateCamera(dt) {
   camera.rotateZ(-player.roll * (threat ? 0.75 : 1.05));
 }
 
-/** Scouts weave, peel after firing, and re-attack like real bandits. */
+/** Scouts stay ahead in the player's forward cone — never park beside / under the wing. */
 function steerFollowFront(e, dt) {
   const playerPos = player.mesh.position;
   const playerFwd = getPlayerForward(_aiFwd);
@@ -7725,51 +7729,41 @@ function steerFollowFront(e, dt) {
 
   if (!e._prevPos) e._prevPos = e.mesh.position.clone();
   if (e.followDist == null) e.followDist = ENEMY_FOLLOW_MIN + Math.random() * (ENEMY_FOLLOW_MAX - ENEMY_FOLLOW_MIN);
-  if (e.lane == null) e.lane = (Math.random() - 0.5) * 110;
-  if (e.peelSide == null) e.peelSide = Math.random() < 0.5 ? 1 : -1;
+  if (e.lane == null) e.lane = (Math.random() - 0.5) * 28;
+  e.lane = THREE.MathUtils.clamp(e.lane, -36, 36);
   e.wavePhase = (e.wavePhase || 0) + dt * 0.48;
-  e.peelCD = Math.max(0, (e.peelCD || 0) - dt);
 
   _aiToE.copy(e.mesh.position).sub(playerPos);
   let dist = _aiToE.length();
   const ahead = dist > 0.001 ? playerFwd.dot(_aiToE.clone().normalize()) : 1;
 
-  if (e.peelCD > 0) {
-    _aiDesired.copy(_right).multiplyScalar(e.peelSide).add(new THREE.Vector3(0, 0.22, 0)).normalize();
-    e.mesh.position.addScaledVector(_aiDesired, Math.max(e.speed, player.speed * 0.92) * 1.25 * dt);
-  } else if (dist < 195 && ahead > -0.2) {
-    const hold = THREE.MathUtils.clamp(88 + Math.sin(e.wavePhase * 0.65) * 32, 72, 165);
-    const lat = Math.sin(e.wavePhase * 1.05) * (Math.PI / 3.8);
-    _aiTargetDir.copy(playerFwd).multiplyScalar(Math.cos(lat)).addScaledVector(_right, Math.sin(lat)).normalize();
-    _aiTarget.copy(playerPos)
-      .addScaledVector(_aiTargetDir, hold)
-      .addScaledVector(_right, Math.sin(e.wavePhase * 1.15) * 52 + e.lane * 0.35);
-    _aiTarget.y = playerPos.y + Math.sin(e.wavePhase * 0.85) * 14;
-    _aiDesired.copy(_aiTarget).sub(e.mesh.position);
-    const dLen = _aiDesired.length();
-    if (dLen > 0.001) _aiDesired.multiplyScalar(1 / dLen);
-    const spd = Math.max(e.speed, player.speed * (dLen > 120 ? 1.02 : 0.94));
-    e.mesh.position.addScaledVector(_aiDesired, spd * Math.min(1.15, dLen / 120) * dt);
-  } else if (ahead < -0.42 && dist > 145) {
-    const reset = spawnInFrontOfPlayer(ENEMY_SPAWN_MIN, ENEMY_SPAWN_MAX, e.lane);
-    e.mesh.position.lerp(reset, Math.min(1, dt * 1.35));
-    e.followDist = THREE.MathUtils.lerp(e.followDist, ENEMY_FOLLOW_MIN + 50, dt * 0.9);
+  // If beside, behind, or too close under — snap back into the frontal cone
+  if (ahead < 0.55 || dist < 95 || dist > ENEMY_SPAWN_MAX + 40) {
+    const reset = spawnInFrontOfPlayer(ENEMY_FOLLOW_MIN + 20, ENEMY_SPAWN_MAX, e.lane);
+    e.mesh.position.lerp(reset, Math.min(1, dt * 2.4));
   } else {
+    const hold = THREE.MathUtils.clamp(
+      e.followDist + Math.sin(e.wavePhase * 0.55) * 18,
+      ENEMY_FOLLOW_MIN,
+      ENEMY_FOLLOW_MAX + 20
+    );
     _aiTarget.copy(playerPos)
-      .addScaledVector(playerFwd, e.followDist)
-      .addScaledVector(_right, e.lane + Math.sin(e.wavePhase) * 34);
-    _aiTarget.y = playerPos.y + Math.sin(e.wavePhase * 0.75) * 12;
+      .addScaledVector(playerFwd, hold)
+      .addScaledVector(_right, e.lane + Math.sin(e.wavePhase) * 14);
+    // Prefer slightly above the player — never dive under the flight path
+    _aiTarget.y = playerPos.y + 8 + Math.sin(e.wavePhase * 0.7) * 6;
     _aiDesired.copy(_aiTarget).sub(e.mesh.position);
     const dLen = _aiDesired.length();
     if (dLen > 0.001) _aiDesired.multiplyScalar(1 / dLen);
-    const catchUp = dist > e.followDist + 70 ? 1.08 : 0.96;
+    const catchUp = dist > hold + 50 ? 1.06 : 0.96;
     const spd = Math.max(e.speed, player.speed * catchUp);
-    e.mesh.position.addScaledVector(_aiDesired, spd * Math.min(0.92, dLen / 135) * dt);
+    e.mesh.position.addScaledVector(_aiDesired, spd * Math.min(0.95, dLen / 120) * dt);
   }
 
   e.mesh.position.y = THREE.MathUtils.clamp(
-    THREE.MathUtils.lerp(e.mesh.position.y, playerPos.y + Math.sin(e.wavePhase) * 10, dt * 0.75),
-    55, 260
+    THREE.MathUtils.lerp(e.mesh.position.y, playerPos.y + 8 + Math.sin(e.wavePhase) * 5, dt * 1.4),
+    Math.max(70, playerPos.y - 2),
+    Math.min(250, playerPos.y + 28)
   );
 
   _aiFace.copy(playerPos).sub(e.mesh.position);
