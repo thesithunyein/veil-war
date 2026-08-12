@@ -2322,8 +2322,8 @@ const WAVE_DEFS = [
     blurb: "LEVEL 2: BOMBER ESCORT ENGAGING — REMAINING VAULTS: 2",
   },
 ];
-const BOSS_HP = 140;
-const MG_DMG = 2.6; // Twin MGs clear a scout faster — lighter arcade feel
+const BOSS_HP = 110;
+const MG_DMG = 3.2; // Twin MGs clear scouts cleanly; boss still takes focus
 const STORM_BG = 0x0a1628;
 const STORM_FOG = 0x0c1a30;
 const STORM_FOG_DENSITY = 0.00072;
@@ -7942,8 +7942,8 @@ function updateEnemies(dt) {
     e.fireCD -= dt;
 
     if (dist < 40 && (G.playerHitCD || 0) <= 0) {
-      hurtPlayer(9, { kind: "ram", pos: e.mesh.position.clone() });
-      G.playerHitCD = 0.55;
+      hurtPlayer(6, { kind: "ram", pos: e.mesh.position.clone() });
+      G.playerHitCD = 0.65;
       addCamShake(0.35);
     }
 
@@ -7955,9 +7955,9 @@ function updateEnemies(dt) {
         e.fireCD = 0.25;
       } else {
         e.fireCD = closeRange
-          ? 0.32 + Math.random() * 0.38
-          : 0.52 + Math.random() * 0.55;
-        if (inFront && closeRange) e.fireCD *= 0.82;
+          ? 0.55 + Math.random() * 0.45
+          : 0.75 + Math.random() * 0.55;
+        if (inFront && closeRange) e.fireCD *= 0.9;
         enemyFirePlasma(e, behind, { inFront, dist, ahead });
       }
     }
@@ -7990,13 +7990,13 @@ function updateEnemies(dt) {
     b.turretCD = (b.turretCD || 0) - dt;
 
     if (dist < 70 && (G.playerHitCD || 0) <= 0) {
-      hurtPlayer(22, { kind: "ram", pos: b.mesh.position.clone() });
-      G.playerHitCD = 0.65;
+      hurtPlayer(14, { kind: "ram", pos: b.mesh.position.clone() });
+      G.playerHitCD = 0.75;
       addCamShake(0.5);
     }
 
     if (dist < 140 && dist > 28 && b.turretCD <= 0) {
-      b.turretCD = 0.32;
+      b.turretCD = 0.48;
       const turrets = b.mesh.userData.turrets || [];
       const sources = turrets.length
         ? turrets.map((t) => { const wp = new THREE.Vector3(); t.getWorldPosition(wp); return wp; })
@@ -8149,8 +8149,8 @@ function updatePlasma(dt) {
         : 0;
       const kind = align > 0.78 ? "direct" : "wing";
       const dmg = p.boss
-        ? (kind === "direct" ? 14 : 8)
-        : (kind === "direct" ? 11 : 5);
+        ? (kind === "direct" ? 9 : 5)
+        : (kind === "direct" ? 7 : 3);
       hurtPlayer(dmg, { kind, pos: p.mesh.position.clone() });
       G.playerHitCD = kind === "direct" ? 0.42 : 0.32;
       scene.remove(p.mesh);
