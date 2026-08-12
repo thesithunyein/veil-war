@@ -64,6 +64,10 @@ export async function readMegapotPool() {
   const asTuple = Array.isArray(raw) ? (raw as unknown[]) : null;
   const prizePool =
     asTuple && typeof asTuple[0] === "bigint" ? asTuple[0] : 0n;
+  const globalTicketsBought =
+    asTuple && typeof asTuple[5] === "bigint" ? asTuple[5] : 0n;
+  const drawingTime =
+    asTuple && typeof asTuple[7] === "bigint" ? asTuple[7] : 0n;
   const ticketPrice = (await client.readContract({
     address: MEGAPOT_SEPOLIA.jackpot,
     abi: megapotAbi,
@@ -74,6 +78,8 @@ export async function readMegapotPool() {
     drawingId: drawingId.toString(),
     prizePoolUsdc: formatUnits(prizePool, 6),
     ticketPriceUsdc: formatUnits(ticketPrice, 6),
+    drawingTime: drawingTime.toString(),
+    globalTicketsBought: globalTicketsBought.toString(),
   };
 }
 

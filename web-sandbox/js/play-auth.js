@@ -12,6 +12,10 @@ const SUPABASE_ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjdGV5cmFtbGZwYXJ5c3FkbXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY0NDY0MTksImV4cCI6MjEwMjAyMjQxOX0.kZUzVOhyxE3rjh2LH-HmLQCW0lQjtA5gv07zqyVB-6M";
 
 const STORAGE_KEY = "veil_war_play_wallets_v1";
+const GUEST_WALLET_KEY = "veil_war_guest_wallet_v1";
+const GUEST_CREDITS_KEY = "veil_war_guest_credits_v1";
+const RECENT_CLAIMS_KEY = "veil_recent_claims_v1";
+const DAILY_BONUS_KEY = "veil_daily_bonus_v1";
 const BASE_SEPOLIA_CHAIN_ID = "0x14a34"; // 84532
 const HOUSE =
   window.__VEIL_HOUSE_ADDRESS__ || "0xa399Ad139F2393bdFc88CfdafDfd3d5dEDA004D5";
@@ -115,6 +119,72 @@ export function getOrCreatePlayAddress(googleUserId) {
   return privateKeyToAccount(store[id]).address;
 }
 
+export function getOrCreateGuestAddress() {
+  try {
+    let pk = localStorage.getItem(GUEST_WALLET_KEY);
+    if (!pk) {
+      pk = generatePrivateKey();
+      localStorage.setItem(GUEST_WALLET_KEY, pk);
+    }
+    return privateKeyToAccount(pk).address;
+  } catch {
+    return null;
+  }
+}
+
+function readGuestCredits() {
+  try {
+    return Math.max(0, parseInt(localStorage.getItem(GUEST_CREDITS_KEY) || "0", 10) || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function writeGuestCredits(n) {
+  try {
+    localStorage.setItem(GUEST_CREDITS_KEY, String(Math.max(0, n | 0)));
+  } catch {
+    /* private mode */
+  }
+}
+
+export function readRecentClaims() {
+  try {
+    const raw = localStorage.getItem(RECENT_CLAIMS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list.slice(0, 8) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function pushRecentClaim(entry) {
+  try {
+    const list = readRecentClaims().filter(
+      (c) => c.txHash !== entry.txHash
+    );
+    list.unshift({
+      addr: entry.addr,
+      txHash: entry.txHash,
+      at: entry.at || Date.now(),
+    });
+    localStorage.setItem(RECENT_CLAIMS_KEY, JSON.stringify(list.slice(0, 8)));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function consumeDailyBonus() {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    if (localStorage.getItem(DAILY_BONUS_KEY) === today) return false;
+    localStorage.setItem(DAILY_BONUS_KEY, today);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function authHeaders() {
   if (!VeilAuth.accessToken) throw new Error("Sign in with Google first.");
   return {
@@ -128,6 +198,7 @@ export const VeilAuth = {
   user: null,
   playAddress: null,
   accessToken: null,
+  guestMode: false,
   megapotCredits: 0,
   ticketsMinted: 0,
   linkedMetamask: null,
@@ -155,11 +226,13 @@ export const VeilAuth = {
       this.accessToken = session?.access_token || null;
       if (this.user) {
         this.playAddress = getOrCreatePlayAddress(this.user.id);
+        this.guestMode = false;
         await this.refreshProgress();
       } else {
         this.playAddress = null;
         this.megapotCredits = 0;
         this.linkedMetamask = null;
+        this.guestMode = false;
       }
       if (typeof window.__veilOnAuthChange === "function") {
         window.__veilOnAuthChange(this);
@@ -170,6 +243,29 @@ export const VeilAuth = {
 
   signedIn() {
     return !!(this.user && this.playAddress);
+  },
+
+  isGuest() {
+    return this.guestMode && !this.signedIn();
+  },
+
+  ensureGuestWallet() {
+    const addr = getOrCreateGuestAddress();
+    if (!addr) throw new Error("Could not start guest session.");
+    this.guestMode = true;
+    this.megapotCredits = readGuestCredits();
+    return addr;
+  },
+
+  addGuestCredits(n) {
+    const add = Math.max(0, n | 0);
+    if (!add) return;
+    this.megapotCredits = readGuestCredits() + add;
+    writeGuestCredits(this.megapotCredits);
+  },
+
+  clearGuestMode() {
+    this.guestMode = false;
   },
 
   async signInWithGoogle() {
@@ -211,8 +307,23 @@ export const VeilAuth = {
       const res = await fetch("/api/progress", { headers: authHeaders() });
       const data = await res.json();
       this.applyProgress(data);
+      await this.mergeGuestCreditsOnSignIn();
     } catch {
       /* API may be offline in pure static preview */
+    }
+  },
+
+  async mergeGuestCreditsOnSignIn() {
+    const guestCredits = readGuestCredits();
+    if (!guestCredits || !this.accessToken || !this.playAddress) return;
+    try {
+      await this.syncMissionCredits(guestCredits, this.highScore || 0);
+      writeGuestCredits(0);
+      if (typeof window.showPop === "function") {
+        window.showPop("GUEST CREDITS SYNCED TO ACCOUNT");
+      }
+    } catch {
+      /* keep local credits until next sync */
     }
   },
 

@@ -1,119 +1,89 @@
-# Veil War — Unity client (Fog Duel × Megapot)
+# Veil War — WWII Aerial Combat × Megapot
 
-3D presentation layer for the **5×5 fog-of-war duel** in `PLAN.md`.  
-Scope freeze still applies: not Dark Forest, not RTS, not poker.
+**Live:** https://veil.sithunyein.com/  
+**Track:** Megapot Prize Track · Summer Game Jam 2026  
+**Chain:** Base Sepolia
 
-## Fog of War runtime (network → texture → 3D agents)
+Fly a 3D WWII dogfight in the browser. Earn **Megapot credits** from combat, then **claim real Megapot tickets on-chain** via the house wallet on Base Sepolia.
 
-```
-IncoNetworkBridge.PublishDecrypted(packet)
-  → event DecryptedPacketReceived
-  → FogOfWarManager.ApplyDecryptedVision(coord, radius)
-  → FogTexture (R8) + FogUpdated event
-  → FogOfWarAgent toggles MeshRenderer / Canvas / desaturate
-```
+---
 
-| Script | Role |
-|--------|------|
-| `Fog/FogOfWarManager.cs` | Vision texture + cell samples + events |
-| `Network/IncoNetworkBridge.cs` | Decrypt packet bus → FoW |
-| `Fog/FogOfWarAgent.cs` | Enemy hide / shroud desaturate |
-| `Fog/FoWSandboxTester.cs` | Editor hotkeys mocking Inco packets |
-| `Grid/GridFogPresenter.cs` | Optional board mist sync |
+## Judge path (90 seconds)
 
-### Sandbox hotkeys
-- **WASD** — move friendly sensor  
-- **1** — re-push vision circle  
-- **C** — clear fog  
-- **E / Q** — teleport selected enemy into / out of vision  
-- **Tab** — cycle enemy  
-- **R** — random enemy hop  
+1. Open **https://veil.sithunyein.com/** — tap **<< ENGAGE >>** (no sign-in required to fly)
+2. WASD to fly · SPACE to fire · destroy scouts → earn **Base Chips** → convert to **Megapot credits**
+3. Finish mission → **CLAIM MEGAPOT TICKET** (sign in with Google first to sync & mint)
+4. House calls Megapot `buyTickets` on Base Sepolia → **BaseScan** link on screen
 
-### Scene wire-up
-1. Add `FogOfWarManager` + assign `GameConfig`  
-2. Add `IncoNetworkBridge` (auto-finds FoW)  
-3. Add `FoWSandboxTester` for Play Mode tests  
-4. Put `FogOfWarAgent` on enemy prefabs (or rely on `UnitActor.Spawn`)  
-5. Add `FogWorldQuadController` (atmospheric fog quad + `VeilWar/FogOverlay`)  
-6. Add `FogOfWarMinimap` (strategy RawImage + unit dots)  
+**Demo script:** see [`DEMO.md`](DEMO.md)
 
-### Visual polish
-- Shader: `Assets/Shaders/VeilFogOverlay.shader` (`VeilWar/FogOverlay`)
-- Shader Graph guide: `Assets/Shaders/SHADER_GRAPH_SETUP.md`
-- Custom HLSL: `Assets/Shaders/ShaderGraph/VeilFog_CustomFunction.hlsl`
-- FoW texture is **128²+** with CPU bilinear upsample + GPU `FilterMode.Bilinear`
+---
 
-## Repos / live
-- Unity: https://github.com/thesithunyein/veil-war
-- **Judge sandbox (live):** https://veil.sithunyein.com/
-- **GitHub Pages mirror:** https://thesithunyein.github.io/veil-war/
+## Megapot core loop
 
-Push to `main` / `master` deploys `web-sandbox/` via Vercel (veil.sithunyein.com) and `.github/workflows/deploy.yml` → `gh-pages`.
+| Step | What happens |
+|------|----------------|
+| **Play** | Instant guest mode or Google sign-in — dogfight earns chips & credits |
+| **Earn** | 3 Base Chips → 1 Megapot credit · boss kill & mission clear bonuses |
+| **Sync** | Sign in with Google to persist credits to Supabase |
+| **Claim** | End screen → house mints 1 Megapot ticket via `buyTickets(recipient)` |
+| **Proof** | Live jackpot panel shows drawing #, pool USDC, countdown, global tickets, your odds |
 
-## Architecture (UI/UX)
+**House wallet (funds on-chain claims):** `0xa399Ad139F2393bdFc88CfdafDfd3d5dEDA004D5`  
+Needs Base Sepolia **ETH** (gas) + **USDC** (`0x036CbD53842c5426634e7929541eC2318f3dCF7e`).
 
-```
-HomeScreenView (jackpot hero + Quick Duel)
-  → MatchController + GridBoard (edge-to-edge 5×5)
-      → FogVisibilityMap + CellView (mist overlay)
-      → UnitActor (2–3 units / side)
-      → BotOpponent (required for judges)
-      → CellSelector (tap cell = attack)
-  → ResultPanelView (win → Megapot ticket CTA)
-  → MegapotRewardGate → opens web Sepolia buy URL
+**Megapot contracts (Base Sepolia):** jackpot `0x465dA3c859f193A3807386387bEE941B2A4c3279`
+
+---
+
+## Tech stack
+
+- **Game:** `web-sandbox/index.html` — Three.js aerial combat, theaters, shop, HUD
+- **Auth:** Supabase Google OAuth + silent in-browser play wallet
+- **Backend:** Next.js API routes on Vercel
+  - `GET/POST /api/megapot/claim` — pool read + on-chain ticket mint
+  - `POST /api/progress` — cloud save
+  - `POST /api/shop/purchase` — Base Sepolia ETH unlocks
+- **Deploy:** push `master` → Vercel (`veil.sithunyein.com`) + GitHub Pages (`gh-pages`)
+
+```bash
+npm install
+npm run dev          # syncs web-sandbox → public, serves on :3000
+npm run build        # production build
 ```
 
-**Day 1:** `MatchController.enableFog = false` (visible duel + Megapot unlock).  
-**Day 2:** enable fog + `CommitReveal` deploy hashes.
+---
 
-## Scripts added
+## Features (live product)
 
-| Path | Role |
-|------|------|
-| `Core/GameConfig.cs` | ScriptableObject — grid 5–6, turns 8–12, colors |
-| `Core/MatchTypes.cs` | Phases, visibility, commits, snapshot |
-| `Fog/CommitReveal.cs` | SHA256 commit-reveal (mechanic A) |
-| `Fog/FogVisibilityMap.cs` | Per-cell fog state |
-| `Grid/GridBoard.cs` / `CellView.cs` | 3D board + reveal flash / hit shake |
-| `Match/MatchController.cs` | Duel loop, win → ticket |
-| `Units/UnitActor.cs` | Capsule placeholder units |
-| `Bot/BotOpponent.cs` | Solo judge path |
-| `Input/CellSelector.cs` | Click/touch attack |
-| `Camera/BoardCameraController.cs` | Elevated orbit |
-| `Megapot/MegapotRewardGate.cs` | Win credit → web buy |
-| `UI/*` | Home / Match HUD / Result |
-| `Presentation/VeilWarBootstrap.cs` | Scene composition root |
+- Instant **guest play** — fly without OAuth; credits local until sign-in
+- **Daily bonus** — first mission of the day grants +1 Base Chip
+- **Live Megapot panel** — jackpot pool, drawing countdown, global tickets, odds, recent claims ticker
+- Multiple **theaters** (Arctic, Pacific, Jungle, Mountains, Village, City)
+- **Combat XP shop** + optional MetaMask ETH unlocks on Base Sepolia
+- Endcard **flyby SFX** + on-chain claim with retry
 
-## Unity setup (15 min)
+---
 
-1. Create Unity 6 / 2022 LTS 3D (URP) project, copy `Assets/Scripts` in.
-2. Add TextMeshPro (import essentials).
-3. Create `GameConfig` asset: **Create → Veil War → Game Config**.
-4. Create a Cell prefab: cube + child fog quad + BoxCollider + `CellView`.
-5. Scene objects: `GridBoard`, `MatchController`, `BotOpponent`, `CellSelector`, `BoardCameraController`, `MegapotRewardGate`, UI canvas, `VeilWarBootstrap`.
-6. Wire references; press Play → Quick Duel.
+## Unity client (separate / legacy)
 
-## Megapot (judge path — live)
+The repo also contains a Unity fog-duel prototype under `Assets/` (5×5 grid, Inco FoW research).  
+**Judges evaluating the Megapot track should use the live web sandbox above**, not the Unity build.
 
-**Live:** https://veil.sithunyein.com/
+---
 
-Flow:
-1. **SIGN IN WITH GOOGLE** (no MetaMask for play)
-2. Silent play wallet created in-browser
-3. **ENGAGE** → dogfight → earn Megapot credits
-4. End screen → **CLAIM MEGAPOT TICKET** → house calls Megapot `buyTickets` on **Base Sepolia**
-5. Open **BaseScan** link shown after claim
+## Env (Vercel / local)
 
-Lobby shows live drawing / ticket price from Megapot. Claim returns an explorer URL for proof.
+See `PHASE12_SETUP.md`. Required for claims:
 
-**House wallet (funds claims):** `0xa399Ad139F2393bdFc88CfdafDfd3d5dEDA004D5`  
-Needs Base Sepolia **ETH** (gas) + **USDC** (`0x036CbD53842c5426634e7929541eC2318f3dCF7e`).  
-Faucets: [Circle USDC](https://faucet.circle.com/) · [Base faucets](https://docs.base.org/base-chain/network-information/network-faucets)
+- `HOUSE_PRIVATE_KEY` — funded Base Sepolia wallet
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
-Onchain buy stays on Base Sepolia via the Next.js APIs (`/api/megapot/claim`, `/api/progress`).
+---
 
-## Not in this pass
+## Links
 
-- Inco Lightning encrypted coords (Day 2+ only after commit-reveal works)
-- Friend join / Solidity `FogDuel`
-- Full volumetric fog lighting
+- Live game: https://veil.sithunyein.com/
+- GitHub Pages mirror: https://thesithunyein.github.io/veil-war/
+- Submit: [Inco Summer Game Jam](https://www.inco.org/blog/summer-game-jam-resources-and-what-to-build)

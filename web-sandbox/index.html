@@ -828,6 +828,54 @@
     }
     .claim-status-line.error { color: #ff8f8f; }
     .claim-status-line a { color: var(--cyan); }
+    .sync-banner {
+      width: min(100%, 22rem);
+      margin: 0.35rem auto 0;
+      padding: 0.55rem 0.65rem;
+      border: 1px solid rgba(255, 200, 87, 0.35);
+      background: rgba(40, 28, 8, 0.55);
+      font-family: var(--mono);
+      font-size: 0.58rem;
+      letter-spacing: 0.05em;
+      color: rgba(255, 232, 200, 0.85);
+      line-height: 1.45;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+    .sync-banner[hidden] { display: none !important; }
+    .sync-banner button {
+      align-self: flex-start;
+      border: 1px solid rgba(255, 200, 87, 0.55);
+      background: rgba(255, 200, 87, 0.12);
+      color: #ffc857;
+      font-family: var(--display);
+      font-size: 0.58rem;
+      letter-spacing: 0.14em;
+      padding: 0.35rem 0.55rem;
+      cursor: pointer;
+    }
+    .megapot-live .mpl-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-top: 0.15rem;
+    }
+    .megapot-live .mpl-row strong { color: var(--teal); font-weight: 600; }
+    .megapot-live .mpl-countdown {
+      color: var(--amber);
+      font-size: 0.64rem;
+      letter-spacing: 0.08em;
+      margin-top: 0.25rem;
+    }
+    .megapot-live .mpl-ticker {
+      margin-top: 0.35rem;
+      padding-top: 0.35rem;
+      border-top: 1px solid rgba(92, 225, 255, 0.15);
+      color: rgba(234, 246, 255, 0.55);
+      font-size: 0.56rem;
+    }
     .how-it-works {
       margin: 0.85rem 0 0;
       padding: 0.7rem 0.75rem;
@@ -2020,21 +2068,25 @@
           <img class="home-brand-logo" src="assets/veil-war-bird-logo.png" width="96" height="96" alt="" decoding="async" />
         </div>
         <h1 class="home-logo">VEIL WAR</h1>
-        <p class="sub home-sub" id="homeSub">Gritty WWII dogfight · Sign in with Google to play</p>
-        <div class="megapot-live" id="megapotLive" aria-live="polite" hidden>
+        <p class="sub home-sub" id="homeSub">Instant dogfight · Earn Megapot tickets on Base Sepolia</p>
+        <div class="megapot-live" id="megapotLive" aria-live="polite">
           <div class="mpl-title">Megapot · Base Sepolia</div>
-          <div id="megapotLiveBody">Loading jackpot…</div>
+          <div id="megapotLiveBody">Loading live jackpot…</div>
+        </div>
+        <div class="sync-banner" id="syncBanner" hidden>
+          <span>Playing locally — Megapot credits stay on this device until you sign in.</span>
+          <button type="button" id="btnSyncSignIn">SIGN IN TO SYNC</button>
         </div>
         <button class="btn-engage btn-engage-launch" id="btnEngage" type="button">
-          <span class="engage-label">SIGN IN WITH GOOGLE</span>
+          <span class="engage-label">&lt;&lt; ENGAGE &gt;&gt;</span>
         </button>
         <button class="btn-how-works" id="btnHowItWorksHome" type="button">HOW IT WORKS</button>
         <div class="how-it-works home-how" id="howItWorksHome" hidden>
           <strong>How it works</strong>
-          1. Sign in with Google (no MetaMask needed to fly)<br />
-          2. Earn <strong>Combat XP</strong> from kills &amp; mission clears<br />
-          3. Spend XP on armory upgrades &amp; theater unlocks<br />
-          4. Claim Megapot tickets on Base Sepolia · MetaMask optional
+          1. Tap <strong>ENGAGE</strong> — no sign-in required to fly<br />
+          2. Earn chips &amp; Megapot credits from kills &amp; mission clears<br />
+          3. <strong>Sign in with Google</strong> to sync progress &amp; claim on-chain tickets<br />
+          4. Claim real Megapot tickets on Base Sepolia · MetaMask optional
         </div>
       </div>
 
@@ -2160,7 +2212,7 @@
 
   <script type="module">
 import * as THREE from "three";
-import { VeilAuth } from "./js/play-auth.js";
+import { VeilAuth, pushRecentClaim, readRecentClaims, consumeDailyBonus } from "./js/play-auth.js";
 
 /* ============================================================================
  * VEIL WAR — Production aerial combat loop
@@ -5328,6 +5380,10 @@ function bootLobby() {
   SFX.loadSamples();
   TheaterSelect.render();
   Wallet.tryReconnect();
+  if (!VeilAuth.signedIn()) ensurePlayWallet();
+  setInterval(() => {
+    if (!G.running) refreshMegapotLivePanel();
+  }, 30000);
   VeilAuth.init().then(() => {
     if (VeilAuth.signedIn()) {
       Wallet.applyCloudProfile();
@@ -5569,7 +5625,7 @@ function updateHUD() {
   $("hudScore").textContent = String(G.score);
   const xpEl = $("hudXp");
   if (xpEl) xpEl.textContent = "+" + String(G.xpEarned || 0);
-  const odds = Math.min(99.9, (G.tickets / CIRC) * 100);
+  const odds = computeMegapotOdds(G.tickets);
   $("hudOdds").textContent = odds.toFixed(3) + "%";
 
   const dmg = $("dmg");
@@ -5659,8 +5715,51 @@ function showLobby() {
   }
 }
 
+function formatPoolUsd(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return "0.00";
+  if (n >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatCountdown(unixSec) {
+  const end = Number(unixSec) * 1000;
+  if (!end) return "Drawing open";
+  const ms = end - Date.now();
+  if (ms <= 0) return "Drawing closing soon";
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  if (h > 0) return `${h}h ${m}m left`;
+  if (m > 0) return `${m}m ${s}s left`;
+  return `${s}s left`;
+}
+
+function computeMegapotOdds(runTickets) {
+  const pool = VeilAuth._poolSnapshot;
+  const global = pool ? Number(pool.globalTicketsBought || 0) : 0;
+  const mine = Math.max(0, runTickets | 0) + (VeilAuth.signedIn() ? (VeilAuth.ticketsMinted || 0) : (VeilAuth.megapotCredits || 0));
+  const total = global + mine;
+  if (total <= 0) return 0;
+  return Math.min(99.9, (mine / total) * 100);
+}
+
+function ensurePlayWallet() {
+  if (VeilAuth.signedIn()) {
+    VeilAuth.clearGuestMode();
+    Wallet.address = VeilAuth.playAddress;
+    Wallet.loadProfile();
+    Wallet.applyCloudProfile();
+    return Wallet.address;
+  }
+  const guestAddr = VeilAuth.ensureGuestWallet();
+  Wallet.address = guestAddr;
+  Wallet.loadProfile();
+  return guestAddr;
+}
+
 async function beginCombatMission() {
-  if (!(await requireWalletToPlay())) return;
+  ensurePlayWallet();
   closeAbortConfirm();
   hideLobbyForCombat();
   stopLobbyTheaterCarousel();
@@ -5696,6 +5795,10 @@ async function beginCombatMission() {
   G.tickerLines = [];
   G.tickerAcc = 0;
   G.thunderT = 6;
+  if (consumeDailyBonus()) {
+    G.chips = Math.min(CHIPS_PER_TICKET, (G.chips || 0) + 1);
+    showPop("DAILY BONUS — +1 BASE CHIP");
+  }
   respawnNavalFleet();
   const theaterNow = THEATERS.find((x) => x.id === (Wallet.selectedTheater || "arctic")) || THEATERS[0];
   applyEnvironmentProfile(theaterNow);
@@ -5717,37 +5820,42 @@ function updateEngageGate() {
   const btn = $("btnEngage");
   if (!btn) return;
   const label = btn.querySelector(".engage-label");
-  const ready = VeilAuth.signedIn();
+  const signedIn = VeilAuth.signedIn();
   const howBtn = $("btnHowItWorksHome");
   const howPanel = $("howItWorksHome");
-  const megapot = $("megapotLive");
+  const syncBanner = $("syncBanner");
   const homeSub = $("homeSub");
-  const lobbyTabs = ["btnTabTheaters", "btnTabShop", "btnTabProfile"];
-  if (ready) {
-    btn.classList.remove("wallet-locked");
-    if (label) label.textContent = "<< ENGAGE >>";
+  const lobbyTabs = {
+    btnTabTheaters: true,
+    btnTabShop: signedIn,
+    btnTabProfile: signedIn,
+  };
+
+  if (label) label.textContent = "<< ENGAGE >>";
+  btn.classList.remove("wallet-locked");
+
+  if (syncBanner) syncBanner.hidden = signedIn;
+
+  if (signedIn) {
     if (howBtn) howBtn.hidden = true;
     if (howPanel) howPanel.hidden = true;
-    if (megapot) megapot.hidden = true; // keep home clean — stats live in account dossier
     if (homeSub) homeSub.textContent = "Ready for combat · Megapot credits sync to your account";
     Wallet.address = VeilAuth.playAddress;
-    for (const id of lobbyTabs) {
-      const tab = $(id);
-      if (tab) tab.hidden = false;
-    }
-    refreshMegapotLivePanel();
   } else {
-    btn.classList.add("wallet-locked");
-    if (label) label.textContent = "SIGN IN WITH GOOGLE";
     if (howBtn) howBtn.hidden = false;
-    if (megapot) megapot.hidden = true;
-    if (homeSub) homeSub.textContent = "Gritty WWII dogfight · Sign in with Google to play";
-    for (const id of lobbyTabs) {
-      const tab = $(id);
-      if (tab) tab.hidden = true;
-    }
-    if (typeof LobbyDrawers !== "undefined" && LobbyDrawers.close) LobbyDrawers.close();
+    if (homeSub) homeSub.textContent = "Instant dogfight · Sign in to sync Megapot credits";
+    if (!Wallet.address) ensurePlayWallet();
   }
+
+  for (const [id, show] of Object.entries(lobbyTabs)) {
+    const tab = $(id);
+    if (tab) tab.hidden = !show;
+  }
+  if (!signedIn && typeof LobbyDrawers !== "undefined" && LobbyDrawers.close) {
+    LobbyDrawers.close();
+  }
+
+  refreshMegapotLivePanel();
 }
 
 async function requireWalletToPlay() {
@@ -5766,22 +5874,27 @@ async function requireWalletToPlay() {
 }
 
 async function syncRunCreditsToCloud() {
-  if (!VeilAuth.signedIn()) return;
   const add = Math.max(0, G.tickets | 0);
-  try {
-    await VeilAuth.syncMissionCredits(add, G.score | 0, {
-      shopCredits: Wallet.shopCredits,
-      lifetimeTokens: Wallet.lifetimeTokens,
-      ownedShop: Wallet.ownedShop,
-      unlockedTheaters: Wallet.unlockedTheaters,
-      selectedTheater: Wallet.selectedTheater,
-      purchaseHistory: Wallet.purchaseHistory,
-    });
-    Wallet.applyCloudProfile();
-    showPop("+" + add + " MEGAPOT CREDITS SAVED");
-  } catch (e) {
-    console.warn(e);
+  if (add <= 0) return;
+  if (VeilAuth.signedIn()) {
+    try {
+      await VeilAuth.syncMissionCredits(add, G.score | 0, {
+        shopCredits: Wallet.shopCredits,
+        lifetimeTokens: Wallet.lifetimeTokens,
+        ownedShop: Wallet.ownedShop,
+        unlockedTheaters: Wallet.unlockedTheaters,
+        selectedTheater: Wallet.selectedTheater,
+        purchaseHistory: Wallet.purchaseHistory,
+      });
+      Wallet.applyCloudProfile();
+      showPop("+" + add + " MEGAPOT CREDITS SAVED");
+    } catch (e) {
+      console.warn(e);
+    }
+    return;
   }
+  VeilAuth.addGuestCredits(add);
+  showPop("+" + add + " MEGAPOT CREDIT" + (add === 1 ? "" : "S") + " (LOCAL — SIGN IN TO SYNC)");
 }
 
 function openAbortConfirm() {
@@ -5828,24 +5941,62 @@ function friendlyClaimError(raw) {
 async function refreshMegapotLivePanel() {
   const wrap = $("megapotLive");
   const body = $("megapotLiveBody");
-  if (wrap) wrap.hidden = true;
-  if (body) body.textContent = "";
-  if (!VeilAuth.signedIn()) return;
+  if (!wrap || !body) return;
+  wrap.hidden = false;
   try {
     const res = await fetch("/api/megapot/claim");
     const data = await res.json();
-    if (!data.ok) return;
+    if (!data.ok) {
+      body.textContent = "Megapot pool loading…";
+      return;
+    }
     VeilAuth._poolSnapshot = data;
+    const poolUsd = formatPoolUsd(data.prizePoolUsdc);
+    const globalTix = Number(data.globalTicketsBought || 0);
+    const myCredits = VeilAuth.signedIn()
+      ? (VeilAuth.megapotCredits || 0)
+      : (VeilAuth.megapotCredits || readGuestCreditsFallback());
+    const myRunTix = G.running ? G.tickets : 0;
+    const myTotal = myCredits + myRunTix;
+    const odds = computeMegapotOdds(myRunTix);
+    const countdown = formatCountdown(data.drawingTime);
+    const recent = readRecentClaims();
+    let ticker = recent.length
+      ? recent.slice(0, 3).map((c) => {
+          const addr = c.addr ? c.addr.slice(0, 6) + "…" + c.addr.slice(-4) : "pilot";
+          const ago = Math.max(1, Math.round((Date.now() - (c.at || 0)) / 60000));
+          return `${addr} claimed · ${ago}m ago`;
+        }).join("<br>")
+      : "Be the first pilot to claim this drawing.";
+
+    body.innerHTML =
+      `<div class="mpl-row"><span>Drawing</span><strong>#${data.drawingId}</strong></div>` +
+      `<div class="mpl-row"><span>Jackpot pool</span><strong>$${poolUsd} USDC</strong></div>` +
+      `<div class="mpl-row"><span>Ticket price</span><strong>$${data.ticketPriceUsdc}</strong></div>` +
+      `<div class="mpl-countdown">${countdown}</div>` +
+      `<div class="mpl-row" style="margin-top:0.35rem"><span>Your credits</span><strong>${myTotal}</strong></div>` +
+      `<div class="mpl-row"><span>Global tickets</span><strong>${globalTix.toLocaleString()}</strong></div>` +
+      `<div class="mpl-row"><span>Your odds</span><strong>${odds.toFixed(3)}%</strong></div>` +
+      `<div class="mpl-ticker">${ticker}</div>`;
+
     const stats = $("walletBriefStats");
-    if (stats && Wallet.address) {
+    if (stats && Wallet.address && VeilAuth.signedIn()) {
       stats.innerHTML =
         `All-time high <span>${Wallet.highScore}</span><br>` +
         `Megapot credits <span>${VeilAuth.megapotCredits || 0}</span> · Tickets minted <span>${VeilAuth.ticketsMinted || 0}</span><br>` +
-        `Combat XP <span>${Wallet.shopCredits}</span><br>` +
-        `Live drawing <span>#${data.drawingId}</span> · Ticket <span>$${data.ticketPriceUsdc}</span>`;
+        `Combat XP <span>${Wallet.shopCredits}</span> · Lifetime <span>${Wallet.lifetimeTokens}</span><br>` +
+        `Live drawing <span>#${data.drawingId}</span> · Pool <span>$${poolUsd}</span>`;
     }
   } catch {
-    /* ignore */
+    if (body) body.textContent = "Megapot pool loading…";
+  }
+}
+
+function readGuestCreditsFallback() {
+  try {
+    return Math.max(0, parseInt(localStorage.getItem("veil_war_guest_credits_v1") || "0", 10) || 0);
+  } catch {
+    return 0;
   }
 }
 
@@ -5872,6 +6023,11 @@ async function claimMegapotFromEndcard(statusElId, attempt = 0) {
   }
   try {
     const data = await VeilAuth.claimMegapotTicket();
+    pushRecentClaim({
+      addr: VeilAuth.playAddress,
+      txHash: data.txHash,
+      at: Date.now(),
+    });
     if (el) {
       el.classList.remove("error");
       el.innerHTML =
@@ -6457,7 +6613,7 @@ function missionComplete() {
   beginVictoryEnvironment();
   flashScreen(false);
   showPop("SECTOR SECURED · +" + bonus + " XP BONUS");
-  const odds = Math.min(99.9, (G.tickets / CIRC) * 100);
+  const odds = computeMegapotOdds(G.tickets);
   $("winScore").textContent = String(G.score);
   $("winTickets").textContent = String(G.tickets);
   $("winOdds").textContent = odds.toFixed(3) + "%";
@@ -7789,10 +7945,6 @@ document.addEventListener("visibilitychange", () => {
 let _engageTouchHandled = false;
 async function onEngageOrSignIn() {
   await unlockGameAudio();
-  if (!VeilAuth.signedIn()) {
-    await requireWalletToPlay();
-    return;
-  }
   await beginCombatMission();
 }
 $("btnEngage").addEventListener("touchstart", async (e) => {
@@ -7811,6 +7963,13 @@ if (howBtnHome && howPanelHome) {
     e.stopPropagation();
     if (typeof SFX !== "undefined") SFX.resume();
     howPanelHome.hidden = !howPanelHome.hidden;
+  });
+}
+const btnSyncSignIn = $("btnSyncSignIn");
+if (btnSyncSignIn) {
+  btnSyncSignIn.addEventListener("click", async () => {
+    if (typeof SFX !== "undefined") SFX.resume();
+    await requireWalletToPlay();
   });
 }
 
