@@ -3,6 +3,7 @@ import {
   createWalletClient,
   formatUnits,
   http,
+  maxUint256,
   type Address,
   type Hex,
 } from "viem";
@@ -11,7 +12,6 @@ import { baseSepolia } from "viem/chains";
 import {
   MEGAPOT_SEPOLIA,
   MEGAPOT_SOURCE,
-  PRECISE_UNIT,
   megapotAbi,
 } from "./addresses";
 
@@ -77,8 +77,62 @@ export async function readMegapotPool() {
   };
 }
 
+async function ensureUsdcAllowance(
+  publicClient: ReturnType<typeof getHousePublicClient>,
+  wallet: NonNullable<ReturnType<typeof getHouseWalletClient>>,
+  account: NonNullable<ReturnType<typeof getHouseAccount>>,
+  needed: bigint
+) {
+  const allowance = (await publicClient.readContract({
+    address: MEGAPOT_SEPOLIA.usdc,
+    abi: megapotAbi,
+    functionName: "allowance",
+    args: [account.address, MEGAPOT_SEPOLIA.randomBuyer],
+  })) as bigint;
+
+  if (allowance >= needed) return;
+
+  // Some USDC deployments require clearing non-zero allowance before raise.
+  if (allowance > 0n) {
+    const clearHash = (await wallet.writeContract({
+      address: MEGAPOT_SEPOLIA.usdc,
+      abi: megapotAbi,
+      functionName: "approve",
+      args: [MEGAPOT_SEPOLIA.randomBuyer, 0n],
+      account,
+      chain: baseSepolia,
+    })) as Hex;
+    await publicClient.waitForTransactionReceipt({ hash: clearHash });
+  }
+
+  const approveHash = (await wallet.writeContract({
+    address: MEGAPOT_SEPOLIA.usdc,
+    abi: megapotAbi,
+    functionName: "approve",
+    args: [MEGAPOT_SEPOLIA.randomBuyer, maxUint256],
+    account,
+    chain: baseSepolia,
+  })) as Hex;
+  await publicClient.waitForTransactionReceipt({ hash: approveHash });
+}
+
 /** House buys 1 random Megapot ticket for recipient play wallet. */
 export async function mintMegapotTicket(recipient: Address) {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await mintMegapotTicketOnce(recipient);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 900 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+async function mintMegapotTicketOnce(recipient: Address) {
   const account = getHouseAccount();
   const wallet = getHouseWalletClient();
   const publicClient = getHousePublicClient();
@@ -103,36 +157,31 @@ export async function mintMegapotTicket(recipient: Address) {
     throw new Error("JACKPOT_USDC_REFILL");
   }
 
-  const allowance = (await publicClient.readContract({
-    address: MEGAPOT_SEPOLIA.usdc,
-    abi: megapotAbi,
-    functionName: "allowance",
-    args: [account.address, MEGAPOT_SEPOLIA.randomBuyer],
-  })) as bigint;
+  await ensureUsdcAllowance(publicClient, wallet, account, ticketPrice);
 
-  if (allowance < ticketPrice) {
-    const approveHash = (await wallet.writeContract({
-      address: MEGAPOT_SEPOLIA.usdc,
-      abi: megapotAbi,
-      functionName: "approve",
-      args: [MEGAPOT_SEPOLIA.randomBuyer, ticketPrice * 20n],
-      account,
-      chain: baseSepolia,
-    })) as Hex;
-    await publicClient.waitForTransactionReceipt({ hash: approveHash });
+  const ethBal = await publicClient.getBalance({ address: account.address });
+  if (ethBal < 50000000000000n) {
+    throw new Error("JACKPOT_ETH_REFILL");
   }
 
-  const referrer = account.address;
-  const buyHash = (await wallet.writeContract({
+  const buyArgs = [1n, recipient, [], [], MEGAPOT_SOURCE] as const;
+  const { request } = await publicClient.simulateContract({
     address: MEGAPOT_SEPOLIA.randomBuyer,
     abi: megapotAbi,
     functionName: "buyTickets",
-    args: [1n, recipient, [referrer], [PRECISE_UNIT], MEGAPOT_SOURCE],
+    args: buyArgs,
     account,
-    chain: baseSepolia,
-  })) as Hex;
+  });
+  const buyHash = (await wallet.writeContract(request)) as Hex;
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: buyHash });
+  const receipt = await publicClient.waitForTransactionReceipt({
+    hash: buyHash,
+    confirmations: 1,
+    timeout: 45_000,
+  });
+  if (receipt.status !== "success") {
+    throw new Error("Megapot buyTickets reverted on-chain.");
+  }
   return {
     txHash: buyHash,
     status: receipt.status,

@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { mintMegapotTicket, readMegapotPool } from "@/lib/megapot/client";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 function userClient(authHeader: string | null) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -108,8 +108,12 @@ export async function POST(req: Request) {
     const raw = err instanceof Error ? err.message : "Megapot claim failed.";
     const error =
       raw === "JACKPOT_USDC_REFILL" || /USDC|usdc/i.test(raw)
-        ? "House USDC empty — refill Base Sepolia USDC on the house wallet, then retry."
-        : raw;
+        ? "Please try again later."
+        : raw === "JACKPOT_ETH_REFILL"
+          ? "Please try again later."
+          : /reverted on-chain|buyTickets|claim failed/i.test(raw)
+            ? "Please try again later."
+            : raw;
     return NextResponse.json(
       { error, code: raw === "JACKPOT_USDC_REFILL" ? "usdc_refill" : "claim_failed" },
       { status: 500 }

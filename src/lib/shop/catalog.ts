@@ -29,6 +29,18 @@ export const SHOP_CATALOG = {
     label: "Majestic Sunset Mountain Ridge",
     ethWei: parseEther("0.002"),
   },
+  theater_village: {
+    kind: "theater" as const,
+    theaterId: "village",
+    label: "Alpine Farming Village",
+    ethWei: parseEther("0.0015"),
+  },
+  theater_city: {
+    kind: "theater" as const,
+    theaterId: "city",
+    label: "Coastal Metro Skyline",
+    ethWei: parseEther("0.0025"),
+  },
 } as const;
 
 export type ShopSku = keyof typeof SHOP_CATALOG;

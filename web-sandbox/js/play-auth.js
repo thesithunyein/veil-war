@@ -22,7 +22,69 @@ const ETH_PRICES = {
   radiator: "0x221b262dd8000", // 0.0006 ETH
   theater_crimson: "0x38d7ea4c68000", // 0.001 ETH
   theater_neon: "0x71afd498d0000", // 0.002 ETH
+  theater_village: "0x5543df729c000", // 0.0015 ETH
+  theater_city: "0x8e1bc9bf04000", // 0.0025 ETH
 };
+
+/** ~0.0002 ETH headroom for Base Sepolia gas on small shop txs */
+const GAS_HEADROOM_WEI = 200000000000000n;
+
+function shortAddr(a) {
+  if (!a || a.length < 10) return a || "";
+  return a.slice(0, 6) + "…" + a.slice(-4);
+}
+
+function formatEthFromWei(hexOrBig) {
+  const wei = typeof hexOrBig === "bigint" ? hexOrBig : BigInt(hexOrBig);
+  const eth = Number(wei) / 1e18;
+  if (eth >= 0.001) return eth.toFixed(3) + " ETH";
+  return eth.toFixed(4) + " ETH";
+}
+
+function parseMetaMaskError(err) {
+  const msg = String(err?.message || err || "");
+  if (err?.code === 4001 || /user rejected/i.test(msg)) {
+    return "MetaMask transaction cancelled.";
+  }
+  if (/insufficient funds|exceeds balance|gas required exceeds/i.test(msg)) {
+    return (
+      "Not enough Base Sepolia ETH for payment + gas. " +
+      "Get testnet ETH (Alchemy or Coinbase faucet), then retry."
+    );
+  }
+  if (/network fee|gas/i.test(msg) && /unavailable|estimate/i.test(msg)) {
+    return (
+      "MetaMask could not estimate gas — usually not enough Base Sepolia ETH. " +
+      "Fund your linked wallet with testnet ETH, then retry."
+    );
+  }
+  return msg || "MetaMask transaction failed.";
+}
+
+async function waitForTxReceipt(txHash, maxMs = 90000) {
+  const started = Date.now();
+  while (Date.now() - started < maxMs) {
+    const receipt = await window.ethereum.request({
+      method: "eth_getTransactionReceipt",
+      params: [txHash],
+    });
+    if (receipt) return receipt;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  return null;
+}
+
+async function fetchShopConfig() {
+  try {
+    const res = await fetch("/api/shop/purchase");
+    const data = await res.json();
+    if (data.ok && data.house) {
+      VeilAuth.houseAddress = data.house;
+    }
+  } catch {
+    /* static preview */
+  }
+}
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
@@ -80,6 +142,7 @@ export const VeilAuth = {
   ethPrices: ETH_PRICES,
 
   async init() {
+    await fetchShopConfig();
     const { data } = await sb.auth.getSession();
     if (data.session?.user) {
       this.user = data.session.user;
@@ -225,35 +288,129 @@ export const VeilAuth = {
     return this.linkMetamask(accounts[0]);
   },
 
-  async purchaseWithEth(sku) {
-    if (!this.signedIn()) throw new Error("Sign in with Google first");
-    const value = ETH_PRICES[sku];
-    if (!value) throw new Error("Unknown item");
+  async ensureBaseSepolia() {
+    if (!window.ethereum) throw new Error("MetaMask required for shop unlocks");
+    const chainId = await window.ethereum.request({ method: "eth_chainId" });
+    if (chainId === BASE_SEPOLIA_CHAIN_ID) return;
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }],
+      });
+    } catch (e) {
+      if (e && e.code === 4902) {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: BASE_SEPOLIA_CHAIN_ID,
+              chainName: "Base Sepolia",
+              nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+              rpcUrls: ["https://base-sepolia-rpc.publicnode.com"],
+              blockExplorerUrls: ["https://sepolia.basescan.org"],
+            },
+          ],
+        });
+      } else {
+        throw e;
+      }
+    }
+    const after = await window.ethereum.request({ method: "eth_chainId" });
+    if (after !== BASE_SEPOLIA_CHAIN_ID) {
+      throw new Error("Switch MetaMask to Base Sepolia network, then retry.");
+    }
+  },
+
+  async getLinkedOrActiveAccount() {
     await this.ensureBaseSepolia();
     const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-    const from = accounts[0];
-    if (!from) throw new Error("No MetaMask account");
-    if (this.linkedMetamask && this.linkedMetamask.toLowerCase() !== from.toLowerCase()) {
-      throw new Error("Use your linked MetaMask wallet to pay");
+    const from = accounts?.[0];
+    if (!from) throw new Error("No MetaMask account selected.");
+    if (
+      this.linkedMetamask &&
+      this.linkedMetamask.toLowerCase() !== from.toLowerCase()
+    ) {
+      throw new Error(
+        "Use your linked MetaMask wallet (" +
+          shortAddr(this.linkedMetamask) +
+          ") or relink in Profile."
+      );
     }
     if (!this.linkedMetamask) {
       await this.linkMetamask(from);
     }
-    const txHash = await window.ethereum.request({
-      method: "eth_sendTransaction",
-      params: [
-        {
-          from,
-          to: HOUSE,
-          value,
-          chainId: BASE_SEPOLIA_CHAIN_ID,
-        },
-      ],
+    return from;
+  },
+
+  async purchaseWithEth(sku) {
+    if (!this.signedIn()) throw new Error("Sign in with Google first");
+    if (!window.ethereum) {
+      throw new Error("Install MetaMask to buy armory / theater unlocks.");
+    }
+
+    const value = ETH_PRICES[sku];
+    if (!value) throw new Error("Unknown item");
+    const valueWei = BigInt(value);
+    const treasury = (this.houseAddress || HOUSE).toLowerCase();
+
+    const from = await this.getLinkedOrActiveAccount();
+    const fromLower = from.toLowerCase();
+    if (fromLower === treasury) {
+      throw new Error(
+        "Use a personal MetaMask wallet — not the Veil house treasury wallet."
+      );
+    }
+
+    const balanceHex = await window.ethereum.request({
+      method: "eth_getBalance",
+      params: [from, "latest"],
     });
-    // Wait briefly then verify on server
-    await new Promise((r) => setTimeout(r, 2500));
+    const balance = BigInt(balanceHex || "0x0");
+    if (balance < valueWei + GAS_HEADROOM_WEI) {
+      throw new Error(
+        "Need " +
+          formatEthFromWei(valueWei) +
+          " + gas on Base Sepolia (you have " +
+          formatEthFromWei(balance) +
+          "). Get testnet ETH from a Base Sepolia faucet, then retry."
+      );
+    }
+
+    const tx = {
+      from,
+      to: this.houseAddress || HOUSE,
+      value,
+    };
+
+    let gasHex = "0x5208";
+    try {
+      gasHex = await window.ethereum.request({
+        method: "eth_estimateGas",
+        params: [tx],
+      });
+    } catch (e) {
+      throw new Error(parseMetaMaskError(e));
+    }
+    tx.gas = gasHex;
+
+    let txHash;
+    try {
+      txHash = await window.ethereum.request({
+        method: "eth_sendTransaction",
+        params: [tx],
+      });
+    } catch (e) {
+      throw new Error(parseMetaMaskError(e));
+    }
+    if (!txHash) throw new Error("MetaMask did not return a transaction hash.");
+
+    const receipt = await waitForTxReceipt(txHash);
+    if (receipt && receipt.status === "0x0") {
+      throw new Error("Payment transaction failed on-chain.");
+    }
+
     let lastErr = null;
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 10; i++) {
       const res = await fetch("/api/shop/purchase", {
         method: "POST",
         headers: authHeaders(),
@@ -277,9 +434,13 @@ export const VeilAuth = {
         return data;
       }
       lastErr = data.error || "Purchase verify failed";
+      if (res.status !== 400) break;
       await new Promise((r) => setTimeout(r, 2000));
     }
-    throw new Error(lastErr || "Purchase verify failed");
+    throw new Error(
+      lastErr ||
+        "Payment sent — verification pending. Wait ~30s and tap unlock again."
+    );
   },
 
   async claimMegapotTicket() {

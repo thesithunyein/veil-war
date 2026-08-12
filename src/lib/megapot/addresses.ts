@@ -8,6 +8,12 @@ export const MEGAPOT_SEPOLIA = {
 
 export const MEGAPOT_SOURCE = keccak256(toBytes("veil-war"));
 
+/**
+ * Megapot referral split uses PRECISE_UNIT (1e18 = 100%), despite the ABI name
+ * `_referralSplitBps`. Passing 10000 reverts on Base Sepolia.
+ */
+export const PRECISE_UNIT = 10n ** 18n;
+
 export const megapotAbi = parseAbi([
   "function ticketPrice() view returns (uint256)",
   "function currentDrawingId() view returns (uint256)",
@@ -17,7 +23,5 @@ export const megapotAbi = parseAbi([
   "function allowance(address owner, address spender) view returns (uint256)",
   "function approve(address spender, uint256 amount) returns (bool)",
 ]);
-
-export const PRECISE_UNIT = 10n ** 18n;
 
 export type MegapotRecipient = Address;
