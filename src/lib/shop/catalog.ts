@@ -47,6 +47,9 @@ export type ShopSku = keyof typeof SHOP_CATALOG;
 
 export const DEFAULT_THEATERS = ["arctic", "sunset", "pacific"] as const;
 
+/** First-play default — clear sunny sky for new pilots. */
+export const DEFAULT_SELECTED_THEATER = "sunset" as const;
+
 export function houseAddress(): `0x${string}` {
   const fromEnv = process.env.NEXT_PUBLIC_HOUSE_ADDRESS?.trim();
   if (fromEnv && /^0x[a-fA-F0-9]{40}$/.test(fromEnv)) {

@@ -2468,6 +2468,9 @@ const THEATERS = [
   },
 ];
 
+/** Default deployment map for new pilots — clear sunny sky. */
+const DEFAULT_THEATER = "sunset";
+
 const activeEnv = {
   rain: true,
   lightning: true,
@@ -2491,7 +2494,7 @@ const SHOP_ITEMS = [
     statLabel: "Cooling Efficiency", statFrom: 100, statTo: 135, statMax: 135, statUnit: "%" },
 ];
 
-let activeTheaterId = "arctic";
+let activeTheaterId = DEFAULT_THEATER;
 
 /** Signed-out lobby: cycle all theaters every 5s. Stops after Google sign-in. */
 let _lobbyCarouselTimer = null;
@@ -2507,7 +2510,7 @@ function stopLobbyTheaterCarousel() {
 function startLobbyTheaterCarousel() {
   stopLobbyTheaterCarousel();
   if (typeof VeilAuth !== "undefined" && VeilAuth.signedIn()) {
-    applyTheater(Wallet.selectedTheater || "arctic");
+    applyTheater(Wallet.selectedTheater || DEFAULT_THEATER);
     return;
   }
   _lobbyCarouselIdx = Math.max(0, THEATERS.findIndex((t) => t.id === activeTheaterId));
@@ -2516,7 +2519,7 @@ function startLobbyTheaterCarousel() {
   _lobbyCarouselTimer = setInterval(() => {
     if (typeof VeilAuth !== "undefined" && VeilAuth.signedIn()) {
       stopLobbyTheaterCarousel();
-      applyTheater(Wallet.selectedTheater || "arctic");
+      applyTheater(Wallet.selectedTheater || DEFAULT_THEATER);
       return;
     }
     _lobbyCarouselIdx = (_lobbyCarouselIdx + 1) % THEATERS.length;
@@ -2527,7 +2530,7 @@ function startLobbyTheaterCarousel() {
 function syncLobbyTheaterBackground() {
   if (typeof VeilAuth !== "undefined" && VeilAuth.signedIn()) {
     stopLobbyTheaterCarousel();
-    applyTheater(Wallet.selectedTheater || "arctic");
+    applyTheater(Wallet.selectedTheater || DEFAULT_THEATER);
   } else {
     startLobbyTheaterCarousel();
   }
@@ -2625,7 +2628,7 @@ const Wallet = {
   totalChips: 0,
   ownedShop: {},
   unlockedTheaters: ["arctic", "sunset", "pacific"],
-  selectedTheater: "arctic",
+  selectedTheater: DEFAULT_THEATER,
   rank: 1,
   rankMultiplier: 1.0,
   lifetimeTokens: 0,
@@ -2719,9 +2722,9 @@ const Wallet = {
     this.totalChips = chips ? parseInt(chips, 10) || 0 : 0;
     this.ownedShop = shop ? JSON.parse(shop) : {};
     this.unlockedTheaters = th ? JSON.parse(th) : ["arctic", "sunset", "pacific"];
-    this.selectedTheater = sel || "arctic";
+    this.selectedTheater = sel || DEFAULT_THEATER;
     if (!this.unlockedTheaters.includes(this.selectedTheater)) {
-      this.selectedTheater = "arctic";
+      this.selectedTheater = DEFAULT_THEATER;
     }
     this.loadRankProfile();
     this.syncInventoryFromShop();
@@ -2768,14 +2771,14 @@ const Wallet = {
     this.unlockedTheaters = Array.isArray(VeilAuth.unlockedTheaters)
       ? [...VeilAuth.unlockedTheaters]
       : ["arctic", "sunset", "pacific"];
-    this.selectedTheater = VeilAuth.selectedTheater || this.selectedTheater || "arctic";
+    this.selectedTheater = VeilAuth.selectedTheater || this.selectedTheater || DEFAULT_THEATER;
     this.purchaseHistory = Array.isArray(VeilAuth.purchaseHistory)
       ? [...VeilAuth.purchaseHistory]
       : this.purchaseHistory;
     this.lifetimeTokens = VeilAuth.lifetimeTokens || this.lifetimeTokens;
     this.allTimeTickets = Math.max(this.allTimeTickets, VeilAuth.ticketsMinted || 0);
     if (!this.unlockedTheaters.includes(this.selectedTheater)) {
-      this.selectedTheater = "arctic";
+      this.selectedTheater = DEFAULT_THEATER;
     }
     this.computeRank();
     this.syncInventoryFromShop();
@@ -2895,7 +2898,7 @@ const Wallet = {
     this.totalChips = 0;
     this.ownedShop = {};
     this.unlockedTheaters = ["arctic", "sunset", "pacific"];
-    this.selectedTheater = "arctic";
+    this.selectedTheater = DEFAULT_THEATER;
     this.rank = 1;
     this.rankMultiplier = 1.0;
     this.lifetimeTokens = 0;
@@ -4259,7 +4262,7 @@ function resetStormEnvironment() {
   G.rainDensity = 1;
   G.thunderT = 6;
   G.lightningFrames = 0;
-  applyTheater(Wallet.selectedTheater || "arctic");
+  applyTheater(Wallet.selectedTheater || DEFAULT_THEATER);
   if (skyUniforms) skyUniforms.flash.value = 0;
 }
 
@@ -5866,7 +5869,7 @@ async function beginCombatMission() {
   closeAbortConfirm();
   hideLobbyForCombat();
   stopLobbyTheaterCarousel();
-  applyTheater(Wallet.selectedTheater || "arctic");
+  applyTheater(Wallet.selectedTheater || DEFAULT_THEATER);
   clearEntities();
   // Anchor combat at arena center so ocean / fleet / waves aren't already behind the horizon
   player.mesh.position.set(0, 95, 0);
@@ -5903,7 +5906,9 @@ async function beginCombatMission() {
     showPop("DAILY BONUS — +1 BASE CHIP");
   }
   respawnNavalFleet();
-  const theaterNow = THEATERS.find((x) => x.id === (Wallet.selectedTheater || "arctic")) || THEATERS[0];
+  const theaterNow = THEATERS.find((x) => x.id === (Wallet.selectedTheater || DEFAULT_THEATER))
+    || THEATERS.find((x) => x.id === DEFAULT_THEATER)
+    || THEATERS[0];
   applyEnvironmentProfile(theaterNow);
   startWave(0);
   if (G.enemies.length > 0) {
@@ -6900,7 +6905,7 @@ async function redeploy() {
   $("endWin").classList.add("hidden");
   resetGameState();
   hideLobbyForCombat();
-  applyTheater(Wallet.selectedTheater || "arctic");
+  applyTheater(Wallet.selectedTheater || DEFAULT_THEATER);
   player.mesh.position.set(0, 95, 0);
   player.pitch = 0;
   player.roll = 0;

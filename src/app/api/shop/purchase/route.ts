@@ -4,6 +4,7 @@ import { formatEther, type Hex } from "viem";
 import { getHousePublicClient } from "@/lib/megapot/client";
 import {
   DEFAULT_THEATERS,
+  DEFAULT_SELECTED_THEATER,
   SHOP_CATALOG,
   houseAddress,
   type ShopSku,
@@ -192,7 +193,7 @@ export async function POST(req: Request) {
           shop_credits: Math.max(0, Math.floor(Number(row?.shop_credits) || 0)),
           owned_shop: ownedShop,
           unlocked_theaters: unlockedTheaters,
-          selected_theater: row?.selected_theater || "arctic",
+          selected_theater: row?.selected_theater || DEFAULT_SELECTED_THEATER,
           purchase_history: history,
           lifetime_tokens: Math.max(0, Math.floor(Number(row?.lifetime_tokens) || 0)),
           updated_at: new Date().toISOString(),

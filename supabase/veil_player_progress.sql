@@ -15,7 +15,7 @@ alter table public.veil_player_progress
   add column if not exists shop_credits int not null default 0,
   add column if not exists owned_shop jsonb not null default '{}'::jsonb,
   add column if not exists unlocked_theaters jsonb not null default '["arctic","sunset","pacific"]'::jsonb,
-  add column if not exists selected_theater text not null default 'arctic',
+  add column if not exists selected_theater text not null default 'sunset',
   add column if not exists purchase_history jsonb not null default '[]'::jsonb,
   add column if not exists lifetime_tokens int not null default 0;
 

@@ -205,7 +205,7 @@ export const VeilAuth = {
   shopCredits: 0,
   ownedShop: {},
   unlockedTheaters: ["arctic", "sunset", "pacific"],
-  selectedTheater: "arctic",
+  selectedTheater: "sunset",
   purchaseHistory: [],
   lifetimeTokens: 0,
   highScore: 0,
@@ -296,7 +296,7 @@ export const VeilAuth = {
     this.shopCredits = data.shopCredits || 0;
     this.ownedShop = data.ownedShop || {};
     this.unlockedTheaters = data.unlockedTheaters || ["arctic", "sunset", "pacific"];
-    this.selectedTheater = data.selectedTheater || "arctic";
+    this.selectedTheater = data.selectedTheater || "sunset";
     this.purchaseHistory = data.purchaseHistory || [];
     this.lifetimeTokens = data.lifetimeTokens || 0;
   },

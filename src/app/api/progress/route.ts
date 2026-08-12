@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { DEFAULT_THEATERS } from "@/lib/shop/catalog";
+import { DEFAULT_THEATERS, DEFAULT_SELECTED_THEATER } from "@/lib/shop/catalog";
 
 export const runtime = "nodejs";
 
@@ -35,7 +35,7 @@ function serializeRow(row: Record<string, unknown> | null) {
     unlockedTheaters: Array.isArray(row?.unlocked_theaters)
       ? row!.unlocked_theaters
       : [...DEFAULT_THEATERS],
-    selectedTheater: (row?.selected_theater as string) || "arctic",
+    selectedTheater: (row?.selected_theater as string) || DEFAULT_SELECTED_THEATER,
     purchaseHistory: Array.isArray(row?.purchase_history) ? row!.purchase_history : [],
     lifetimeTokens: Math.max(0, Math.floor(Number(row?.lifetime_tokens) || 0)),
   };
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
     const selectedTheater =
       typeof body.selectedTheater === "string"
         ? body.selectedTheater
-        : (row?.selected_theater as string) || "arctic";
+        : (row?.selected_theater as string) || DEFAULT_SELECTED_THEATER;
 
     const purchaseHistory = Array.isArray(body.purchaseHistory)
       ? body.purchaseHistory
