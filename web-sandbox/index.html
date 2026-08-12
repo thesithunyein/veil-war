@@ -864,6 +864,37 @@
       letter-spacing: 0.04em;
     }
     .sync-hint .sync-link:hover { color: var(--teal); }
+    .home-gate, .home-ready {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .home-gate[hidden], .home-ready[hidden] { display: none !important; }
+    .home-gate .btn-engage-launch {
+      width: 100%;
+      margin-top: 0.55rem;
+      padding: 0.9rem;
+    }
+    .btn-guest {
+      display: block;
+      width: 100%;
+      margin-top: 0.35rem;
+      padding: 0.82rem;
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 0.76rem;
+      letter-spacing: 0.14em;
+      border: 1px solid rgba(92, 225, 255, 0.42);
+      background: rgba(92, 225, 255, 0.07);
+      color: var(--cyan);
+      cursor: pointer;
+      clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+    }
+    .btn-guest:hover { background: rgba(92, 225, 255, 0.14); }
+    .home-gate .btn-how-works { margin-top: 0.35rem; }
+    .brief:not(.lobby-ready) .lobby-tab { display: none !important; }
     .card-home-minimal .btn-engage-launch {
       width: 100%;
       margin-top: 0.55rem;
@@ -2068,27 +2099,48 @@
       </button>
 
       <div class="card card-home card-home-minimal">
-        <div class="brand-emblem" aria-hidden="true">
-          <img class="home-brand-logo" src="assets/veil-war-bird-logo.png" width="96" height="96" alt="" decoding="async" />
+        <div class="home-gate" id="homeGate">
+          <div class="brand-emblem" aria-hidden="true">
+            <img class="home-brand-logo" src="assets/veil-war-bird-logo.png" width="96" height="96" alt="" decoding="async" />
+          </div>
+          <h1 class="home-logo">VEIL WAR</h1>
+          <button class="btn-engage btn-engage-launch wallet-locked" id="btnGateGoogle" type="button">
+            <span class="engage-label">SIGN IN WITH GOOGLE</span>
+          </button>
+          <button class="btn-guest" id="btnGateGuest" type="button">CONTINUE AS GUEST</button>
+          <button class="btn-how-works" id="btnHowItWorksGate" type="button">HOW IT WORKS</button>
+          <div class="how-it-works home-how" id="howItWorksGate" hidden>
+            <strong>How it works</strong>
+            1. Fly instantly as guest, or sign in to sync progress<br />
+            2. Earn chips &amp; Megapot credits from combat<br />
+            3. Sign in to claim real tickets on Base Sepolia<br />
+            4. MetaMask optional for shop unlocks
+          </div>
         </div>
-        <h1 class="home-logo">VEIL WAR</h1>
-        <p class="sub home-sub" id="homeSub">WWII dogfight · Megapot on Base Sepolia</p>
-        <div class="jackpot-strip" id="megapotLive" aria-live="polite">
-          <div id="megapotLiveBody" class="jackpot-strip-inner">Loading jackpot…</div>
-        </div>
-        <button class="btn-engage btn-engage-launch" id="btnEngage" type="button">
-          <span class="engage-label">&lt;&lt; ENGAGE &gt;&gt;</span>
-        </button>
-        <p class="sync-hint" id="syncBanner" hidden>
-          <button type="button" class="sync-link" id="btnSyncSignIn">Sign in</button> to sync credits &amp; claim on-chain
-        </p>
-        <button class="btn-how-works" id="btnHowItWorksHome" type="button">HOW IT WORKS</button>
-        <div class="how-it-works home-how" id="howItWorksHome" hidden>
-          <strong>How it works</strong>
-          1. Tap <strong>ENGAGE</strong> — no sign-in required to fly<br />
-          2. Earn chips &amp; Megapot credits from kills &amp; mission clears<br />
-          3. <strong>Sign in with Google</strong> to sync progress &amp; claim on-chain tickets<br />
-          4. Claim real Megapot tickets on Base Sepolia · MetaMask optional
+
+        <div class="home-ready" id="homeReady" hidden>
+          <div class="brand-emblem" aria-hidden="true">
+            <img class="home-brand-logo" src="assets/veil-war-bird-logo.png" width="96" height="96" alt="" decoding="async" />
+          </div>
+          <h1 class="home-logo">VEIL WAR</h1>
+          <p class="sub home-sub" id="homeSub">WWII dogfight · Megapot on Base Sepolia</p>
+          <div class="jackpot-strip" id="megapotLive" aria-live="polite">
+            <div id="megapotLiveBody" class="jackpot-strip-inner">Loading jackpot…</div>
+          </div>
+          <button class="btn-engage btn-engage-launch" id="btnEngage" type="button">
+            <span class="engage-label">&lt;&lt; ENGAGE &gt;&gt;</span>
+          </button>
+          <p class="sync-hint" id="syncBanner" hidden>
+            <button type="button" class="sync-link" id="btnSyncSignIn">Sign in</button> to sync credits &amp; claim on-chain
+          </p>
+          <button class="btn-how-works" id="btnHowItWorksHome" type="button">HOW IT WORKS</button>
+          <div class="how-it-works home-how" id="howItWorksHome" hidden>
+            <strong>How it works</strong>
+            1. Tap <strong>ENGAGE</strong> to launch a combat mission<br />
+            2. Earn chips &amp; Megapot credits from kills &amp; mission clears<br />
+            3. <strong>Sign in with Google</strong> to sync progress &amp; claim on-chain tickets<br />
+            4. Claim real Megapot tickets on Base Sepolia · MetaMask optional
+          </div>
         </div>
       </div>
 
@@ -5366,6 +5418,53 @@ const player = {
 player.mesh.position.set(0, 95, 0);
 scene.add(player.mesh);
 
+const LOBBY_READY_KEY = "veil_lobby_ready_v1";
+
+function isLobbyReady() {
+  const brief = $("brief");
+  return !!(brief && brief.classList.contains("lobby-ready"));
+}
+
+function enterGateLobby() {
+  const brief = $("brief");
+  if (brief) brief.classList.remove("lobby-ready");
+  const gate = $("homeGate");
+  const ready = $("homeReady");
+  if (gate) gate.hidden = false;
+  if (ready) ready.hidden = true;
+  for (const id of ["btnTabTheaters", "btnTabShop", "btnTabProfile"]) {
+    const tab = $(id);
+    if (tab) tab.hidden = true;
+  }
+  if (typeof LobbyDrawers !== "undefined" && LobbyDrawers.close) LobbyDrawers.close();
+}
+
+function enterReadyLobby(asGuest) {
+  sessionStorage.setItem(LOBBY_READY_KEY, "1");
+  const brief = $("brief");
+  if (brief) brief.classList.add("lobby-ready");
+  const gate = $("homeGate");
+  const ready = $("homeReady");
+  if (gate) gate.hidden = true;
+  if (ready) ready.hidden = false;
+  if (asGuest || !VeilAuth.signedIn()) {
+    ensurePlayWallet();
+  } else {
+    Wallet.address = VeilAuth.playAddress;
+    Wallet.loadProfile();
+    Wallet.applyCloudProfile();
+  }
+  updateEngageGate();
+}
+
+function initLobbyStage() {
+  if (VeilAuth.signedIn() || sessionStorage.getItem(LOBBY_READY_KEY)) {
+    enterReadyLobby(!VeilAuth.signedIn());
+  } else {
+    enterGateLobby();
+  }
+}
+
 let lobbyBooted = false;
 function bootLobby() {
   if (lobbyBooted) return;
@@ -5377,14 +5476,13 @@ function bootLobby() {
   Shop.bindEvents();
   LobbyDrawers.bindEvents();
   Wallet.updateUI();
-  updateEngageGate();
+  enterGateLobby();
   if (isTouch) SFX.initHtmlAudio();
   SFX.loadSamples();
   TheaterSelect.render();
   Wallet.tryReconnect();
-  if (!VeilAuth.signedIn()) ensurePlayWallet();
   setInterval(() => {
-    if (!G.running) refreshMegapotLivePanel();
+    if (!G.running && isLobbyReady()) refreshMegapotLivePanel();
   }, 30000);
   VeilAuth.init().then(() => {
     if (VeilAuth.signedIn()) {
@@ -5392,27 +5490,30 @@ function bootLobby() {
       Wallet.loadProfile();
       Wallet.applyCloudProfile();
       Wallet.updateUI();
+      enterReadyLobby(false);
+    } else if (sessionStorage.getItem(LOBBY_READY_KEY)) {
+      enterReadyLobby(true);
+    } else {
+      enterGateLobby();
     }
-    updateEngageGate();
     syncLobbyTheaterBackground();
-    refreshMegapotLivePanel();
   });
   window.__veilOnAuthChange = () => {
     if (VeilAuth.signedIn()) {
       Wallet.applyCloudProfile();
       Wallet.updateUI();
+      enterReadyLobby(false);
     } else if (G.running) {
       goHome();
     } else {
+      sessionStorage.removeItem(LOBBY_READY_KEY);
       Wallet.disconnect();
+      enterGateLobby();
     }
-    updateEngageGate();
     syncLobbyTheaterBackground();
-    refreshMegapotLivePanel();
+    if (isLobbyReady()) refreshMegapotLivePanel();
   };
-  updateEngageGate();
   updateHUD();
-  refreshMegapotLivePanel();
 }
 
 const G = {
@@ -5819,6 +5920,7 @@ async function beginCombatMission() {
 }
 
 function updateEngageGate() {
+  if (!isLobbyReady()) return;
   const btn = $("btnEngage");
   if (!btn) return;
   const label = btn.querySelector(".engage-label");
@@ -5827,11 +5929,6 @@ function updateEngageGate() {
   const howPanel = $("howItWorksHome");
   const syncBanner = $("syncBanner");
   const homeSub = $("homeSub");
-  const lobbyTabs = {
-    btnTabTheaters: true,
-    btnTabShop: signedIn,
-    btnTabProfile: signedIn,
-  };
 
   if (label) label.textContent = "<< ENGAGE >>";
   btn.classList.remove("wallet-locked");
@@ -5845,16 +5942,13 @@ function updateEngageGate() {
     Wallet.address = VeilAuth.playAddress;
   } else {
     if (howBtn) howBtn.hidden = false;
-    if (homeSub) homeSub.textContent = "WWII dogfight · Megapot on Base Sepolia";
+    if (homeSub) homeSub.textContent = "Guest pilot · Megapot on Base Sepolia";
     if (!Wallet.address) ensurePlayWallet();
   }
 
-  for (const [id, show] of Object.entries(lobbyTabs)) {
+  for (const id of ["btnTabTheaters", "btnTabShop", "btnTabProfile"]) {
     const tab = $(id);
-    if (tab) tab.hidden = !show;
-  }
-  if (!signedIn && typeof LobbyDrawers !== "undefined" && LobbyDrawers.close) {
-    LobbyDrawers.close();
+    if (tab) tab.hidden = false;
   }
 
   refreshMegapotLivePanel();
@@ -7951,6 +8045,7 @@ document.addEventListener("visibilitychange", () => {
 
 let _engageTouchHandled = false;
 async function onEngageOrSignIn() {
+  if (!isLobbyReady()) return;
   await unlockGameAudio();
   await beginCombatMission();
 }
@@ -7970,6 +8065,29 @@ if (howBtnHome && howPanelHome) {
     e.stopPropagation();
     if (typeof SFX !== "undefined") SFX.resume();
     howPanelHome.hidden = !howPanelHome.hidden;
+  });
+}
+const howBtnGate = $("btnHowItWorksGate");
+const howPanelGate = $("howItWorksGate");
+if (howBtnGate && howPanelGate) {
+  howBtnGate.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (typeof SFX !== "undefined") SFX.resume();
+    howPanelGate.hidden = !howPanelGate.hidden;
+  });
+}
+const btnGateGoogle = $("btnGateGoogle");
+if (btnGateGoogle) {
+  btnGateGoogle.addEventListener("click", async () => {
+    await unlockGameAudio();
+    await requireWalletToPlay();
+  });
+}
+const btnGateGuest = $("btnGateGuest");
+if (btnGateGuest) {
+  btnGateGuest.addEventListener("click", async () => {
+    await unlockGameAudio();
+    enterReadyLobby(true);
   });
 }
 const btnSyncSignIn = $("btnSyncSignIn");
