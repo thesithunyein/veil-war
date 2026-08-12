@@ -865,6 +865,15 @@
       letter-spacing: 0.02em;
       line-height: 1.4;
     }
+    .runs-hud {
+      margin: 0.35rem 0 0;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--teal);
+      letter-spacing: 0.14em;
+    }
+    .runs-hud.empty { color: var(--amber); }
     .sync-hint[hidden] { display: none !important; }
     .sync-hint .sync-link {
       border: none;
@@ -2144,6 +2153,7 @@
           <button class="btn-engage btn-engage-launch" id="btnEngage" type="button">
             <span class="engage-label">&lt;&lt; ENGAGE &gt;&gt;</span>
           </button>
+          <p class="runs-hud" id="runsHud" aria-live="polite">RUNS: 10/10</p>
           <p class="sync-hint" id="syncBanner" hidden>
             <button type="button" class="sync-link" id="btnSyncSignIn">Sign in</button> to sync credits &amp; claim on-chain
           </p>
@@ -2216,7 +2226,7 @@
         </button>
         <div class="drawer-inner">
           <h2 class="drawer-head amber">ARMORY MARKETPLACE</h2>
-          <div class="shop-credits">Combat XP: <span id="shopCreditsLabel">0</span> · Earn from kills &amp; mission clears · Spend on armory &amp; theaters</div>
+          <div class="shop-credits">Combat XP: <span id="shopCreditsLabel">0</span> · Earn from kills &amp; mission clears · Spend on restock, armory &amp; theaters</div>
           <div class="shop-items-grid" id="shopItems"></div>
         </div>
       </aside>
@@ -2517,6 +2527,10 @@ let envMeshes = { forest: null, jungle: null, mountains: null, village: null, ci
 let _theaterLighting = { ambient: 0.55, hemi: 0.55, sun: 1.15, bg: STORM_BG, fog: STORM_FOG };
 
 const SHOP_ITEMS = [
+  { id: "restock_runs", name: "Restock +3 Runs", cost: 400, ethLabel: "", sku: "restock_runs",
+    consumable: true, restockRuns: 3,
+    desc: "Add 3 daily combat sorties when your free runs run out",
+    statLabel: "Bonus Sorties", statFrom: 0, statTo: 3, statMax: 10, statUnit: "" },
   { id: "hull", name: "Heavy Armored Hull", cost: 800, ethLabel: "0.0005 ETH", sku: "hull",
     desc: "Reinforced airframe plating for extended sorties",
     statLabel: "Shield Capacity", statFrom: 100, statTo: 150, statMax: 150, statUnit: "%" },
@@ -2527,6 +2541,118 @@ const SHOP_ITEMS = [
     desc: "Advanced cooling for sustained MG bursts",
     statLabel: "Cooling Efficiency", statFrom: 100, statTo: 135, statMax: 135, statUnit: "%" },
 ];
+
+const DAILY_FREE_RUNS = 10;
+const DAILY_RUNS_META = "_daily_runs_v1";
+
+function localDateKey(d) {
+  const x = d || new Date();
+  return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
+}
+
+const DailyRuns = {
+  remaining: DAILY_FREE_RUNS,
+  date: localDateKey(),
+  storageKey() {
+    const addr = (Wallet.address || VeilAuth.playAddress || "guest").toLowerCase();
+    return "veil_daily_runs_v1_" + addr;
+  },
+  loadLocal() {
+    try {
+      const raw = localStorage.getItem(this.storageKey());
+      if (!raw) {
+        this.date = localDateKey();
+        this.remaining = DAILY_FREE_RUNS;
+        return;
+      }
+      const d = JSON.parse(raw);
+      this.date = d.date || localDateKey();
+      this.remaining = Math.max(0, Math.floor(Number(d.remaining) || 0));
+    } catch (_) {
+      this.date = localDateKey();
+      this.remaining = DAILY_FREE_RUNS;
+    }
+    this.ensureToday();
+  },
+  saveLocal() {
+    try {
+      localStorage.setItem(this.storageKey(), JSON.stringify({
+        date: this.date,
+        remaining: this.remaining,
+      }));
+    } catch (_) { /* private mode */ }
+  },
+  ensureToday() {
+    const today = localDateKey();
+    if (this.date !== today) {
+      this.date = today;
+      this.remaining = DAILY_FREE_RUNS;
+      this.saveLocal();
+    }
+  },
+  /** Pull cloud meta from purchaseHistory (last write wins for today). */
+  mergeFromHistory(history) {
+    if (!Array.isArray(history)) return;
+    const meta = [...history].reverse().find((p) => p && p.type === DAILY_RUNS_META);
+    this.ensureToday();
+    if (!meta || !meta.date) return;
+    const today = localDateKey();
+    if (meta.date === today) {
+      this.date = today;
+      this.remaining = Math.max(0, Math.floor(Number(meta.remaining) || 0));
+      this.saveLocal();
+    }
+  },
+  stampIntoHistory(history) {
+    const list = Array.isArray(history) ? history.filter((p) => !p || p.type !== DAILY_RUNS_META) : [];
+    list.push({
+      type: DAILY_RUNS_META,
+      date: this.date,
+      remaining: this.remaining,
+      at: new Date().toISOString(),
+    });
+    return list;
+  },
+  getRemaining() {
+    this.loadLocal();
+    return this.remaining;
+  },
+  canEngage() {
+    return this.getRemaining() > 0;
+  },
+  consume() {
+    this.loadLocal();
+    if (this.remaining <= 0) return false;
+    this.remaining -= 1;
+    this.saveLocal();
+    this.syncCloud();
+    updateRunsHud();
+    return true;
+  },
+  add(n) {
+    const add = Math.max(0, Math.floor(Number(n) || 0));
+    if (add <= 0) return;
+    this.loadLocal();
+    this.remaining += add;
+    this.saveLocal();
+    this.syncCloud();
+    updateRunsHud();
+  },
+  syncCloud() {
+    if (!VeilAuth.signedIn()) return;
+    Wallet.purchaseHistory = this.stampIntoHistory(Wallet.purchaseHistory);
+    Wallet.saveRankProfile();
+    Wallet.syncProgressToCloud().catch((e) => console.warn(e));
+  },
+};
+
+function updateRunsHud() {
+  const el = $("runsHud");
+  if (!el) return;
+  const rem = DailyRuns.getRemaining();
+  el.textContent = "RUNS: " + rem + "/" + DAILY_FREE_RUNS;
+  el.classList.toggle("empty", rem <= 0);
+}
 
 let activeTheaterId = DEFAULT_THEATER;
 
@@ -2731,6 +2857,7 @@ const Wallet = {
     if (!VeilAuth.signedIn()) return;
     const theaterBefore = resolveSelectedTheater();
     try {
+      this.purchaseHistory = DailyRuns.stampIntoHistory(this.purchaseHistory);
       await VeilAuth.syncMissionCredits(0, this.highScore, {
         shopCredits: this.shopCredits,
         lifetimeTokens: this.lifetimeTokens,
@@ -2883,12 +3010,15 @@ const Wallet = {
       : this.purchaseHistory;
     this.lifetimeTokens = VeilAuth.lifetimeTokens || this.lifetimeTokens;
     this.allTimeTickets = Math.max(this.allTimeTickets, VeilAuth.ticketsMinted || 0);
+    DailyRuns.loadLocal();
+    DailyRuns.mergeFromHistory(this.purchaseHistory);
     this.computeRank();
     this.syncInventoryFromShop();
     this.saveProfile();
     Shop.syncFromWallet();
     TheaterSelect.syncFromWallet();
     applySelectedTheater();
+    updateRunsHud();
   },
   updateUI() {
     const disc = $("walletDisconnected");
@@ -3077,20 +3207,27 @@ const Shop = {
   },
   async buy(id) {
     const item = SHOP_ITEMS.find((x) => x.id === id);
-    if (!item || this.owned(id)) return;
-    if (!VeilAuth.signedIn()) {
+    if (!item) return;
+    const consumable = !!item.consumable;
+    if (!consumable && this.owned(id)) return;
+    if (!consumable && !VeilAuth.signedIn()) {
       showPop("SIGN IN WITH GOOGLE · TAP PROFILE");
       return;
     }
+    if (!Wallet.address) ensurePlayWallet();
     if (Wallet.shopCredits < item.cost) {
       showPop("NEED " + item.cost + " COMBAT XP · YOU HAVE " + Wallet.shopCredits);
       return;
     }
     Wallet.shopCredits -= item.cost;
-    Wallet.ownedShop[id] = true;
+    if (!consumable) {
+      Wallet.ownedShop[id] = true;
+    } else if (item.restockRuns) {
+      DailyRuns.add(item.restockRuns);
+    }
     Wallet.lifetimeTokens = Math.max(Wallet.lifetimeTokens, Wallet.shopCredits);
     Wallet.purchaseHistory.push({
-      type: "shop_buy",
+      type: consumable ? "shop_consumable" : "shop_buy",
       sku: id,
       name: item.name,
       cost: item.cost + " XP",
@@ -3098,12 +3235,19 @@ const Shop = {
     });
     Wallet.computeRank();
     Wallet.saveProfile();
-    await Wallet.syncProgressToCloud();
-    Wallet.applyCloudProfile();
-    player.health = getPlayerMaxHealth();
-    showPop("EQUIPPED — " + item.name.toUpperCase());
+    if (VeilAuth.signedIn()) {
+      Wallet.purchaseHistory = DailyRuns.stampIntoHistory(Wallet.purchaseHistory);
+      await Wallet.syncProgressToCloud();
+      Wallet.applyCloudProfile();
+    }
+    if (!consumable) player.health = getPlayerMaxHealth();
+    showPop(consumable
+      ? ("RESTOCKED +" + (item.restockRuns || 0) + " RUNS")
+      : ("EQUIPPED — " + item.name.toUpperCase()));
     this.updateUI();
     Wallet.updateUI();
+    updateRunsHud();
+    updateEngageGate();
     updateHUD();
   },
   updateUI() {
@@ -3113,7 +3257,8 @@ const Shop = {
     if (!wrap) return;
     wrap.innerHTML = "";
     for (const item of SHOP_ITEMS) {
-      const owned = this.owned(item.id);
+      const consumable = !!item.consumable;
+      const owned = !consumable && this.owned(item.id);
       const canAfford = Wallet.shopCredits >= item.cost;
       const row = document.createElement("div");
       row.className = "shop-item";
@@ -3129,7 +3274,9 @@ const Shop = {
       if (owned) {
         btn.textContent = "OWNED / EQUIPPED";
       } else if (canAfford) {
-        btn.textContent = "UNLOCK " + item.cost + " COMBAT XP";
+        btn.textContent = consumable
+          ? ("BUY " + item.cost + " COMBAT XP")
+          : ("UNLOCK " + item.cost + " COMBAT XP");
         btn.addEventListener("click", () => this.buy(item.id));
       } else {
         btn.textContent = item.cost + " XP · NEED " + (item.cost - Wallet.shopCredits) + " MORE";
@@ -5713,6 +5860,8 @@ function bootLobby() {
   if (lobbyBooted) return;
   lobbyBooted = true;
   dismissBootLoader();
+  DailyRuns.loadLocal();
+  updateRunsHud();
   syncLobbyTheaterBackground();
   Wallet.bindEvents();
   Shop.bindEvents();
@@ -6118,6 +6267,17 @@ async function beginCombatMission() {
   let sessionPick = null;
   try { sessionPick = sessionStorage.getItem(COMBAT_THEATER_KEY); } catch (_) { /* ignore */ }
   ensurePlayWallet();
+  DailyRuns.loadLocal();
+  if (!DailyRuns.canEngage()) {
+    showPop("NO DAILY RUNS LEFT · ARMORY → RESTOCK +3 (400 XP)");
+    updateEngageGate();
+    return;
+  }
+  if (!DailyRuns.consume()) {
+    showPop("NO DAILY RUNS LEFT · ARMORY → RESTOCK +3 (400 XP)");
+    updateEngageGate();
+    return;
+  }
   if (sessionPick) commitTheaterChoice(sessionPick);
   applySelectedTheater();
   closeAbortConfirm();
@@ -6184,19 +6344,32 @@ function updateEngageGate() {
   const syncBanner = $("syncBanner");
   const homeSub = $("homeSub");
 
-  if (label) label.textContent = "<< ENGAGE >>";
-  btn.classList.remove("wallet-locked");
+  DailyRuns.loadLocal();
+  updateRunsHud();
+  const runsLeft = DailyRuns.getRemaining();
+
+  if (label) label.textContent = runsLeft > 0 ? "<< ENGAGE >>" : "NO RUNS LEFT";
+  btn.classList.toggle("wallet-locked", runsLeft <= 0);
+  btn.disabled = runsLeft <= 0;
 
   if (syncBanner) syncBanner.hidden = signedIn;
 
   if (signedIn) {
     if (howBtn) howBtn.hidden = true;
     if (howPanel) howPanel.hidden = true;
-    if (homeSub) homeSub.textContent = "Ready for combat · credits synced";
+    if (homeSub) {
+      homeSub.textContent = runsLeft > 0
+        ? "Ready for combat · credits synced"
+        : "Out of daily runs · buy Restock +3 in Armory (400 XP)";
+    }
     Wallet.address = VeilAuth.playAddress;
   } else {
     if (howBtn) howBtn.hidden = false;
-    if (homeSub) homeSub.textContent = "Guest pilot · Megapot on Base Sepolia";
+    if (homeSub) {
+      homeSub.textContent = runsLeft > 0
+        ? "Guest pilot · Megapot on Base Sepolia"
+        : "Out of daily runs · Armory → Restock +3 (400 XP)";
+    }
     if (!Wallet.address) ensurePlayWallet();
   }
 
@@ -7221,6 +7394,17 @@ function updateLobbyViewport(dt) {
 
 async function redeploy() {
   if (!(await requireWalletToPlay())) return;
+  DailyRuns.loadLocal();
+  if (!DailyRuns.canEngage()) {
+    showPop("NO DAILY RUNS LEFT · ARMORY → RESTOCK +3 (400 XP)");
+    goHome();
+    return;
+  }
+  if (!DailyRuns.consume()) {
+    showPop("NO DAILY RUNS LEFT · ARMORY → RESTOCK +3 (400 XP)");
+    goHome();
+    return;
+  }
   closeAbortConfirm();
   $("endFail").classList.add("hidden");
   $("endWin").classList.add("hidden");
