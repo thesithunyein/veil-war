@@ -506,10 +506,10 @@
     .flash.red.on { background: #ff4d6d; opacity: 0.28; }
 
     .pop {
-      position: absolute; z-index: 16; left: 50%; top: 26%;
+      position: fixed; z-index: 200; left: 50%; top: 18%;
       transform: translate(-50%, -50%) scale(0.9);
       padding: 0.7rem 1.1rem; text-align: center;
-      background: rgba(8, 22, 18, 0.88);
+      background: rgba(8, 22, 18, 0.92);
       border: 1px solid rgba(61, 255, 168, 0.7);
       box-shadow: 0 0 36px rgba(61, 255, 168, 0.35);
       opacity: 0; pointer-events: none; transition: 0.25s ease;
@@ -519,7 +519,7 @@
     .pop.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
     .level-alert {
-      position: absolute; z-index: 17; left: 50%; top: 22%;
+      position: fixed; z-index: 200; left: 50%; top: 16%;
       transform: translate(-50%, -50%) scale(0.92);
       padding: 0.85rem 1.35rem; text-align: center; max-width: min(92vw, 520px);
       background: rgba(6, 12, 22, 0.82);
@@ -4911,12 +4911,12 @@ async function requireWalletToPlay() {
     Wallet.address = VeilAuth.playAddress;
     return true;
   }
-  showPop("GOOGLE SIGN-IN REQUIRED — NO METAMASK POPUP");
+  // Don't toast under the home card — go straight to Google OAuth
   try {
+    showPop("REDIRECTING TO GOOGLE…");
     await VeilAuth.signInWithGoogle();
   } catch (e) {
     showPop(e.message || "GOOGLE SIGN-IN FAILED");
-    LobbyDrawers.open("Profile");
   }
   return false; // redirect will reload after OAuth
 }
@@ -6796,16 +6796,22 @@ document.addEventListener("visibilitychange", () => {
 });
 
 let _engageTouchHandled = false;
+async function onEngageOrSignIn() {
+  await unlockGameAudio();
+  if (!VeilAuth.signedIn()) {
+    await requireWalletToPlay();
+    return;
+  }
+  await beginCombatMission();
+}
 $("btnEngage").addEventListener("touchstart", async (e) => {
   e.preventDefault();
   _engageTouchHandled = true;
-  await unlockGameAudio();
-  await beginCombatMission();
+  await onEngageOrSignIn();
 }, { passive: false });
 $("btnEngage").addEventListener("click", async () => {
   if (_engageTouchHandled) { _engageTouchHandled = false; return; }
-  await unlockGameAudio();
-  await beginCombatMission();
+  await onEngageOrSignIn();
 });
 const howBtnHome = $("btnHowItWorksHome");
 const howPanelHome = $("howItWorksHome");
