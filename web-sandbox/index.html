@@ -19,12 +19,6 @@
   <link rel="icon" type="image/png" sizes="192x192" href="assets/veil-war-bird-logo.png" />
   <link rel="apple-touch-icon" href="assets/veil-war-bird-logo.png" />
   <link rel="preload" as="image" href="assets/veil-war-bird-logo.png" fetchpriority="high" />
-  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js" crossorigin />
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" /></noscript>
   <script type="importmap">
   {
     "imports": {
@@ -32,6 +26,12 @@
     }
   }
   </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js" crossorigin />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" /></noscript>
   <style>
     :root {
       --ink: #eaf6ff;
@@ -6745,34 +6745,6 @@ function fireHeavyTracer(origin, dir, length, mint) {
   const line2 = new THREE.Line(geo.clone(), mat2);
   scene.add(line2);
   G.tracers.push({ line, line2, life: 0.1 });
-}
-
-function spawnMuzzleFlash(origin, dir) {
-  for (let i = 0; i < 10; i++) {
-    const mint = i % 2 === 0;
-    const m = new THREE.Mesh(
-      new THREE.SphereGeometry(0.25 + Math.random() * 0.9, 5, 5),
-      new THREE.MeshBasicMaterial({
-        color: mint ? 0xa8ff7a : 0xffee55,
-        transparent: true,
-        opacity: 0.95,
-        depthWrite: false,
-      })
-    );
-    m.position.copy(origin).addScaledVector(dir, Math.random() * 2.5);
-    m.position.x += (Math.random() - 0.5) * 0.8;
-    m.position.y += (Math.random() - 0.5) * 0.8;
-    m.position.z += (Math.random() - 0.5) * 0.8;
-    scene.add(m);
-    G.particles.push({
-      mesh: m,
-      vel: dir.clone().multiplyScalar(25 + Math.random() * 55).add(
-        new THREE.Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12)
-      ),
-      life: 1,
-      decay: 0.18 + Math.random() * 0.12,
-    });
-  }
 }
 
 function fireOrangeTracer(origin, dir, length) {
