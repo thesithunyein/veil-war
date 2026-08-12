@@ -37,3 +37,4 @@ node_modules/
 public/
 # synced from web-sandbox at build — keep source of truth in web-sandbox
 .env*
+DEMO.md
