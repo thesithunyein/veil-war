@@ -2539,10 +2539,26 @@ function startLobbyTheaterCarousel() {
 
 function syncLobbyTheaterBackground() {
   stopLobbyTheaterCarousel();
-  const pick = (Wallet.selectedTheater && Wallet.unlockedTheaters.includes(Wallet.selectedTheater))
-    ? Wallet.selectedTheater
-    : DEFAULT_THEATER;
-  applyTheater(pick);
+  if (!Wallet.address) ensurePlayWallet();
+  applySelectedTheater();
+}
+
+function resolveSelectedTheater() {
+  const unlocked = Array.isArray(Wallet.unlockedTheaters) && Wallet.unlockedTheaters.length
+    ? Wallet.unlockedTheaters
+    : ["arctic", "sunset", "pacific"];
+  const pick = Wallet.selectedTheater || DEFAULT_THEATER;
+  if (unlocked.includes(pick)) return pick;
+  if (unlocked.includes(DEFAULT_THEATER)) return DEFAULT_THEATER;
+  return unlocked[0] || DEFAULT_THEATER;
+}
+
+/** Apply the map the player actually picked — lobby + combat must match. */
+function applySelectedTheater() {
+  const id = resolveSelectedTheater();
+  Wallet.selectedTheater = id;
+  applyTheater(id);
+  return id;
 }
 
 function applyTheater(id) {
@@ -2782,21 +2798,29 @@ const Wallet = {
     this.unlockedTheaters = Array.isArray(VeilAuth.unlockedTheaters)
       ? [...VeilAuth.unlockedTheaters]
       : ["arctic", "sunset", "pacific"];
-    this.selectedTheater = VeilAuth.selectedTheater || this.selectedTheater || DEFAULT_THEATER;
+    const localPick = this.selectedTheater;
+    const cloudPick = VeilAuth.selectedTheater;
+    // Device-local map choice wins over stale cloud default (fixed ENGAGE wrong-map bug)
+    if (localPick && this.unlockedTheaters.includes(localPick)) {
+      this.selectedTheater = localPick;
+    } else {
+      this.selectedTheater = cloudPick || localPick || DEFAULT_THEATER;
+    }
+    if (!this.unlockedTheaters.includes(this.selectedTheater)) {
+      this.selectedTheater = DEFAULT_THEATER;
+    }
+    VeilAuth.selectedTheater = this.selectedTheater;
     this.purchaseHistory = Array.isArray(VeilAuth.purchaseHistory)
       ? [...VeilAuth.purchaseHistory]
       : this.purchaseHistory;
     this.lifetimeTokens = VeilAuth.lifetimeTokens || this.lifetimeTokens;
     this.allTimeTickets = Math.max(this.allTimeTickets, VeilAuth.ticketsMinted || 0);
-    if (!this.unlockedTheaters.includes(this.selectedTheater)) {
-      this.selectedTheater = DEFAULT_THEATER;
-    }
     this.computeRank();
     this.syncInventoryFromShop();
     this.saveProfile();
     Shop.syncFromWallet();
     TheaterSelect.syncFromWallet();
-    applyTheater(this.selectedTheater);
+    applySelectedTheater();
   },
   updateUI() {
     const disc = $("walletDisconnected");
@@ -3148,10 +3172,16 @@ const TheaterSelect = {
     const t = THEATERS.find((x) => x.id === id);
     if (!t) return;
     if (!this.isUnlocked(t)) return;
+    if (!Wallet.address) ensurePlayWallet();
     stopLobbyTheaterCarousel();
     Wallet.selectedTheater = id;
     applyTheater(id);
-    if (Wallet.address) Wallet.saveProfile();
+    Wallet.saveProfile();
+    if (VeilAuth.signedIn()) {
+      VeilAuth.selectedTheater = id;
+      Wallet.syncProgressToCloud().catch((e) => console.warn(e));
+    }
+    syncLobbyTheaterBackground();
     this.render();
   },
   render() {
@@ -4273,7 +4303,7 @@ function resetStormEnvironment() {
   G.rainDensity = 1;
   G.thunderT = 6;
   G.lightningFrames = 0;
-  applyTheater(Wallet.selectedTheater || DEFAULT_THEATER);
+  applySelectedTheater();
   if (skyUniforms) skyUniforms.flash.value = 0;
 }
 
@@ -5941,7 +5971,7 @@ async function beginCombatMission() {
   closeAbortConfirm();
   hideLobbyForCombat();
   stopLobbyTheaterCarousel();
-  applyTheater(Wallet.selectedTheater || DEFAULT_THEATER);
+  applySelectedTheater();
   clearEntities();
   // Anchor combat at arena center so ocean / fleet / waves aren't already behind the horizon
   player.mesh.position.set(0, 95, 0);
@@ -5978,10 +6008,6 @@ async function beginCombatMission() {
     showPop("DAILY BONUS — +1 BASE CHIP");
   }
   respawnNavalFleet();
-  const theaterNow = THEATERS.find((x) => x.id === (Wallet.selectedTheater || DEFAULT_THEATER))
-    || THEATERS.find((x) => x.id === DEFAULT_THEATER)
-    || THEATERS[0];
-  applyEnvironmentProfile(theaterNow);
   startWave(0);
   if (G.enemies.length > 0) {
     pushTicker("Hostile contacts inbound — " + G.enemies.length + " bandits on radar", true);
@@ -7076,7 +7102,7 @@ async function redeploy() {
   $("endWin").classList.add("hidden");
   resetGameState();
   hideLobbyForCombat();
-  applyTheater(Wallet.selectedTheater || DEFAULT_THEATER);
+  applySelectedTheater();
   player.mesh.position.set(0, 95, 0);
   player.pitch = 0;
   player.roll = 0;
