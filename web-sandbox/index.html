@@ -18,10 +18,13 @@
   <link rel="icon" type="image/png" sizes="32x32" href="assets/veil-war-bird-logo.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/veil-war-bird-logo.png" />
   <link rel="apple-touch-icon" href="assets/veil-war-bird-logo.png" />
+  <link rel="preload" as="image" href="assets/veil-war-bird-logo.png" fetchpriority="high" />
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" crossorigin />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" /></noscript>
   <script type="importmap">
   {
     "imports": {
@@ -1972,12 +1975,7 @@
 <body class="boot-loading">
   <div id="bootLoader" aria-live="polite" aria-busy="true">
     <div class="boot-emblem">
-      <svg class="boot-logo" width="128" height="128" viewBox="0 0 128 128" aria-hidden="true">
-        <circle cx="64" cy="64" r="58" fill="none" stroke="rgba(92,225,255,0.35)" stroke-width="2"/>
-        <circle cx="64" cy="64" r="46" fill="none" stroke="rgba(61,255,168,0.25)" stroke-width="1"/>
-        <path d="M64 28 L92 58 L78 68 L64 52 L50 68 L36 58 Z" fill="#3dffa8" opacity="0.95"/>
-        <path d="M64 38 L82 58 L72 64 L64 54 L56 64 L46 58 Z" fill="#0a1218"/>
-      </svg>
+      <img class="boot-logo" src="assets/veil-war-bird-logo.png" width="128" height="128" alt="" decoding="async" fetchpriority="high" />
     </div>
     <h1 class="boot-title">VEIL WAR</h1>
     <div class="boot-bar" aria-hidden="true"><i></i></div>
@@ -2662,8 +2660,11 @@ function applyEnvironmentProfile(t) {
       }
     });
   }
-  if (!activeEnv.rain) rainMat.opacity = 0;
-  else rainMat.opacity = activeEnv.rainOpacity;
+  if (!activeEnv.rain) {
+    if (rainMat) rainMat.opacity = 0;
+  } else if (rainMat) {
+    rainMat.opacity = activeEnv.rainOpacity;
+  }
   if (!activeEnv.lightning) {
     G.lightningFrames = 0;
     clearLightningBolts();
@@ -3385,7 +3386,10 @@ function makeCirrusTexture() {
 }
 const cirrusTex = makeCirrusTexture();
 const stratClouds = [];
-(function buildStratosphereClouds() {
+let _stratCloudsReady = false;
+function ensureStratosphereClouds() {
+  if (_stratCloudsReady) return;
+  _stratCloudsReady = true;
   for (let i = 0; i < 28; i++) {
     const layer = new THREE.Group();
     const strips = 2 + (i % 3);
@@ -3426,9 +3430,10 @@ const stratClouds = [];
       driftZ: (Math.random() - 0.5) * 4,
     });
   }
-})();
+}
 
 function updateStratosphereClouds(dt) {
+  if (!_stratCloudsReady) return;
   const px = player.mesh.position.x;
   const pz = player.mesh.position.z;
   for (const c of stratClouds) {
@@ -3444,7 +3449,10 @@ function updateStratosphereClouds(dt) {
 }
 
 const seaMist = [];
-(function buildSeaMist() {
+let _seaMistReady = false;
+function ensureSeaMist() {
+  if (_seaMistReady) return;
+  _seaMistReady = true;
   for (let i = 0; i < 22; i++) {
     const mat = new THREE.MeshBasicMaterial({
       color: 0xffffff,
@@ -3468,9 +3476,10 @@ const seaMist = [];
     scene.add(plane);
     seaMist.push({ mesh: plane, driftX: 4 + Math.random() * 10, driftZ: (Math.random() - 0.5) * 3 });
   }
-})();
+}
 
 function updateSeaMist(dt) {
+  if (!_seaMistReady) return;
   if (!activeEnv.showOcean) {
     for (const m of seaMist) m.mesh.visible = false;
     return;
@@ -4179,41 +4188,48 @@ function updateEnvTerrainFollow() {
   }
 }
 
-/* —— Realistic storm rain (≈35% of prior density) —— */
+/* —— Realistic storm rain (lazy — built after lobby shows) —— */
 const RAIN_COUNT = 4480;
+let rainLines = null;
+let rainMat = null;
 const rainPositions = new Float32Array(RAIN_COUNT * 6);
 const rainVel = new Float32Array(RAIN_COUNT);
 const RAIN_ANGLE = Math.tan((15 * Math.PI) / 180);
-for (let i = 0; i < RAIN_COUNT; i++) {
-  const i6 = i * 6;
-  rainPositions[i6] = (Math.random() - 0.5) * 520;
-  rainPositions[i6 + 1] = Math.random() * 320;
-  rainPositions[i6 + 2] = (Math.random() - 0.5) * 520;
-  const len = 2.2 + Math.random() * 3.8;
-  rainPositions[i6 + 3] = rainPositions[i6];
-  rainPositions[i6 + 4] = rainPositions[i6 + 1] - len;
-  rainPositions[i6 + 5] = rainPositions[i6 + 2];
-  rainVel[i] = 140 + Math.random() * 160;
+
+function ensureRain() {
+  if (rainLines) return;
+  for (let i = 0; i < RAIN_COUNT; i++) {
+    const i6 = i * 6;
+    rainPositions[i6] = (Math.random() - 0.5) * 520;
+    rainPositions[i6 + 1] = Math.random() * 320;
+    rainPositions[i6 + 2] = (Math.random() - 0.5) * 520;
+    const len = 2.2 + Math.random() * 3.8;
+    rainPositions[i6 + 3] = rainPositions[i6];
+    rainPositions[i6 + 4] = rainPositions[i6 + 1] - len;
+    rainPositions[i6 + 5] = rainPositions[i6 + 2];
+    rainVel[i] = 140 + Math.random() * 160;
+  }
+  const rainGeo = new THREE.BufferGeometry();
+  rainGeo.setAttribute("position", new THREE.BufferAttribute(rainPositions, 3));
+  rainMat = new THREE.LineBasicMaterial({
+    color: 0xe8f2ff,
+    transparent: true,
+    opacity: 0.28,
+    depthWrite: false,
+  });
+  rainLines = new THREE.LineSegments(rainGeo, rainMat);
+  scene.add(rainLines);
 }
-const rainGeo = new THREE.BufferGeometry();
-rainGeo.setAttribute("position", new THREE.BufferAttribute(rainPositions, 3));
-const rainMat = new THREE.LineBasicMaterial({
-  color: 0xe8f2ff,
-  transparent: true,
-  opacity: 0.28,
-  depthWrite: false,
-});
-const rainLines = new THREE.LineSegments(rainGeo, rainMat);
-scene.add(rainLines);
 
 const _rainFwd = new THREE.Vector3();
 let _rainFrame = 0;
 
 function updateRain(dt) {
   if (!Settings.rainEnabled || !activeEnv.rain) {
-    rainLines.visible = false;
+    if (rainLines) rainLines.visible = false;
     return;
   }
+  ensureRain();
   const density = G.rainDensity == null ? 1 : G.rainDensity;
   const rainScale = activeEnv.rainMult || 1;
   rainLines.visible = density > 0.02;
@@ -4403,7 +4419,7 @@ function updateVictoryEnvironment(dt) {
   }
 
   G.rainDensity = 1 - ease;
-  rainMat.opacity = 0.28 * G.rainDensity;
+  if (rainMat) rainMat.opacity = 0.28 * G.rainDensity;
 
   ambientLight.intensity = THREE.MathUtils.lerp(0.55, 1.25, ease);
   hemiLight.intensity = THREE.MathUtils.lerp(0.55, 0.95, ease);
@@ -4412,8 +4428,10 @@ function updateVictoryEnvironment(dt) {
   oceanUniforms.uShallow.value.setHex(0x163d72).lerp(new THREE.Color(0x5aadf0), ease);
 }
 
-(function buildIslands() {
-  // Low dark berms only — no tall cones that read as grounded enemies
+let _islandsReady = false;
+function ensureIslands() {
+  if (_islandsReady) return;
+  _islandsReady = true;
   const rock = new THREE.MeshStandardMaterial({ color: 0x1e2830, roughness: 0.95, metalness: 0.05 });
   for (let i = 0; i < 12; i++) {
     const isle = new THREE.Group();
@@ -4426,7 +4444,7 @@ function updateVictoryEnvironment(dt) {
     isle.position.set((Math.random() - 0.5) * 2800, 0, (Math.random() - 0.5) * 2800);
     scene.add(isle);
   }
-})();
+}
 
 /** Massive naval capital ship — layered metallic hull + turrets */
 function makeBattleship(carrier) {
@@ -4532,9 +4550,13 @@ function syncFleetVisibility() {
   }
 }
 
-(function buildNavalFleet() {
+let _navalFleetReady = false;
+function ensureNavalFleet() {
+  if (_navalFleetReady) return;
+  _navalFleetReady = true;
   for (const s of FLEET_LAYOUT) spawnFleetShip(s);
-})();
+  syncFleetVisibility();
+}
 
 const _fleetFwd = new THREE.Vector3();
 let _fleetFrame = 0;
@@ -4579,6 +4601,7 @@ function destroyNavalFleet(silent) {
 }
 
 function respawnNavalFleet() {
+  ensureNavalFleet();
   for (const ship of fleet) {
     if (ship.mesh.parent) scene.remove(ship.mesh);
   }
@@ -5645,13 +5668,31 @@ function initLobbyStage() {
   }
 }
 
+/** Build clouds/fleet/terrains after lobby is visible — keeps boot fast. */
+function scheduleDeferredSceneInit() {
+  requestAnimationFrame(() => {
+    ensureStratosphereClouds();
+    ensureSeaMist();
+    resetStormEnvironment();
+    respawnNavalFleet();
+  });
+  const runIdle = () => {
+    ensureIslands();
+    warmEnvTerrainsIdle();
+  };
+  if (typeof requestIdleCallback === "function") {
+    requestIdleCallback(runIdle, { timeout: 6000 });
+  } else {
+    setTimeout(runIdle, 48);
+  }
+}
+
 let lobbyBooted = false;
 function bootLobby() {
   if (lobbyBooted) return;
   lobbyBooted = true;
+  dismissBootLoader();
   syncLobbyTheaterBackground();
-  resetStormEnvironment();
-  respawnNavalFleet();
   Wallet.bindEvents();
   Shop.bindEvents();
   LobbyDrawers.bindEvents();
@@ -5694,8 +5735,8 @@ function bootLobby() {
     if (isLobbyReady()) refreshMegapotLivePanel();
   };
   updateHUD();
-  dismissBootLoader();
-  warmEnvTerrainsIdle();
+  scheduleDeferredSceneInit();
+  setTimeout(bindGameInputAndUI, 0);
 }
 
 const G = {
@@ -5745,6 +5786,9 @@ const _fwd = new THREE.Vector3();
 const _qFlight = new THREE.Quaternion();
 const _qModel = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
 const _tmpV = new THREE.Vector3();
+
+bootLobby();
+requestAnimationFrame(frame);
 
 function getPlayerForward(target) {
   const out = target || _fwd;
@@ -8277,6 +8321,7 @@ function frame(ts) {
   }
 }
 
+function bindGameInputAndUI() {
 /* —— Input —— */
 addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
@@ -8538,8 +8583,7 @@ $("btnPause").addEventListener("click", () => {
 
   Settings.applyUI();
 })();
-
-updateHUD();
+}
 
 function dismissBootLoader() {
   const bootLoader = $("bootLoader");
@@ -8550,8 +8594,6 @@ function dismissBootLoader() {
   setTimeout(() => bootLoader.remove(), 350);
 }
 
-bootLobby();
-requestAnimationFrame(frame);
   </script>
 </body>
 </html>
