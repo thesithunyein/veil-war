@@ -2481,6 +2481,26 @@ const THEATERS = [
 /** Default deployment map for new pilots — clear sunny sky. */
 const DEFAULT_THEATER = "sunset";
 
+/** Authoritative map pick for this browser session (survives cloud/localStorage reload). */
+const COMBAT_THEATER_KEY = "veil_combat_theater_v1";
+
+function commitTheaterChoice(id) {
+  if (!id) return;
+  Wallet.selectedTheater = id;
+  try { sessionStorage.setItem(COMBAT_THEATER_KEY, id); } catch (_) { /* private mode */ }
+  if (VeilAuth.signedIn()) VeilAuth.selectedTheater = id;
+  if (Wallet.address) Wallet.saveProfile();
+}
+
+function readStoredTheaterChoice() {
+  if (!Wallet.address) return null;
+  try {
+    return localStorage.getItem(Wallet.storageKey("theater"));
+  } catch (_) {
+    return null;
+  }
+}
+
 const activeEnv = {
   rain: true,
   lightning: true,
@@ -2547,16 +2567,30 @@ function resolveSelectedTheater() {
   const unlocked = Array.isArray(Wallet.unlockedTheaters) && Wallet.unlockedTheaters.length
     ? Wallet.unlockedTheaters
     : ["arctic", "sunset", "pacific"];
-  const pick = Wallet.selectedTheater || DEFAULT_THEATER;
-  if (unlocked.includes(pick)) return pick;
-  if (unlocked.includes(DEFAULT_THEATER)) return DEFAULT_THEATER;
-  return unlocked[0] || DEFAULT_THEATER;
+  let pick = DEFAULT_THEATER;
+  try {
+    const sessionPick = sessionStorage.getItem(COMBAT_THEATER_KEY);
+    if (sessionPick && unlocked.includes(sessionPick)) pick = sessionPick;
+    else if (Wallet.selectedTheater && unlocked.includes(Wallet.selectedTheater)) pick = Wallet.selectedTheater;
+    else {
+      const stored = readStoredTheaterChoice();
+      if (stored && unlocked.includes(stored)) pick = stored;
+    }
+  } catch (_) {
+    if (Wallet.selectedTheater && unlocked.includes(Wallet.selectedTheater)) {
+      pick = Wallet.selectedTheater;
+    }
+  }
+  if (!unlocked.includes(pick)) {
+    pick = unlocked.includes(DEFAULT_THEATER) ? DEFAULT_THEATER : (unlocked[0] || DEFAULT_THEATER);
+  }
+  return pick;
 }
 
 /** Apply the map the player actually picked — lobby + combat must match. */
 function applySelectedTheater() {
   const id = resolveSelectedTheater();
-  Wallet.selectedTheater = id;
+  commitTheaterChoice(id);
   applyTheater(id);
   return id;
 }
@@ -2674,16 +2708,18 @@ const Wallet = {
   },
   async syncProgressToCloud() {
     if (!VeilAuth.signedIn()) return;
+    const theaterBefore = resolveSelectedTheater();
     try {
       await VeilAuth.syncMissionCredits(0, this.highScore, {
         shopCredits: this.shopCredits,
         lifetimeTokens: this.lifetimeTokens,
         ownedShop: this.ownedShop,
         unlockedTheaters: this.unlockedTheaters,
-        selectedTheater: this.selectedTheater,
+        selectedTheater: theaterBefore,
         purchaseHistory: this.purchaseHistory,
       });
       this.applyCloudProfile();
+      commitTheaterChoice(theaterBefore);
     } catch (e) {
       console.warn(e);
     }
@@ -2753,6 +2789,11 @@ const Wallet = {
     if (!this.unlockedTheaters.includes(this.selectedTheater)) {
       this.selectedTheater = DEFAULT_THEATER;
     }
+    try {
+      if (!sessionStorage.getItem(COMBAT_THEATER_KEY)) {
+        sessionStorage.setItem(COMBAT_THEATER_KEY, this.selectedTheater);
+      }
+    } catch (_) { /* private mode */ }
     this.loadRankProfile();
     this.syncInventoryFromShop();
     Shop.syncFromWallet();
@@ -2798,10 +2839,15 @@ const Wallet = {
     this.unlockedTheaters = Array.isArray(VeilAuth.unlockedTheaters)
       ? [...VeilAuth.unlockedTheaters]
       : ["arctic", "sunset", "pacific"];
-    const localPick = this.selectedTheater;
+    const storedTheater = readStoredTheaterChoice();
+    let sessionPick = null;
+    try { sessionPick = sessionStorage.getItem(COMBAT_THEATER_KEY); } catch (_) { /* ignore */ }
+    const localPick = storedTheater || this.selectedTheater;
     const cloudPick = VeilAuth.selectedTheater;
-    // Device-local map choice wins over stale cloud default (fixed ENGAGE wrong-map bug)
-    if (localPick && this.unlockedTheaters.includes(localPick)) {
+    // Session + device-local map choice always wins over stale cloud on ENGAGE
+    if (sessionPick && this.unlockedTheaters.includes(sessionPick)) {
+      this.selectedTheater = sessionPick;
+    } else if (localPick && this.unlockedTheaters.includes(localPick)) {
       this.selectedTheater = localPick;
     } else {
       this.selectedTheater = cloudPick || localPick || DEFAULT_THEATER;
@@ -2810,6 +2856,7 @@ const Wallet = {
       this.selectedTheater = DEFAULT_THEATER;
     }
     VeilAuth.selectedTheater = this.selectedTheater;
+    try { sessionStorage.setItem(COMBAT_THEATER_KEY, this.selectedTheater); } catch (_) { /* ignore */ }
     this.purchaseHistory = Array.isArray(VeilAuth.purchaseHistory)
       ? [...VeilAuth.purchaseHistory]
       : this.purchaseHistory;
@@ -3157,6 +3204,7 @@ const TheaterSelect = {
       at: new Date().toISOString(),
     });
     Wallet.selectedTheater = t.id;
+    commitTheaterChoice(t.id);
     applyTheater(t.id);
     Wallet.computeRank();
     Wallet.saveProfile();
@@ -3174,14 +3222,11 @@ const TheaterSelect = {
     if (!this.isUnlocked(t)) return;
     if (!Wallet.address) ensurePlayWallet();
     stopLobbyTheaterCarousel();
-    Wallet.selectedTheater = id;
+    commitTheaterChoice(id);
     applyTheater(id);
-    Wallet.saveProfile();
     if (VeilAuth.signedIn()) {
-      VeilAuth.selectedTheater = id;
       Wallet.syncProgressToCloud().catch((e) => console.warn(e));
     }
-    syncLobbyTheaterBackground();
     this.render();
   },
   render() {
@@ -5590,7 +5635,7 @@ function bootLobby() {
   }, 30000);
   VeilAuth.init().then(() => {
     if (VeilAuth.signedIn()) {
-      Wallet.applyCloudProfile();
+      Wallet.address = VeilAuth.playAddress;
       Wallet.loadProfile();
       Wallet.applyCloudProfile();
       Wallet.updateUI();
@@ -5958,20 +6003,25 @@ function ensurePlayWallet() {
     Wallet.address = VeilAuth.playAddress;
     Wallet.loadProfile();
     Wallet.applyCloudProfile();
+    commitTheaterChoice(resolveSelectedTheater());
     return Wallet.address;
   }
   const guestAddr = VeilAuth.ensureGuestWallet();
   Wallet.address = guestAddr;
   Wallet.loadProfile();
+  commitTheaterChoice(resolveSelectedTheater());
   return guestAddr;
 }
 
 async function beginCombatMission() {
+  let sessionPick = null;
+  try { sessionPick = sessionStorage.getItem(COMBAT_THEATER_KEY); } catch (_) { /* ignore */ }
   ensurePlayWallet();
+  if (sessionPick) commitTheaterChoice(sessionPick);
+  applySelectedTheater();
   closeAbortConfirm();
   hideLobbyForCombat();
   stopLobbyTheaterCarousel();
-  applySelectedTheater();
   clearEntities();
   // Anchor combat at arena center so ocean / fleet / waves aren't already behind the horizon
   player.mesh.position.set(0, 95, 0);
