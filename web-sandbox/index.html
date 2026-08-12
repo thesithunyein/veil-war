@@ -2549,6 +2549,12 @@ function startLobbyTheaterCarousel() {
   _lobbyCarouselIdx = Math.max(0, THEATERS.findIndex((t) => t.id === activeTheaterId));
   if (_lobbyCarouselIdx < 0) _lobbyCarouselIdx = 0;
   applyTheater(THEATERS[_lobbyCarouselIdx].id);
+  // Prefetch next terrain so the 5s swap is visible (not a blank ground)
+  const nextIdx = (_lobbyCarouselIdx + 1) % THEATERS.length;
+  const nextType = THEATERS[nextIdx]?.env?.type;
+  if (nextType && nextType !== "ocean") {
+    try { ensureEnvTerrain(nextType); } catch (_) { /* warm later */ }
+  }
   _lobbyCarouselTimer = setInterval(() => {
     const g = $("homeGate");
     if (!g || g.hidden || isLobbyReady()) {
@@ -2557,12 +2563,22 @@ function startLobbyTheaterCarousel() {
     }
     _lobbyCarouselIdx = (_lobbyCarouselIdx + 1) % THEATERS.length;
     applyTheater(THEATERS[_lobbyCarouselIdx].id);
+    const peek = THEATERS[(_lobbyCarouselIdx + 1) % THEATERS.length]?.env?.type;
+    if (peek && peek !== "ocean") {
+      try { ensureEnvTerrain(peek); } catch (_) { /* ignore */ }
+    }
   }, 5000);
 }
 
 function syncLobbyTheaterBackground() {
-  stopLobbyTheaterCarousel();
   if (!Wallet.address) ensurePlayWallet();
+  // Login gate: keep rotating maps. Ready lobby / combat: use the player's pick.
+  const gate = $("homeGate");
+  if (gate && !gate.hidden && !isLobbyReady()) {
+    startLobbyTheaterCarousel();
+    return;
+  }
+  stopLobbyTheaterCarousel();
   applySelectedTheater();
 }
 
@@ -4394,7 +4410,12 @@ function resetStormEnvironment() {
   G.rainDensity = 1;
   G.thunderT = 6;
   G.lightningFrames = 0;
-  applySelectedTheater();
+  const gate = $("homeGate");
+  if (gate && !gate.hidden && !isLobbyReady()) {
+    applyTheater(activeTheaterId || DEFAULT_THEATER);
+  } else {
+    applySelectedTheater();
+  }
   if (skyUniforms) skyUniforms.flash.value = 0;
 }
 
