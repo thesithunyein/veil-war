@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/License-MIT-3dffa8?style=flat-square" alt="MIT License" />
   <img src="https://img.shields.io/badge/Chain-Base%20Sepolia-0052FF?style=flat-square" alt="Base Sepolia" />
   <img src="https://img.shields.io/badge/Megapot-Integrated-3dffa8?style=flat-square&logoColor=white" alt="Megapot" />
   <img src="https://img.shields.io/badge/Shield-HUD%20Integrity-5ce1ff?style=flat-square" alt="Shield HUD" />
@@ -242,6 +243,8 @@ git push origin master          # Vercel auto-build (sync-public + next build)
 - **GitHub Pages mirror:** https://thesithunyein.github.io/veil-war/
 - **Summer Game Jam:** https://www.inco.org/blog/summer-game-jam-resources-and-what-to-build
 - **Megapot docs:** https://docs.megapot.io/
+- **Security:** [SECURITY.md](SECURITY.md)
+- **License:** [MIT](LICENSE)
 
 ---
 
