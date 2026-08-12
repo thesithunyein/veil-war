@@ -2495,10 +2495,14 @@ const Wallet = {
           : "LINK METAMASK (BASE SEPOLIA)";
       }
       if (stats) {
+        const pool = VeilAuth._poolSnapshot;
         stats.innerHTML =
           `All-time high <span>${this.highScore}</span><br>` +
           `Megapot credits <span>${VeilAuth.megapotCredits || 0}</span> · Tickets minted <span>${VeilAuth.ticketsMinted || 0}</span><br>` +
-          `Score tokens <span>${this.shopCredits}</span>`;
+          `Score tokens <span>${this.shopCredits}</span>` +
+          (pool
+            ? `<br>Live drawing <span>#${pool.drawingId}</span> · Ticket <span>$${pool.ticketPriceUsdc}</span>`
+            : "");
       }
       if (rankEl) {
         rankEl.innerHTML =
@@ -4881,10 +4885,8 @@ function updateEngageGate() {
     if (label) label.textContent = "ENGAGE";
     if (howBtn) howBtn.hidden = true;
     if (howPanel) howPanel.hidden = true;
-    if (megapot) megapot.hidden = false;
-    if (homeSub) {
-      homeSub.textContent = "Combat earns Megapot credits → house mints real Base Sepolia tickets";
-    }
+    if (megapot) megapot.hidden = true; // keep home clean — stats live in account dossier
+    if (homeSub) homeSub.textContent = "Ready for combat · Megapot credits sync to your account";
     Wallet.address = VeilAuth.playAddress;
     for (const id of lobbyTabs) {
       const tab = $(id);
@@ -4987,26 +4989,24 @@ function friendlyClaimError(raw) {
 async function refreshMegapotLivePanel() {
   const wrap = $("megapotLive");
   const body = $("megapotLiveBody");
-  if (!body) return;
-  // Keep welcome clean — pool stats only after Google sign-in
-  if (!VeilAuth.signedIn()) {
-    if (wrap) wrap.hidden = true;
-    body.textContent = "";
-    return;
-  }
-  if (wrap) wrap.hidden = false;
+  if (wrap) wrap.hidden = true;
+  if (body) body.textContent = "";
+  if (!VeilAuth.signedIn()) return;
   try {
     const res = await fetch("/api/megapot/claim");
     const data = await res.json();
-    if (!data.ok) {
-      body.textContent = data.error || "Megapot pool offline";
-      return;
+    if (!data.ok) return;
+    VeilAuth._poolSnapshot = data;
+    const stats = $("walletBriefStats");
+    if (stats && Wallet.address) {
+      stats.innerHTML =
+        `All-time high <span>${Wallet.highScore}</span><br>` +
+        `Megapot credits <span>${VeilAuth.megapotCredits || 0}</span> · Tickets minted <span>${VeilAuth.ticketsMinted || 0}</span><br>` +
+        `Score tokens <span>${Wallet.shopCredits}</span><br>` +
+        `Live drawing <span>#${data.drawingId}</span> · Ticket <span>$${data.ticketPriceUsdc}</span>`;
     }
-    body.innerHTML =
-      `Drawing #${data.drawingId} · Pool $${Number(data.prizePoolUsdc || 0).toFixed(2)} USDC<br/>` +
-      `Ticket $${data.ticketPriceUsdc} · Your credits ${VeilAuth.megapotCredits | 0}`;
   } catch {
-    body.textContent = "Could not reach Megapot API";
+    /* ignore */
   }
 }
 
